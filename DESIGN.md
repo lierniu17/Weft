@@ -133,6 +133,7 @@ components:
       description: "紧凑的标签或可点选项：人物 chip、筛选条件、性格标签、候选人。可选中、可移除、可点击跳转。"
       height: "24px"
       padding: "0 spacing.sm"
+      font: "typography.caption"
       variants:
         neutral: { bg: "colors.neutral.bg-container", text: "colors.neutral.text-primary", border: "colors.neutral.border" }
         selected: { bg: "colors.primary.1", text: "colors.primary.7", border: "colors.primary.6" }
@@ -178,7 +179,10 @@ components:
       text: "colors.neutral.bg-container"
       radius: "rounded.sm"
     Toast:
-      description: "轻量的操作结果反馈（已复制、已删除），2 秒后自动消失。"
+      description: "轻量的操作结果反馈（已复制、已删除），2 秒后自动消失。与 Tooltip 同一深色表面。"
+      bg: "colors.neutral.text-primary"
+      text: "colors.neutral.bg-container"
+      radius: "rounded.md"
       variants: { info: {}, success: { icon: "check" }, error: { icon: "alert" } }
     Banner:
       description: "页面内的状态横幅：额度用完、网络异常。"

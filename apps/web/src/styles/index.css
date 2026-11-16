@@ -1,0 +1,97 @@
+@import "tailwindcss";
+/* Generated from DESIGN.md — the only source of tokens. Run `pnpm tokens` after editing it. */
+@import "./tokens.css";
+
+/* Animations are not DESIGN.md tokens; their timings reference the motion tokens. */
+@theme {
+  --animate-spin: spin 1s linear infinite;
+  /* DESIGN.md Skeleton.animation */
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-sheet-in: sheet-in var(--motion-sheet);
+  --animate-sheet-out: sheet-out var(--motion-sheet);
+  --animate-panel-in: panel-in var(--motion-sheet);
+  --animate-panel-out: panel-out var(--motion-sheet);
+  --animate-fade-in: fade-in var(--motion-base);
+  --animate-fade-out: fade-out var(--motion-base);
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
+  }
+  @keyframes sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes sheet-out {
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes panel-in {
+    from {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes panel-out {
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+/* Hover/active colour changes transition within motion.base (AC-UI-10). */
+@utility motion-colors {
+  transition:
+    background-color var(--motion-base),
+    border-color var(--motion-base),
+    color var(--motion-base),
+    box-shadow var(--motion-base);
+}
+
+/* One focus ring for every interactive basic. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-primary-6);
+    outline-offset: 2px;
+  }
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-neutral-text-primary);
+    background: var(--color-neutral-bg-layout);
+    font-size: var(--text-body-md);
+    line-height: var(--text-body-md--line-height);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
