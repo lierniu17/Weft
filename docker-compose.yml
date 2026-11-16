@@ -1,0 +1,47 @@
+# Local / test infrastructure for the Weft API (ADR-0003: Neo4j = graph, Postgres = the rest).
+# Usage: docker compose up -d   (the API itself runs via `uv run` in apps/api for now)
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: weft
+      POSTGRES_PASSWORD: weft
+      POSTGRES_DB: weft
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weft -d weft"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  neo4j:
+    image: neo4j:5.26
+    environment:
+      NEO4J_AUTH: neo4j/weft-dev-password
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512M
+      # APOC is not required.
+      # Fulltext indexes: Neo4j's default analyzer does not segment Chinese. We do NOT change
+      # the server-wide default (db.index.fulltext.default_analyzer); instead our index-creation
+      # code creates each fulltext index with OPTIONS {indexConfig: {`fulltext.analyzer`: 'cjk'}}.
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p weft-dev-password 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  postgres-data:
+  neo4j-data:
+  neo4j-logs:

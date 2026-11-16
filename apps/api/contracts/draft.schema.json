@@ -1,0 +1,575 @@
+{
+  "$defs": {
+    "AffinityFeeling": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "description": "Person mention who feels",
+          "minLength": 1,
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Person mention the feeling is about",
+          "minLength": 1,
+          "title": "To",
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "dimension": {
+          "const": "affinity",
+          "title": "Dimension",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/AffinityLevel"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "confidence",
+        "dimension",
+        "level"
+      ],
+      "title": "AffinityFeeling",
+      "type": "object"
+    },
+    "AffinityLevel": {
+      "enum": [
+        "like",
+        "neutral",
+        "dislike"
+      ],
+      "title": "AffinityLevel",
+      "type": "string"
+    },
+    "Candidate": {
+      "additionalProperties": false,
+      "properties": {
+        "person_id": {
+          "minLength": 1,
+          "title": "Person Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Disambiguating hint, e.g. 同事 / 邻居",
+          "title": "Note"
+        }
+      },
+      "required": [
+        "person_id",
+        "name"
+      ],
+      "title": "Candidate",
+      "type": "object"
+    },
+    "Category": {
+      "enum": [
+        "kin",
+        "romantic",
+        "social",
+        "interest",
+        "hostile"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "ClosenessFeeling": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "description": "Person mention who feels",
+          "minLength": 1,
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Person mention the feeling is about",
+          "minLength": 1,
+          "title": "To",
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "dimension": {
+          "const": "closeness",
+          "title": "Dimension",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/ClosenessLevel"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "confidence",
+        "dimension",
+        "level"
+      ],
+      "title": "ClosenessFeeling",
+      "type": "object"
+    },
+    "ClosenessLevel": {
+      "enum": [
+        "intimate",
+        "close",
+        "familiar",
+        "casual",
+        "distant"
+      ],
+      "title": "ClosenessLevel",
+      "type": "string"
+    },
+    "Confidence": {
+      "enum": [
+        "witnessed",
+        "self_told",
+        "hearsay",
+        "inferred"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "ConflictAction": {
+      "enum": [
+        "update",
+        "unverified"
+      ],
+      "title": "ConflictAction",
+      "type": "string"
+    },
+    "DraftFact": {
+      "additionalProperties": false,
+      "properties": {
+        "subject": {
+          "description": "Person mention",
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        },
+        "predicate": {
+          "description": "e.g. WORKS_AT, LIKES, HAS_TRAIT, EXPERIENCED",
+          "minLength": 1,
+          "title": "Predicate",
+          "type": "string"
+        },
+        "object": {
+          "minLength": 1,
+          "title": "Object",
+          "type": "string"
+        },
+        "valid_at": {
+          "anyOf": [
+            {
+              "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+              "examples": [
+                "2015",
+                "2015-06",
+                "2026-11-16"
+              ],
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid At"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "conflict": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FactConflict"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "subject",
+        "predicate",
+        "object",
+        "confidence"
+      ],
+      "title": "DraftFact",
+      "type": "object"
+    },
+    "DraftPerson": {
+      "additionalProperties": false,
+      "properties": {
+        "mention": {
+          "description": "How the Entry refers to the person, e.g. 老张",
+          "minLength": 1,
+          "title": "Mention",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/PersonMatch"
+        },
+        "person_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Person Id"
+        },
+        "candidates": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Candidate"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidates"
+        }
+      },
+      "required": [
+        "mention",
+        "match"
+      ],
+      "title": "DraftPerson",
+      "type": "object"
+    },
+    "DraftProfileItem": {
+      "additionalProperties": false,
+      "properties": {
+        "person": {
+          "description": "Person mention",
+          "minLength": 1,
+          "title": "Person",
+          "type": "string"
+        },
+        "field": {
+          "$ref": "#/$defs/ProfileField"
+        },
+        "value": {
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        }
+      },
+      "required": [
+        "person",
+        "field",
+        "value",
+        "confidence"
+      ],
+      "title": "DraftProfileItem",
+      "type": "object"
+    },
+    "DraftRelationship": {
+      "additionalProperties": false,
+      "properties": {
+        "pair": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "minLength": 1,
+              "type": "string"
+            }
+          ],
+          "title": "Pair",
+          "type": "array"
+        },
+        "types": {
+          "items": {
+            "$ref": "#/$defs/DraftRelationshipType"
+          },
+          "title": "Types",
+          "type": "array"
+        },
+        "met_at": {
+          "anyOf": [
+            {
+              "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+              "examples": [
+                "2015",
+                "2015-06",
+                "2026-11-16"
+              ],
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Met At"
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How they met (认识途径)",
+          "title": "Origin"
+        },
+        "introduced_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Person mention of the introducer",
+          "title": "Introduced By"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RelationshipStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        }
+      },
+      "required": [
+        "pair",
+        "confidence"
+      ],
+      "title": "DraftRelationship",
+      "type": "object"
+    },
+    "DraftRelationshipType": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/Category"
+        },
+        "subtype": {
+          "minLength": 1,
+          "title": "Subtype",
+          "type": "string"
+        },
+        "original": {
+          "description": "The Entry's own wording, e.g. 铁哥们",
+          "minLength": 1,
+          "title": "Original",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "subtype",
+        "original"
+      ],
+      "title": "DraftRelationshipType",
+      "type": "object"
+    },
+    "FactConflict": {
+      "additionalProperties": false,
+      "properties": {
+        "old": {
+          "description": "The current value this fact conflicts with",
+          "minLength": 1,
+          "title": "Old",
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/ConflictAction"
+        }
+      },
+      "required": [
+        "old",
+        "action"
+      ],
+      "title": "FactConflict",
+      "type": "object"
+    },
+    "PersonMatch": {
+      "enum": [
+        "matched",
+        "ambiguous",
+        "new"
+      ],
+      "title": "PersonMatch",
+      "type": "string"
+    },
+    "ProfileField": {
+      "enum": [
+        "name",
+        "gender",
+        "birthday",
+        "hometown"
+      ],
+      "title": "ProfileField",
+      "type": "string"
+    },
+    "RelationshipStatus": {
+      "enum": [
+        "active",
+        "distant",
+        "tense",
+        "estranged"
+      ],
+      "title": "RelationshipStatus",
+      "type": "string"
+    },
+    "TrustFeeling": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "description": "Person mention who feels",
+          "minLength": 1,
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "description": "Person mention the feeling is about",
+          "minLength": 1,
+          "title": "To",
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "dimension": {
+          "const": "trust",
+          "title": "Dimension",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/TrustLevel"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "confidence",
+        "dimension",
+        "level"
+      ],
+      "title": "TrustFeeling",
+      "type": "object"
+    },
+    "TrustLevel": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "TrustLevel",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "persons": {
+      "items": {
+        "$ref": "#/$defs/DraftPerson"
+      },
+      "title": "Persons",
+      "type": "array"
+    },
+    "facts": {
+      "items": {
+        "$ref": "#/$defs/DraftFact"
+      },
+      "title": "Facts",
+      "type": "array"
+    },
+    "relationships": {
+      "items": {
+        "$ref": "#/$defs/DraftRelationship"
+      },
+      "title": "Relationships",
+      "type": "array"
+    },
+    "feelings": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "affinity": "#/$defs/AffinityFeeling",
+            "closeness": "#/$defs/ClosenessFeeling",
+            "trust": "#/$defs/TrustFeeling"
+          },
+          "propertyName": "dimension"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ClosenessFeeling"
+          },
+          {
+            "$ref": "#/$defs/AffinityFeeling"
+          },
+          {
+            "$ref": "#/$defs/TrustFeeling"
+          }
+        ]
+      },
+      "title": "Feelings",
+      "type": "array"
+    },
+    "profile": {
+      "items": {
+        "$ref": "#/$defs/DraftProfileItem"
+      },
+      "title": "Profile",
+      "type": "array"
+    }
+  },
+  "title": "Draft",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weft.local/contracts/draft.schema.json"
+}
