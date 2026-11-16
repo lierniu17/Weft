@@ -15,7 +15,8 @@
       "!**/dist",
       "!**/storybook-static",
       "!**/tokens.gen.ts",
-      "!**/styles/tokens.css"
+      "!**/styles/tokens.css",
+      "!**/contracts/*.gen.ts"
     ]
   },
   "formatter": {

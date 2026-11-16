@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { formatOccurredOn, isFuture, type OccurredOn } from "./datePrecision.ts";
+import {
+  comparePartialDate,
+  formatOccurredOn,
+  formatPartialDate,
+  formatPeriod,
+  isFuture,
+  type OccurredOn,
+  parsePartialDate,
+} from "./datePrecision.ts";
 
 // Clock injected, never read from Date.now(): the fixed date must stay meaningful forever.
 const today = new Date(2026, 10, 16); // 2026-11-16
@@ -46,5 +54,33 @@ describe("未来日期不可选 (AC-7)", () => {
   ];
   it.each(cases)("%o in the future: %s", (value, expected) => {
     expect(isFuture(value, today)).toBe(expected);
+  });
+});
+
+describe("契约里的带精度日期字符串", () => {
+  it("parses YYYY / YYYY-MM / YYYY-MM-DD", () => {
+    expect(parsePartialDate("2015")).toEqual({ precision: "year", year: 2015 });
+    expect(parsePartialDate("2015-06")).toEqual({ precision: "month", year: 2015, month: 6 });
+    expect(parsePartialDate("2026-11-16")).toEqual({
+      precision: "day",
+      year: 2026,
+      month: 11,
+      day: 16,
+    });
+  });
+
+  it("formats a contract date for display", () => {
+    expect(formatPartialDate("2026-11-16", today)).toBe("今天");
+    expect(formatPartialDate("2015", today)).toBe("2015 年");
+  });
+
+  it("orders dates by their earliest moment; a year sorts before its months", () => {
+    const sorted = ["2026-11", "2012", "2025-03-01", "2012-09"].sort(comparePartialDate);
+    expect(sorted).toEqual(["2012", "2012-09", "2025-03-01", "2026-11"]);
+  });
+
+  it("formats a period: 「2023 年 – 至今」 or 「2023 年 – 2026 年 10 月」", () => {
+    expect(formatPeriod("2023", null, today)).toBe("2023 年 – 至今");
+    expect(formatPeriod("2023", "2026-10", today)).toBe("2023 年 – 2026 年 10 月");
   });
 });

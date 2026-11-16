@@ -3,19 +3,19 @@
  * Order (spec AC-16): 亲历 = 本人说 > 转述 > 推测 — 亲历 and 本人说 share a rank,
  * so on conflict neither is treated as lower than the other.
  */
-export const CONFIDENCE_LEVELS = ["witnessed", "self-told", "hearsay", "inferred"] as const;
+export const CONFIDENCE_LEVELS = ["witnessed", "self_told", "hearsay", "inferred"] as const;
 export type Confidence = (typeof CONFIDENCE_LEVELS)[number];
 
 const LABELS: Record<Confidence, string> = {
   witnessed: "亲历",
-  "self-told": "本人说",
+  self_told: "本人说",
   hearsay: "转述",
   inferred: "推测",
 };
 
 const RANK: Record<Confidence, number> = {
   witnessed: 3,
-  "self-told": 3,
+  self_told: 3,
   hearsay: 2,
   inferred: 1,
 };

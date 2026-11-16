@@ -66,7 +66,7 @@ export function Drawer({
             />
           )}
           <header className="flex shrink-0 items-start gap-sm px-md pt-sm pb-sm">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-[0] flex-1">
               <Dialog.Title className="text-h3 text-neutral-text-primary">{title}</Dialog.Title>
               {description && (
                 <Dialog.Description className="text-caption text-neutral-text-secondary">
@@ -80,7 +80,7 @@ export function Drawer({
               </Dialog.Close>
             )}
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto px-md pb-md">{children}</div>
+          <div className="min-h-[0] flex-1 overflow-y-auto px-md pb-md">{children}</div>
           {footer && (
             <footer className="flex shrink-0 gap-sm border-t border-neutral-divider px-md py-sm">
               {footer}

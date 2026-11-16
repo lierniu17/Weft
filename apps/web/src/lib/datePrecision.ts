@@ -50,3 +50,49 @@ export function todayOccurredOn(today: Date): OccurredOn {
     day: today.getDate(),
   };
 }
+
+/**
+ * Contract dates carry their precision in their length: "2015" | "2015-06" | "2026-11-16"
+ * (apps/api PartialDate). Throws on anything else; the API validates the pattern.
+ */
+export function parsePartialDate(value: string): OccurredOn {
+  const m = value.match(/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$/);
+  if (!m) throw new Error(`Not a partial date: "${value}"`);
+  const year = Number(m[1]);
+  if (!m[2]) return { precision: "year", year };
+  const month = Number(m[2]);
+  if (!m[3]) return { precision: "month", year, month };
+  return { precision: "day", year, month, day: Number(m[3]) };
+}
+
+/** Display text for a contract date, same rules as `formatOccurredOn`. */
+export function formatPartialDate(value: string, today: Date): string {
+  return formatOccurredOn(parsePartialDate(value), today);
+}
+
+/** Sort comparator by earliest moment; a coarser date sorts before its finer ones. */
+export function comparePartialDate(a: string, b: string): number {
+  const key = (v: OccurredOn) => [
+    v.year,
+    v.precision === "year" ? 0 : v.month,
+    v.precision === "day" ? v.day : 0,
+    v.precision === "year" ? 0 : v.precision === "month" ? 1 : 2,
+  ];
+  const ka = key(parsePartialDate(a));
+  const kb = key(parsePartialDate(b));
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return ka[i] - kb[i];
+  }
+  return 0;
+}
+
+/** A time span: 「2023 年 – 至今」 or 「2023 年 – 2026 年 10 月」; day dates show in full. */
+export function formatPeriod(start: string, end: string | null | undefined, today: Date): string {
+  const show = (v: string) => {
+    const d = parsePartialDate(v);
+    return d.precision === "day"
+      ? `${d.year}-${pad(d.month)}-${pad(d.day)}`
+      : formatOccurredOn(d, today);
+  };
+  return `${show(start)} – ${end ? show(end) : "至今"}`;
+}

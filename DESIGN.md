@@ -270,9 +270,9 @@ components:
         pending: { body: "人物 chip + 前 3 条信息 + 还有 N 条", action: "Button.primary 查看并确认" }
         failed: { bg: "colors.status.error.1", action: "Button.secondary 重试" }
         confirmed: { body: "✓ 已入图谱 · N 条信息 · 学到的别名", action: "人物 Chip.link" }
-        discarded: { text: "colors.neutral.text-disabled", body: "已放弃" }
+        discarded: { text: "colors.neutral.text-secondary", body: "已放弃" }
     DraftReviewSheet:
-      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel）。分区：涉及的人物 / 信息 / 关系变化 / 感受变化；底部 放弃 + 确认入图谱，存在未选的需选择项时确认禁用。"
+      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel）。分区：涉及的人物 / 信息 / 关系变化 / 感受变化 / 画像变化；底部 放弃 + 确认入图谱，存在未选的需选择项时确认禁用。"
     PersonMatchItem:
       description: "草稿里一个被提到的人怎么对上号。"
       variants:
@@ -290,7 +290,7 @@ components:
       description: "可信度四档：亲历 = 主色靛蓝，本人说 = 辅色青绿，转述 = 警告黄，推测 = 虚线灰。颜色只做辅助，文字必须完整显示（不只靠颜色区分）。"
       variants:
         witnessed: { label: "亲历", bg: "colors.primary.1", text: "colors.primary.7" }
-        self-told: { label: "本人说", bg: "colors.secondary.1", text: "colors.secondary.7" }
+        self_told: { label: "本人说", bg: "colors.secondary.1", text: "colors.secondary.7" }
         hearsay: { label: "转述", bg: "colors.status.warning.1", text: "colors.status.warning.6" }
         inferred: { label: "推测", bg: "colors.neutral.bg-layout", text: "colors.neutral.text-secondary", border: "dashed colors.neutral.border" }
       radius: "rounded.full"
@@ -325,17 +325,20 @@ components:
         notes: { item: "短文本（生活事件、相处之道）" }
         opinion: { label: "我的评价", style: "斜体 + colors.secondary.6 左边线，与事实区分" }
         summary: { item: "综合描述 + 生成时间", bg: "colors.neutral.bg-layout" }
-      states: { empty: { text: "colors.neutral.text-disabled", body: "还没有记录" }, editing: { item: "Input / Chip removable" } }
+      states: { empty: { text: "colors.neutral.text-secondary", body: "还没有记录" }, editing: { item: "Input / Chip removable" } }
     RelationshipTypeTag:
       description: "关系类型：大类 · 小类，附原话（“铁哥们”）。自定义小类带小标记。"
       variants: { builtin: { style: "Chip.neutral" }, custom: { style: "Chip.neutral + 自定义角标" } }
+    RelationshipOverview:
+      description: "关系页顶部的关系概览：关系类型（RelationshipTypeTag，可多个）+ RelationStatusTag + 认识时间（带精度）+ 认识途径 + 介绍人（PersonRow 链接，可点击跳转）+ 一段总结；第三方关系附 ConfidenceBadge。缺失的字段显示“未记录”，不隐藏。"
+      variants: { self-pair: { title: "我和他" }, third-party: { title: "A 与 B", confidence: "ConfidenceBadge" } }
     RelationStatusTag:
       description: "关系当前状态。"
       variants:
         active: { label: "活跃", style: "Chip 绿（status.success）" }
         distant: { label: "疏远", style: "Chip 灰" }
         tense: { label: "紧张", style: "Chip.danger" }
-        lost: { label: "断联", style: "Chip 灰 + 虚线边" }
+        estranged: { label: "断联", style: "Chip 灰 + 虚线边" }
     FeelingRow:
       description: "一个方向的感受（A → B）：亲密度 / 好恶 / 信任 档位 + 历史展开。未记录的维度不显示，整行未记录时显示“（未记录）”。"
       states: { expanded: { body: "Timeline 显示每次变化" } }
@@ -355,7 +358,7 @@ components:
       variants:
         confirmed: { status: "已确认", color: "colors.neutral.text-secondary" }
         pending: { status: "待确认", color: "colors.status.error.6", badge: "Badge.dot" }
-        discarded: { status: "已放弃", color: "colors.neutral.text-disabled" }
+        discarded: { status: "已放弃", color: "colors.neutral.text-secondary" }
         failed: { status: "整理失败", color: "colors.status.error.6" }
     QuotaMeter:
       description: "今日额度：记录 x / 50、提问 x / 100，数字右对齐；剩余不足 10% 时变为 warning 色。"
@@ -373,6 +376,7 @@ components:
 - **60% Dominant**：页面大背景 `colors.neutral.bg-layout`（#F5F6F8）+ 卡片与抽屉 `colors.neutral.bg-container`（#FFFFFF）。对话页是最大的面，必须保持大面积安静。
 - **30% Secondary**：`text-primary`（#1D2433）/ `text-secondary`（#5B6475）构建文字层级；`colors.secondary.6`（#0B7A6E）用于“本人说”徽章、人物头像底色、评价左边线等次要结构。
 - **10% Accent**：`colors.primary.6`（#4F46E5）只用于：发送按钮、“确认入图谱”、当前 tab、出处标记 [n]、选中态。一屏最多一个 primary 按钮。状态色只在明确反馈时出现：红 = 需要你处理（需选择、待确认、失败、删除），琥珀 / 橙 = 转述与待核实，绿 = 活跃关系与成功。
+- **禁用灰的用法**：`text-disabled` 只用于禁用控件和输入框占位符（WCAG 对禁用控件不要求对比度）；空状态、“已放弃”等需要阅读的文字一律用 `text-secondary`。
 - **对比度**：所有正文对背景 ≥ 4.5:1，白字对 `primary.6 / primary.7` ≥ 4.5:1，状态色 6 级对 1 级浅底 ≥ 4.5:1（已逐一校验）。不使用 #000000 / #FFFFFF 作为正文或大背景。
 
 ## 2. Typography & Rhythm Layout
