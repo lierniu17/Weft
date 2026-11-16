@@ -1,0 +1,394 @@
+---
+version: "alpha"
+name: "Weft"
+description: "Weft 人际关系图谱 · 方案三 · 墨绿纬线。以“纬线”为母题：墨绿主色、琥珀辅色、大圆角气泡、线条插画，在温度和清晰之间取中。 遵循 60-30-10：中性底色约 60–70%，文字与结构约 30%，主色与状态色合计不超过 10%。移动端优先（375px 基准），桌面端三栏。"
+
+colors:
+  primary:
+    6: "#0F766E"
+    5: "#14958A"
+    7: "#115E59"
+    1: "#E6F4F2"
+  secondary:
+    6: "#A3550C"
+    5: "#C26A14"
+    7: "#86450A"
+    1: "#FDF1E3"
+  neutral:
+    bg-layout: "#F3F4F1"
+    bg-container: "#FCFCFA"
+    border: "#D9DDD6"
+    divider: "#E7EAE4"
+    text-primary: "#1F2A27"
+    text-secondary: "#55615C"
+    text-disabled: "#98A29D"
+  status:
+    success: { 1: "#E9F6EE", 6: "#25764A", 7: "#1C5C39" }
+    warning: { 1: "#FBF3E0", 6: "#94620B", 7: "#774E08" }
+    error: { 1: "#FDECEC", 6: "#C02D2D", 7: "#9B2424" }
+    info: { 1: "#EAF1FA", 6: "#2B62A6", 7: "#224F86" }
+
+typography:
+  font-family: "'HarmonyOS Sans SC', 'PingFang SC', 'Noto Sans SC', sans-serif"
+  font-family-heading: "'HarmonyOS Sans SC', 'PingFang SC', 'Noto Sans SC', sans-serif"
+  font-family-mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace"
+  h1: { size: "24px", weight: "600", line-height: "32px" }
+  h2: { size: "20px", weight: "600", line-height: "28px" }
+  h3: { size: "17px", weight: "600", line-height: "24px" }
+  body-lg: { size: "16px", weight: "400", line-height: "24px" }
+  body-md: { size: "15px", weight: "400", line-height: "22px" }
+  body-sm: { size: "14px", weight: "400", line-height: "20px" }
+  caption: { size: "12px", weight: "400", line-height: "18px" }
+
+spacing:
+  xs: "4px"
+  sm: "8px"
+  md: "16px"
+  lg: "24px"
+  xl: "32px"
+  xxl: "48px"
+  xxxl: "64px"
+
+rounded:
+  sm: "8px"     # 按钮、输入框
+  md: "16px"    # 卡片、草稿卡片、Banner
+  lg: "24px"    # 抽屉顶部、对话气泡、弹窗
+  full: "9999px" # Chip、头像、可信度徽章、分段控件
+
+shadow:
+  card: "0 1px 2px rgba(31, 42, 39, 0.05), 0 6px 16px rgba(31, 42, 39, 0.06)"
+  overlay: "0 -8px 24px rgba(0, 0, 0, 0.12)"
+
+motion:
+  fast: "120ms cubic-bezier(0.2, 0, 0, 1)"
+  base: "200ms cubic-bezier(0.2, 0, 0, 1)"
+  sheet: "240ms cubic-bezier(0.2, 0, 0, 1)"
+
+breakpoints:
+  mobile: "< 768px（单栏 + 底部 TabBar）"
+  tablet: "768–1199px（SideNav 折叠为图标 + 对话 + 右栏抽屉）"
+  desktop: ">= 1200px（SideNav 220px + 对话弹性 + 右栏 360px，内容区最大 1440px 居中）"
+
+components:
+  # ───────────── Basics：无业务含义的最小单元 ─────────────
+  basics:
+    Button:
+      description: "所有触发动作的地方。一屏最多一个 primary；删除 / 注销这类慎重操作用 danger，并与“取消”同等尺寸，不做成醒目主按钮。"
+      variants:
+        primary: { bg: "colors.primary.6", text: "#FFFFFF", hover-bg: "colors.primary.5", active-bg: "colors.primary.7" }
+        secondary: { bg: "colors.neutral.bg-container", text: "colors.neutral.text-primary", border: "colors.neutral.border", hover-bg: "colors.neutral.bg-layout" }
+        ghost: { bg: "transparent", text: "colors.primary.6", hover-bg: "colors.primary.1" }
+        danger: { bg: "colors.neutral.bg-container", text: "colors.status.error.6", border: "colors.status.error.6", hover-bg: "colors.status.error.1" }
+      sizes:
+        sm: { height: "28px", padding: "0 spacing.sm", font: "typography.caption" }
+        md: { height: "36px", padding: "0 spacing.md", font: "typography.body-md" }
+        lg: { height: "44px", padding: "0 spacing.lg", font: "typography.body-lg" }
+      states: { disabled: { opacity: "0.45", cursor: "not-allowed" }, loading: { content: "Spinner + 原文案" } }
+      radius: "rounded.sm"
+    IconButton:
+      description: "只有图标的按钮：发送、关闭、更多（⋯）、返回。必须带 aria-label。"
+      variants:
+        filled: { bg: "colors.primary.6", icon: "#FFFFFF" }
+        plain: { bg: "transparent", icon: "colors.neutral.text-secondary", hover-bg: "colors.neutral.bg-layout" }
+      sizes: { sm: "28px", md: "36px", lg: "44px" }
+      states: { disabled: { bg: "colors.neutral.divider", icon: "colors.neutral.text-disabled" } }
+      radius: "rounded.full"
+    Input:
+      description: "单行输入（注册表单、搜索、编辑画像、密码确认）。错误、禁用是 states，不是另一个组件。"
+      height: "40px"
+      bg: "colors.neutral.bg-container"
+      border: "colors.neutral.border"
+      placeholder: "colors.neutral.text-disabled"
+      focus-border: "colors.primary.6"
+      variants:
+        default: {}
+        search: { prefix-icon: "search", bg: "colors.neutral.bg-layout", border: "transparent" }
+        password: { suffix-icon: "eye" }
+      states:
+        error: { border: "colors.status.error.6", helper-text: "colors.status.error.6" }
+        disabled: { bg: "colors.neutral.bg-layout", text: "colors.neutral.text-disabled" }
+      radius: "rounded.sm"
+    TextArea:
+      description: "多行输入，随内容自动增高（最多 6 行后滚动）。用于对话输入框。"
+      min-rows: 1
+      max-rows: 6
+      states: { disabled: { bg: "colors.neutral.bg-layout" } }
+      radius: "rounded.md"
+    SegmentedControl:
+      description: "两到三个互斥选项的切换：记录 / 提问、1 层 / 2 层、画像 / 关系 / 记录。"
+      bg: "colors.neutral.bg-layout"
+      active-bg: "colors.neutral.bg-container"
+      active-text: "colors.primary.6"
+      text: "colors.neutral.text-secondary"
+      sizes: { sm: { height: "28px" }, md: { height: "32px" } }
+      radius: "rounded.full"
+    DatePicker:
+      description: "发生日期选择。支持年 / 月 / 日三种精度，未来日期不可选。以 Chip 形态触发，弹出底部抽屉。"
+      variants:
+        precision-day: { display: "2026-11-16 / 今天" }
+        precision-month: { display: "2026 年 11 月" }
+        precision-year: { display: "2015 年" }
+      states: { disabled-future: { text: "colors.neutral.text-disabled" } }
+    Chip:
+      description: "紧凑的标签或可点选项：人物 chip、筛选条件、性格标签、候选人。可选中、可移除、可点击跳转。"
+      height: "24px"
+      padding: "0 spacing.sm"
+      variants:
+        neutral: { bg: "colors.neutral.bg-container", text: "colors.neutral.text-primary", border: "colors.neutral.border" }
+        selected: { bg: "colors.primary.1", text: "colors.primary.7", border: "colors.primary.6" }
+        danger: { bg: "colors.status.error.1", text: "colors.status.error.6", border: "colors.status.error.6" }
+        warning: { bg: "colors.status.warning.1", text: "colors.status.warning.6" }
+      options: { removable: "尾部 ✕", link: "尾部 ›，整块可点" }
+      radius: "rounded.full"
+    Badge:
+      description: "未读红点或数量角标（待确认的草稿、底部 tab）。"
+      variants:
+        dot: { size: "8px", bg: "colors.status.error.6" }
+        count: { min-width: "16px", bg: "colors.status.error.6", text: "#FFFFFF", font: "typography.caption" }
+    Avatar:
+      description: "人物头像。没有照片时显示姓氏首字。本人有“我”标记。"
+      variants:
+        initial: { bg: "colors.secondary.1", text: "colors.secondary.7" }
+        self: { bg: "colors.primary.1", text: "colors.primary.7", ring: "colors.primary.6" }
+      sizes: { sm: "24px", md: "36px", lg: "56px" }
+      radius: "rounded.full"
+    Divider:
+      description: "分割线。组内用细线，组间靠间距（spacing.lg）区分。"
+      color: "colors.neutral.divider"
+      variants: { full: {}, inset: { margin-left: "spacing.md" } }
+    Modal:
+      description: "需要明确决定的居中弹窗：删除人物、放弃草稿。按钮同等宽度，左取消右动作。"
+      bg: "colors.neutral.bg-container"
+      mask: "rgba(31, 36, 48, 0.45)"
+      width: "min(320px, 100vw - 48px)"
+      variants:
+        confirm: { action: "Button.primary" }
+        danger: { action: "Button.danger" }
+      radius: "rounded.lg"
+    Drawer:
+      description: "足不出户的承载面。移动端从底部升起，桌面端变成右栏面板。"
+      bg: "colors.neutral.bg-container"
+      variants:
+        bottom-sheet: { handle: "36x4px rounded.full colors.neutral.border", max-height: "92vh", radius-top: "rounded.lg" }
+        side-panel: { width: "360px", border-left: "colors.neutral.divider" }
+      transition: "transform 240ms cubic-bezier(0.2, 0, 0, 1)"
+    Tooltip:
+      description: "截断文本 hover 时显示全称；出处标记 hover 时显示摘要。"
+      bg: "colors.neutral.text-primary"
+      text: "colors.neutral.bg-container"
+      radius: "rounded.sm"
+    Toast:
+      description: "轻量的操作结果反馈（已复制、已删除），2 秒后自动消失。"
+      variants: { info: {}, success: { icon: "check" }, error: { icon: "alert" } }
+    Banner:
+      description: "页面内的状态横幅：额度用完、网络异常。"
+      variants:
+        warning: { bg: "colors.status.warning.1", text: "colors.status.warning.6" }
+        error: { bg: "colors.status.error.1", text: "colors.status.error.6" }
+        info: { bg: "colors.status.info.1", text: "colors.status.info.6" }
+      radius: "rounded.md"
+    Skeleton:
+      description: "加载占位，描出加载后的结构。"
+      bg: "colors.neutral.divider"
+      animation: "shimmer 1.4s ease-in-out infinite"
+      variants: { text: { height: "12px" }, avatar: { shape: "circle" }, card: { radius: "rounded.md" } }
+
+  # ───────────── Composites：基础组件组合，可复用、无具体业务 ─────────────
+  composites:
+    NavBar:
+      description: "移动端顶栏：标题 + 可选副标题 + 左返回 + 右侧操作（文字或 ⋯）。"
+      height: "48px"
+      bg: "colors.neutral.bg-container"
+      variants: { root: { left: "none" }, pushed: { left: "IconButton.plain back" } }
+    TabBar:
+      description: "移动端底部导航：对话 / 人物 / 我的。可带 Badge.dot。"
+      height: "56px + safe-area"
+      active: "colors.primary.6"
+      inactive: "colors.neutral.text-secondary"
+    SideNav:
+      description: "桌面端左侧导航：对话 / 人物 / 全景图 / 我的，下方是“最近提到”的人物列表。宽度固定 220px。"
+      bg: "colors.neutral.bg-layout"
+      item-active: { bg: "colors.primary.1", text: "colors.primary.7" }
+    ListItem:
+      description: "列表行：前置（头像 / 图标）+ 主文 + 副文 + 尾部（文字 / 数字右对齐 / ›）。整行可点，hover 整行高亮。"
+      min-height: "56px"
+      hover-bg: "colors.neutral.bg-layout"
+      variants: { default: {}, with-avatar: {}, navigational: { trailing: "›" }, value: { trailing: "右对齐数字" } }
+    SectionHeader:
+      description: "列表或页面分区标题（至交 · 2、画像、事实时间线），可带右侧操作。"
+      font: "typography.caption"
+      color: "colors.neutral.text-secondary"
+    FormRow:
+      description: "表单行：标签右对齐 + 输入框左对齐；窄屏（< 360px）改为上下堆叠。标签最大宽度 96px。"
+      label-align: "right"
+      gap: "spacing.sm"
+    EmptyState:
+      description: "空状态：插画 + 一句话 + 引导按钮。"
+      variants:
+        first-use: { illustration: "两条交织的线", action: "示例记录" }
+        no-people: { illustration: "空的人物卡", action: "去记一笔" }
+        not-found: { illustration: "问号", action: "回到人物列表" }
+    Card:
+      description: "内容容器。"
+      bg: "colors.neutral.bg-container"
+      border: "colors.neutral.divider"
+      radius: "rounded.md"
+      padding: "spacing.md"
+      variants: { plain: {}, outlined: {}, highlighted: { border: "colors.primary.6" } }
+    Timeline:
+      description: "纵向时间线：圆点 + 时间 + 内容。圆点颜色区分当前 / 失效 / 待核实。"
+      variants:
+        current: { dot: "colors.primary.6" }
+        invalidated: { dot: "colors.neutral.text-disabled", text: "line-through colors.neutral.text-secondary" }
+        unverified: { dot: "colors.status.warning.6" }
+
+  # ───────────── Business：带 Weft 业务含义的组件 ─────────────
+  business:
+    ChatComposer:
+      description: "对话页底部的输入区：记录 / 提问切换（SegmentedControl）+ 发生日期（DatePicker，仅记录模式）+ 自动增高输入框 + 发送。提问发出后自动切回记录。"
+      variants:
+        record: { placeholder: "今天和谁发生了什么？", date-chip: true }
+        ask: { placeholder: "想问关于谁的什么事？", date-chip: false }
+      states:
+        quota-exhausted: { input: "TextArea.disabled", send: "IconButton.disabled", banner: "Banner.warning" }
+        sending: { send: "IconButton loading" }
+    MessageBubble:
+      description: "对话中的用户消息，右对齐，下方显示类型与日期（记录 · 11-16 / 提问）。"
+      bg: "colors.primary.1"
+      text: "colors.neutral.text-primary"
+      max-width: "78%"
+      radius: "rounded.lg（右下角 rounded.sm）"
+      variants: { record: { meta: "记录 · 发生日期" }, question: { meta: "提问" } }
+    DraftCard:
+      description: "对话里的草稿卡片，一条记录一张，状态变化原地更新。"
+      variants:
+        extracting: { body: "Skeleton.text x3", title: "正在整理人物和关系…" }
+        pending: { body: "人物 chip + 前 3 条信息 + 还有 N 条", action: "Button.primary 查看并确认" }
+        failed: { bg: "colors.status.error.1", action: "Button.secondary 重试" }
+        confirmed: { body: "✓ 已入图谱 · N 条信息 · 学到的别名", action: "人物 Chip.link" }
+        discarded: { text: "colors.neutral.text-disabled", body: "已放弃" }
+    DraftReviewSheet:
+      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel）。分区：涉及的人物 / 信息 / 关系变化 / 感受变化；底部 放弃 + 确认入图谱，存在未选的需选择项时确认禁用。"
+    PersonMatchItem:
+      description: "草稿里一个被提到的人怎么对上号。"
+      variants:
+        matched: { trailing: "Chip.selected 已匹配", detail: "老张 → 张伟（同事）" }
+        ambiguous: { title-color: "colors.status.error.6", body: "候选人 Chip 列表 + “新人物” Chip" }
+        new: { trailing: "Chip.selected 新人物" }
+    DraftFactItem:
+      description: "草稿里一条待写入的信息，可改可信度、可删除。"
+      variants:
+        add: {}
+        update: { detail: "将更新：旧值 → 新值" }
+        unverified: { detail: "与已有信息冲突且可信度更低，标为待核实", accent: "colors.status.warning.6" }
+      options: { confidence: "ConfidenceBadge 可点选", removable: true }
+    ConfidenceBadge:
+      description: "可信度四档。颜色只做辅助，文字必须完整显示（不只靠颜色区分）。"
+      variants:
+        witnessed: { label: "亲历", bg: "colors.primary.1", text: "colors.primary.7" }
+        self-told: { label: "本人说", bg: "colors.secondary.1", text: "colors.secondary.7" }
+        hearsay: { label: "转述", bg: "colors.status.warning.1", text: "colors.status.warning.6" }
+        inferred: { label: "推测", bg: "colors.neutral.bg-layout", text: "colors.neutral.text-secondary", border: "dashed colors.neutral.border" }
+      radius: "rounded.full"
+    AnswerCard:
+      description: "问答的回答，正文内嵌 CitationMark，下方是相关人物 Chip 与追问建议。"
+      bg: "colors.neutral.bg-container"
+      variants:
+        text: {}
+        path: { body: "PathChain" }
+        list: { body: "人物行列表，每行带 CitationMark" }
+        stat: { body: "大号数字（右对齐）+ 对应人物列表" }
+        no-answer: { body: "图谱里没有相关信息 + Button.secondary 去记一笔" }
+    CitationMark:
+      description: "回答中的出处标记 [n]，可点开 CitationSheet，hover 显示 Tooltip 摘要。"
+      text: "colors.primary.6"
+      hover-bg: "colors.primary.1"
+      font: "typography.caption 上标"
+    CitationSheet:
+      description: "出处详情：ConfidenceBadge + 记录原文引用 + 发生日期 + 跳转到相关关系。移动端 bottom-sheet，桌面端右栏。"
+    PathChain:
+      description: "人脉路径：Avatar + 姓名，用箭头串联（我 → 张伟 → 王芳），每段可点。"
+    PersonRow:
+      description: "人物列表行：Avatar + 姓名（别名）+ 关系 · 最近提到时间 + ›。长名单行截断加 Tooltip。"
+      variants: { default: {}, self: { avatar: "Avatar.self", label: "（我）", chevron: false } }
+    PersonHeader:
+      description: "人物页顶部：姓名、别名、与我的关系摘要（类型 · 认识时长 · 亲密度）+ 编辑 / ⋯ 菜单。"
+    ProfileSection:
+      description: "画像的一个分区，每条信息可点开出处，可就地编辑。"
+      variants:
+        roles: { item: "单位 / 学校 / 城市 + 时间段", history: "折叠的历史列表" }
+        tags: { item: "Chip.neutral（性格、喜好、厌恶）", editable: "Chip removable + 添加" }
+        notes: { item: "短文本（生活事件、相处之道）" }
+        opinion: { label: "我的评价", style: "斜体 + colors.secondary.6 左边线，与事实区分" }
+        summary: { item: "综合描述 + 生成时间", bg: "colors.neutral.bg-layout" }
+      states: { empty: { text: "colors.neutral.text-disabled", body: "还没有记录" }, editing: { item: "Input / Chip removable" } }
+    RelationshipTypeTag:
+      description: "关系类型：大类 · 小类，附原话（“铁哥们”）。自定义小类带小标记。"
+      variants: { builtin: { style: "Chip.neutral" }, custom: { style: "Chip.neutral + 自定义角标" } }
+    RelationStatusTag:
+      description: "关系当前状态。"
+      variants:
+        active: { label: "活跃", style: "Chip 绿（status.success）" }
+        distant: { label: "疏远", style: "Chip 灰" }
+        tense: { label: "紧张", style: "Chip.danger" }
+        lost: { label: "断联", style: "Chip 灰 + 虚线边" }
+    FeelingRow:
+      description: "一个方向的感受（A → B）：亲密度 / 好恶 / 信任 档位 + 历史展开。未记录的维度不显示，整行未记录时显示“（未记录）”。"
+      states: { expanded: { body: "Timeline 显示每次变化" } }
+    FactTimeline:
+      description: "两人之间事实的时间线，复用 Timeline 的 current / invalidated / unverified 变体，每条带 ConfidenceBadge。"
+    RelationGraph:
+      description: "关系图。基于 Cytoscape.js 整体使用，不拆分其内部节点 / 边为自定义组件；只定义主题（节点 = Avatar 样式，本人节点 = Avatar.self，边粗细 = 亲密度）。"
+      library: "cytoscape (整体组件)"
+      variants:
+        local: { hops: "1 | 2", max-nodes: 50, height: "200px（移动端）" }
+        panorama: { center: "本人", filter: "GraphFilterSheet", gestures: "单指拖动、双指缩放" }
+      states: { truncated: { banner: "已省略 N 人，仅显示亲密度最高的 50 人" } }
+    GraphFilterSheet:
+      description: "全景图筛选：关系大类 / 小类 Chip 多选 + 亲密度档位单选。"
+    EntryListItem:
+      description: "记录列表行：原文（两行截断）+ 发生日期（含精度）+ 信息数量 + 状态。"
+      variants:
+        confirmed: { status: "已确认", color: "colors.neutral.text-secondary" }
+        pending: { status: "待确认", color: "colors.status.error.6", badge: "Badge.dot" }
+        discarded: { status: "已放弃", color: "colors.neutral.text-disabled" }
+        failed: { status: "整理失败", color: "colors.status.error.6" }
+    QuotaMeter:
+      description: "今日额度：记录 x / 50、提问 x / 100，数字右对齐；剩余不足 10% 时变为 warning 色。"
+      variants: { normal: {}, low: { text: "colors.status.warning.6" }, exhausted: { text: "colors.status.error.6" } }
+    TaxonomyEditor:
+      description: "关系类型词表：五个大类分组，每组列出小类，可在组内用 Input 新增自定义小类。"
+---
+
+# Weft Design System · 方案三 · 墨绿纬线
+
+> 以“纬线”为母题：墨绿主色、琥珀辅色、大圆角气泡、线条插画，在温度和清晰之间取中。
+
+## 1. Overview & Color Palette Strategy
+- **定位**：沉静、友好、有记忆点。对话气泡大圆角贴合方案 C 的聊天主隐喻；琥珀辅色天然适合“转述 / 待核实”。代价是墨绿与成功绿接近，成功态需靠图标区分。
+- **60% Dominant**：页面大背景 `colors.neutral.bg-layout`（#F3F4F1）+ 卡片与抽屉 `colors.neutral.bg-container`（#FCFCFA）。对话页是最大的面，必须保持大面积安静。
+- **30% Secondary**：`text-primary`（#1F2A27）/ `text-secondary`（#55615C）构建文字层级；`colors.secondary.6`（#A3550C）用于“本人说”徽章、人物头像底色、评价左边线等次要结构。
+- **10% Accent**：`colors.primary.6`（#0F766E）只用于：发送按钮、“确认入图谱”、当前 tab、出处标记 [n]、选中态。一屏最多一个 primary 按钮。状态色只在明确反馈时出现：红 = 需要你处理（需选择、待确认、失败、删除），琥珀 / 橙 = 转述与待核实，绿 = 活跃关系与成功。
+- **对比度**：所有正文对背景 ≥ 4.5:1，白字对 `primary.6 / primary.7` ≥ 4.5:1，状态色 6 级对 1 级浅底 ≥ 4.5:1（已逐一校验）。不使用 #000000 / #FFFFFF 作为正文或大背景。
+
+## 2. Typography & Rhythm Layout
+- **字体**：标题 `font-family-heading`，正文 `font-family`。移动端正文默认 `body-md`（15px），列表副文与元信息 `caption`。
+- **间距**：只用 `spacing` 中的值。组内 8px，组间 24px；对话气泡之间 16px，同一条记录的气泡与草稿卡片之间 8px。
+- **对齐**：表单用 `FormRow`（标签右对齐、输入框左对齐，窄屏堆叠）；额度、统计、数量等纯数字一律右对齐。
+- **可信度不只靠颜色**：`ConfidenceBadge` 必须同时显示文字（亲历 / 本人说 / 转述 / 推测）；“推测”额外用虚线边框。
+
+## 3. Interaction Dynamics & Flow Control
+- **足不出户**：确认草稿、出处、筛选、日期选择都在 `Drawer` 中完成（移动端底部抽屉，桌面端右栏面板），不跳页；删除人物、放弃草稿用 `Modal`。
+- **意图显式**：`ChatComposer` 的“记录 / 提问”由用户切换，系统不猜；提问发送后自动切回记录。
+- **即时反应**：可点元素 hover 在 `motion.base` 内过渡到 hover 色；整行可点的 `ListItem` hover 时整行变 `bg-layout`。草稿卡片状态（抽取中 → 待确认 → 已入图谱）原地变化，不新增消息。
+- **加载**：抽取中用 `DraftCard.extracting` 骨架；列表与人物页首次加载用 `Skeleton`，不用转圈。
+
+## 4. Edge Cases & Adaptation Layout
+- **响应式**：移动端单栏 + 底部 `TabBar`（对话 / 人物 / 我的）；桌面端 `SideNav` 固定 220px，对话区弹性，右栏 360px 承载草稿 / 出处 / 当前人物；超过 1440px 时内容居中。
+- **长文本**：人物名、组织名单行截断 + `Tooltip`；记录原文在列表中两行截断；综合描述三行截断，可展开。
+- **空状态**：首次使用、无人物、人物不存在、图谱里没有答案，各用 `EmptyState` 或 `AnswerCard.no-answer`，都有插画（纬线 / 人物卡 / 问号）+ 一句话 + 引导按钮。
+- **额度用完**：`ChatComposer.quota-exhausted` + `Banner.warning` 说明重置时间。
+
+## 5. Do's & Don'ts
+- **DO**：所有来自图谱的说法都能点到出处；同一含义的组件只用一个，用 variants 区分；删除 / 注销按钮与“取消”同等尺寸。
+- **DON'T**：不在一屏放两个 primary；不用颜色作为可信度的唯一区分；不在对话流里为同一条记录追加多张草稿卡片；不把 `RelationGraph`（Cytoscape.js）拆成自定义节点组件。

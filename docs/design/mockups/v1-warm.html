@@ -1,0 +1,99 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>Weft 方案一 · 暖纸</title><style>
+:root{--p6:#A84A22;--p5:#C2613A;--p7:#8F3F1F;--p1:#FBEEE6;--s6:#46705B;--s7:#365847;--s1:#EAF2EE;
+--bg:#F7F4EF;--card:#FFFDF9;--bd:#E4DDD2;--dv:#EEE8DF;--t1:#2B2620;--t2:#6B6257;--t3:#A69D91;
+--ok:#2F7A4A;--ok1:#EAF5EE;--wa:#97600E;--wa1:#FBF3E2;--er:#B83226;--er1:#FBEAE8;
+--rs:6px;--rm:12px;--rl:20px;--fh:'Noto Serif SC','Source Han Serif SC','Songti SC','SimSun',serif;--fb:'PingFang SC','Noto Sans SC','Microsoft YaHei',sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e9e9ec;font-family:var(--fb);color:var(--t1);padding:36px 40px;width:1320px}
+h1.cap{font:600 22px var(--fh);color:#2b2b30;margin-bottom:6px} p.cap{font-size:13px;color:#6b6b73;margin-bottom:22px}
+.row{display:flex;gap:36px}
+.ph{width:375px;height:780px;background:var(--bg);border-radius:36px;overflow:hidden;position:relative;box-shadow:0 20px 50px rgba(0,0,0,.18),0 0 0 8px #1c1c1f;display:flex;flex-direction:column}
+.lbl{font-size:13px;color:#55555c;margin:14px 4px 0}
+.sb{height:40px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:14px;font-weight:600;color:var(--t1)}
+.nav{height:48px;display:flex;align-items:center;padding:0 16px;gap:8px;background:var(--card);border-bottom:1px solid var(--dv)}
+.nav .t{font:600 17px var(--fh);flex:1} .nav .sub{font-size:12px;color:var(--t2);font-family:var(--fb);font-weight:400}
+.nav .a{color:var(--p6);font-size:14px;display:flex;align-items:center;gap:4px}
+.body{flex:1;overflow:hidden;padding:16px}
+.bub{margin-left:auto;max-width:78%;background:var(--p1);padding:10px 14px;border-radius:var(--rl) var(--rl) 6px var(--rl);font-size:15px;line-height:22px}
+.meta{text-align:right;font-size:12px;color:var(--t2);margin:4px 2px 8px}
+.card{background:var(--card);border:1px solid var(--dv);border-radius:var(--rm);padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);margin-bottom:16px;max-width:88%}
+.card h4{font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{white-space:nowrap;height:26px;padding:0 10px;border-radius:999px;font-size:13px;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--bd);background:var(--card);color:var(--t1)}
+.chip.sel{background:var(--p1);border-color:var(--p6);color:var(--p7)} .chip.dg{background:var(--er1);border-color:var(--er);color:var(--er)}
+.ln{font-size:13px;color:var(--t2);line-height:22px;display:flex;align-items:center;gap:6px}
+.cf{white-space:nowrap;flex:none;height:20px;padding:0 8px;border-radius:999px;font-size:11.5px;display:inline-flex;align-items:center}
+.cf.w{background:var(--p1);color:var(--p7)} .cf.s{background:var(--s1);color:var(--s7)} .cf.h{background:var(--wa1);color:var(--wa)} .cf.i{border:1px dashed var(--bd);color:var(--t2)}
+.btn{height:36px;padding:0 16px;border-radius:var(--rs);font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--bd);background:var(--card);color:var(--t1)}
+.btn.pr{background:var(--p6);border-color:var(--p6);color:#fff;font-weight:600} .btn.dg{color:var(--er);border-color:var(--er)}
+.ans{font-size:15px;line-height:24px} .cit{color:var(--p6);font-size:12px;vertical-align:super;padding:0 2px;border-radius:4px;background:var(--p1);margin:0 1px}
+.st{display:inline-flex;height:22px;padding:0 9px;border-radius:999px;font-size:12px;align-items:center;background:var(--er1);color:var(--er)}
+.cmp{background:var(--card);border-top:1px solid var(--dv);padding:10px 12px 12px}
+.seg{display:inline-flex;background:var(--bg);border-radius:999px;padding:3px} .seg span{padding:4px 14px;border-radius:999px;font-size:13px;color:var(--t2)}
+.seg span.on{background:var(--card);color:var(--p6);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.ip{display:flex;gap:8px;margin-top:10px;align-items:center} .ip .box{flex:1;height:42px;border:1px solid var(--bd);border-radius:var(--rm);display:flex;align-items:center;padding:0 12px;font-size:15px;color:var(--t3)}
+.send{width:42px;height:42px;border-radius:999px;background:var(--p6);color:#fff;display:flex;align-items:center;justify-content:center}
+.tab{height:62px;background:var(--card);border-top:1px solid var(--dv);display:flex;justify-content:space-around;align-items:center;padding-bottom:8px}
+.tab div{display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--t2);gap:2px} .tab .on{color:var(--p6);font-weight:600}
+.dim{position:absolute;inset:0;background:rgba(20,22,28,.42)}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:120px;background:var(--card);border-radius:var(--rl) var(--rl) 0 0;padding:10px 18px 0;display:flex;flex-direction:column}
+.hd{width:36px;height:4px;border-radius:999px;background:var(--bd);margin:0 auto 12px}
+.sh-t{font:600 18px var(--fh);margin-bottom:2px} .sh-s{font-size:12px;color:var(--t2);margin-bottom:12px}
+.sec{font-size:12px;color:var(--t2);margin:14px 0 6px;letter-spacing:.5px}
+.it{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--dv);font-size:14.5px;gap:8px}
+.it .r{display:flex;gap:6px;align-items:center;color:var(--t3)}
+.it .d{font-size:12px;color:var(--t2);margin-top:3px}
+.bar{margin-top:auto;display:flex;gap:12px;padding:12px 0 22px;border-top:1px solid var(--dv)} .bar .btn{flex:1;height:44px}
+.ph-h{background:var(--card);padding:6px 18px 16px;border-bottom:1px solid var(--dv)}
+.av{width:56px;height:56px;border-radius:999px;background:var(--s1);color:var(--s7);display:flex;align-items:center;justify-content:center;font:600 22px var(--fh)}
+.nm{font:600 22px var(--fh)} .al{font-size:13px;color:var(--t2);margin-top:2px}
+.rel{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.gr{height:170px;background:var(--card);border:1px solid var(--dv);border-radius:var(--rm);margin:14px 0 0;position:relative}
+.gr .seg{position:absolute;right:10px;bottom:10px;transform:scale(.85);transform-origin:right bottom}
+.sum{background:var(--card);border-radius:var(--rm);padding:12px 14px;font-size:13.5px;line-height:21px;margin-top:12px;border-left:3px solid var(--s6)}
+.pf{background:var(--card);border-radius:var(--rm);margin-top:12px;padding:2px 14px}
+.pf .it:last-child{border-bottom:0} .pf .k{font-size:12.5px;color:var(--t2);width:72px;flex:none} .pf .v{flex:1}
+</style></head>
+<body><h1 class="cap">Weft · 方案一 · 暖纸</h1><p class="cap">高保真示意（按 docs/design/DESIGN.v1-warm.md 的 token 实现：主色 #A84A22 · 辅色 #46705B · 圆角 6/12/20px）</p>
+<div class="row"><div><div class="ph"><div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="nav"><span class="t">Weft</span><span class="a"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>记录</span></div>
+<div class="body">
+<div class="bub">今天和老张、小李吃饭，老张说他迷上钓鱼了，小李说他跳槽去了腾讯</div><div class="meta">记录 · 今天</div>
+<div class="card"><h4><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" fill="currentColor"/></svg>草稿 · 2 个人物 · 3 条信息</h4>
+<div class="chips"><span class="chip sel">老张 → 张伟 <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4L19 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chip dg">小李 → ？需选择</span></div>
+<div class="ln">张伟 · 喜欢钓鱼 <span class="cf s">本人说</span></div>
+<div class="ln" style="color:var(--wa)">小李 · 工作单位 → 腾讯 <span class="cf h">待核实</span></div>
+<div style="margin-top:12px"><span class="btn pr">查看并确认</span></div></div>
+<div class="bub">老张和小李什么关系？</div><div class="meta">提问</div>
+<div class="card"><div class="ans">他们是大学室友<span class="cit">1</span>。据老张说，去年因为借钱的事闹掰了<span class="cit">2</span>，目前关系 <span class="st">紧张</span></div>
+<div class="chips" style="margin:12px 0 0"><span class="chip">张伟 <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chip">李明 <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div></div>
+</div>
+<div class="cmp"><div style="display:flex;align-items:center;gap:8px"><div class="seg"><span class="on">记录</span><span>提问</span></div><span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M4 10h16M9 3.5v4M15 3.5v4" stroke="currentColor" stroke-width="1.7"/></svg>今天</span></div>
+<div class="ip"><div class="box">今天和谁发生了什么？</div><div class="send"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div></div>
+<div class="tab"><div class="on"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>对话</span></div><div class=""><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 19c.8-3.4 3.2-5 6-5s5.2 1.6 6 5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 14c2.4 0 4.2 1.4 5 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span>人物</span></div><div class=""><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c1-4 3.8-6 7-6s6 2 7 6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>我的</span></div></div></div><div class="lbl">① 对话：草稿卡片 + 带出处的回答</div></div><div><div class="ph"><div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="nav"><span class="t">Weft</span><span class="a"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>记录</span></div>
+<div class="body"><div class="bub">今天和老张、小李吃饭，老张说…</div></div>
+<div class="dim"></div>
+<div class="sheet"><div class="hd"></div><div class="sh-t">确认草稿</div><div class="sh-s">今天 · 确认后才会写进图谱</div>
+<div class="sec">涉及的人物</div>
+<div class="it"><div>老张 → 张伟<div class="d">同事 · 已有别名</div></div><span class="chip sel">已匹配</span></div>
+<div class="it" style="display:block"><div style="color:var(--er)">小李 → 选择是谁</div>
+<div class="chips" style="margin:8px 0 0"><span class="chip sel">李明（同学）</span><span class="chip">李华（邻居）</span><span class="chip">＋ 新人物</span></div></div>
+<div class="sec">信息</div>
+<div class="it"><div>张伟 · 喜欢钓鱼</div><div class="r"><span class="cf s">本人说 ▾</span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div></div>
+<div class="it"><div>小李 · 工作单位 腾讯<div class="d">已有：阿里（本人说）· 新信息更低，标为待核实</div></div><div class="r"><span class="cf h">转述 ▾</span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div></div>
+<div class="it"><div>我 → 李明 · 亲密度 亲近</div><div class="r"><span class="cf w">亲历 ▾</span><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div></div>
+<div class="bar"><span class="btn">放弃</span><span class="btn pr">确认入图谱</span></div></div>
+</div><div class="lbl">② 确认草稿（底部抽屉）</div></div><div><div class="ph"><div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+<div class="nav"><span style="color:var(--t1)"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="t"></span><span class="a">编辑</span><span style="color:var(--t2)"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18" cy="12" r="1.6" fill="currentColor"/></svg></span></div>
+<div class="ph-h"><div style="display:flex;gap:14px;align-items:center"><div class="av">张</div><div><div class="nm">张伟</div><div class="al">别名：老张 · 认识 6 年</div></div></div>
+<div class="rel"><span class="chip">社会 · 同事</span><span class="chip" style="background:var(--ok1);border-color:var(--ok1);color:var(--ok)">活跃</span><span class="cf w" style="height:26px">亲近 · 信任高</span></div></div>
+<div class="body" style="padding-top:4px">
+<div class="gr"><svg viewBox="0 0 400 220" width="100%" height="100%"><path d="M200 95 Q 140.0 72.5 80 50" stroke="#E4DDD2" stroke-width="3" fill="none" stroke-dasharray="4 4"/><path d="M200 95 Q 260.0 71.5 320 48" stroke="#E4DDD2" stroke-width="1.6" fill="none" /><path d="M200 95 Q 135.0 122.5 70 150" stroke="#A84A22" stroke-width="3" fill="none" /><path d="M200 95 Q 265.0 122.5 330 150" stroke="#E4DDD2" stroke-width="1.6" fill="none" /><path d="M200 95 Q 200.0 135.0 200 175" stroke="#E4DDD2" stroke-width="1.6" fill="none" /><g><circle cx="200" cy="95" r="22" fill="#FBEEE6" stroke="#A84A22" stroke-width="2.5"/><text x="200" y="100" text-anchor="middle" font-size="13" fill="#8F3F1F">张</text><text x="200" y="133" text-anchor="middle" font-size="11" fill="#6B6257">张伟</text></g><g><circle cx="80" cy="50" r="16" fill="#EAF2EE" stroke="#46705B" stroke-width="1.5"/><text x="80" y="55" text-anchor="middle" font-size="11" fill="#365847">李</text><text x="80" y="81" text-anchor="middle" font-size="11" fill="#6B6257">李明</text></g><g><circle cx="320" cy="48" r="16" fill="#EAF2EE" stroke="#46705B" stroke-width="1.5"/><text x="320" y="53" text-anchor="middle" font-size="11" fill="#365847">王</text><text x="320" y="79" text-anchor="middle" font-size="11" fill="#6B6257">王芳</text></g><g><circle cx="70" cy="150" r="16" fill="#FBEEE6" stroke="#A84A22" stroke-width="1.5"/><text x="70" y="155" text-anchor="middle" font-size="11" fill="#8F3F1F">我</text><text x="70" y="181" text-anchor="middle" font-size="11" fill="#6B6257">我</text></g><g><circle cx="330" cy="150" r="16" fill="#EAF2EE" stroke="#46705B" stroke-width="1.5"/><text x="330" y="155" text-anchor="middle" font-size="11" fill="#365847">陈</text><text x="330" y="181" text-anchor="middle" font-size="11" fill="#6B6257">陈静</text></g><g><circle cx="200" cy="175" r="16" fill="#EAF2EE" stroke="#46705B" stroke-width="1.5"/><text x="200" y="180" text-anchor="middle" font-size="11" fill="#365847">女</text><text x="200" y="206" text-anchor="middle" font-size="11" fill="#6B6257">女儿</text></g></svg><div class="seg"><span class="on">1 层</span><span>2 层</span></div></div>
+<div class="sum">急性子但讲义气的老同事，最近迷上钓鱼，女儿明年高考。<span style="color:var(--t3);font-size:12px"> · 11-16 生成</span></div>
+<div class="pf">
+<div class="it"><span class="k">社会角色</span><span class="v">腾讯 · 2026 至今<div class="d">历史：字节跳动 2023–2026</div></span><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<div class="it"><span class="k">喜好</span><span class="v"><span class="chip">钓鱼</span> <span class="chip">露营</span></span><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+<div class="it"><span class="k">相处之道</span><span class="v">别提他前妻</span><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+</div></div>
+<div class="tab"><div class=""><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>对话</span></div><div class="on"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 19c.8-3.4 3.2-5 6-5s5.2 1.6 6 5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 14c2.4 0 4.2 1.4 5 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span>人物</span></div><div class=""><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c1-4 3.8-6 7-6s6 2 7 6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>我的</span></div></div></div><div class="lbl">③ 人物页：局部关系图 + 综合描述 + 画像</div></div></div></body></html>
