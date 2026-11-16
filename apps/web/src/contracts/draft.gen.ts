@@ -1,6 +1,10 @@
 /* GENERATED from apps/api/contracts/draft.schema.json by scripts/contracts.ts — do not edit; run `pnpm contracts`. */
 
 /**
+ * Stable id of this item, unique within the draft
+ */
+export type Id = string;
+/**
  * How the Entry refers to the person, e.g. 老张
  */
 export type Mention = string;
@@ -10,14 +14,26 @@ export type Mention = string;
  */
 export type PersonMatch = "matched" | "ambiguous" | "new";
 export type PersonId = string | null;
+/**
+ * Display name of the matched person, e.g. 张伟
+ */
+export type Name = string | null;
+/**
+ * Short hint about the matched person, e.g. 同事
+ */
+export type Note = string | null;
 export type Candidates = Candidate[] | null;
 export type PersonId1 = string;
-export type Name = string;
+export type Name1 = string;
 /**
  * Disambiguating hint, e.g. 同事 / 邻居
  */
-export type Note = string | null;
+export type Note1 = string | null;
 export type Persons = DraftPerson[];
+/**
+ * Stable id of this item, unique within the draft
+ */
+export type Id1 = string;
 /**
  * Person mention
  */
@@ -28,6 +44,10 @@ export type Subject = string;
 export type Predicate = string;
 export type Object = string;
 export type ValidAt = string | null;
+/**
+ * End of a time span such as 上周末; not before valid_at
+ */
+export type ValidTo = string | null;
 /**
  * This interface was referenced by `Draft`'s JSON-Schema
  * via the `definition` "Confidence".
@@ -44,10 +64,16 @@ export type Old = string;
 export type ConflictAction = "update" | "unverified";
 export type Facts = DraftFact[];
 /**
+ * Stable id of this item, unique within the draft
+ */
+export type Id2 = string;
+/**
+ * Two person mentions; directional kin types read as pair[0] 是 pair[1] 的 X
+ *
  * @minItems 2
  * @maxItems 2
  */
-export type Pair = [unknown, unknown];
+export type Pair = [string, string];
 /**
  * This interface was referenced by `Draft`'s JSON-Schema
  * via the `definition` "Category".
@@ -75,6 +101,10 @@ export type IntroducedBy = string | null;
 export type RelationshipStatus = "active" | "distant" | "tense" | "estranged";
 export type Relationships = DraftRelationship[];
 /**
+ * Stable id of this item, unique within the draft
+ */
+export type Id3 = string;
+/**
  * Person mention who feels
  */
 export type From = string;
@@ -89,6 +119,10 @@ export type Dimension = "closeness";
  */
 export type ClosenessLevel = "intimate" | "close" | "familiar" | "casual" | "distant";
 /**
+ * Stable id of this item, unique within the draft
+ */
+export type Id4 = string;
+/**
  * Person mention who feels
  */
 export type From1 = string;
@@ -102,6 +136,10 @@ export type Dimension1 = "affinity";
  * via the `definition` "AffinityLevel".
  */
 export type AffinityLevel = "like" | "neutral" | "dislike";
+/**
+ * Stable id of this item, unique within the draft
+ */
+export type Id5 = string;
 /**
  * Person mention who feels
  */
@@ -118,6 +156,10 @@ export type Dimension2 = "trust";
 export type TrustLevel = "high" | "medium" | "low";
 export type Feelings = (ClosenessFeeling | AffinityFeeling | TrustFeeling)[];
 /**
+ * Stable id of this item, unique within the draft
+ */
+export type Id6 = string;
+/**
  * Person mention
  */
 export type Person = string;
@@ -130,20 +172,23 @@ export type Value = string;
 export type Profile = DraftProfileItem[];
 
 export interface Draft {
-  persons?: Persons;
-  facts?: Facts;
-  relationships?: Relationships;
-  feelings?: Feelings;
-  profile?: Profile;
+  persons: Persons;
+  facts: Facts;
+  relationships: Relationships;
+  feelings: Feelings;
+  profile: Profile;
 }
 /**
  * This interface was referenced by `Draft`'s JSON-Schema
  * via the `definition` "DraftPerson".
  */
 export interface DraftPerson {
+  id: Id;
   mention: Mention;
   match: PersonMatch;
   person_id?: PersonId;
+  name?: Name;
+  note?: Note;
   candidates?: Candidates;
 }
 /**
@@ -152,18 +197,20 @@ export interface DraftPerson {
  */
 export interface Candidate {
   person_id: PersonId1;
-  name: Name;
-  note?: Note;
+  name: Name1;
+  note?: Note1;
 }
 /**
  * This interface was referenced by `Draft`'s JSON-Schema
  * via the `definition` "DraftFact".
  */
 export interface DraftFact {
+  id: Id1;
   subject: Subject;
   predicate: Predicate;
   object: Object;
   valid_at?: ValidAt;
+  valid_to?: ValidTo;
   confidence: Confidence;
   conflict?: FactConflict | null;
 }
@@ -180,8 +227,9 @@ export interface FactConflict {
  * via the `definition` "DraftRelationship".
  */
 export interface DraftRelationship {
+  id: Id2;
   pair: Pair;
-  types?: Types;
+  types: Types;
   met_at?: MetAt;
   origin?: Origin;
   introduced_by?: IntroducedBy;
@@ -202,6 +250,7 @@ export interface DraftRelationshipType {
  * via the `definition` "ClosenessFeeling".
  */
 export interface ClosenessFeeling {
+  id: Id3;
   from: From;
   to: To;
   confidence: Confidence;
@@ -213,6 +262,7 @@ export interface ClosenessFeeling {
  * via the `definition` "AffinityFeeling".
  */
 export interface AffinityFeeling {
+  id: Id4;
   from: From1;
   to: To1;
   confidence: Confidence;
@@ -224,6 +274,7 @@ export interface AffinityFeeling {
  * via the `definition` "TrustFeeling".
  */
 export interface TrustFeeling {
+  id: Id5;
   from: From2;
   to: To2;
   confidence: Confidence;
@@ -235,6 +286,7 @@ export interface TrustFeeling {
  * via the `definition` "DraftProfileItem".
  */
 export interface DraftProfileItem {
+  id: Id6;
   person: Person;
   field: ProfileField;
   value: Value;

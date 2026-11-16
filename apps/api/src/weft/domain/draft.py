@@ -3,20 +3,24 @@
 Shape follows the spec (「录入与草稿流程」 step 3)::
 
     Draft {
-      persons:  [{mention, match: matched|ambiguous|new, person_id?, candidates?[]}]
-      facts:    [{subject, predicate, object, valid_at?, confidence, conflict?: {old, action}}]
-      relationships: [{pair, types[], met_at?, origin?, introduced_by?, status?, confidence}]
-      feelings: [{from, to, dimension, level, confidence}]
-      profile:  [{person, field, value, confidence}]
+      persons:  [{id, mention, match, person_id?, name?, note?, candidates?[]}]
+      facts:    [{id, subject, predicate, object, valid_at?, valid_to?, confidence, conflict?}]
+      relationships: [{id, pair, types[], met_at?, origin?, introduced_by?, status?, confidence}]
+      feelings: [{id, from, to, dimension, level, confidence}]
+      profile:  [{id, person, field, value, confidence}]
     }
+
+Every item has an ``id`` that is stable and unique within the draft (补充约定); the web
+app edits and removes items by it. A matched person carries the display ``name`` / ``note``
+of the person it matched (「老张 → 张伟（同事）」), as candidates do.
 
 Person references (fact subject, relationship pair / introducer, feeling from / to,
 profile person) are ``persons[].mention`` strings. Self appears as an ordinary person
 entry matched to the Self person. A fact's ``object`` is free text (an organization,
 interest, event, ...), not necessarily a person.
 
-Deviation from the spec sketch: relationships carry a ``confidence`` because AC-10 requires
-every draft item to show one and AC-28 shows it on third-party relationships.
+Relationships carry a ``confidence`` because AC-10 requires every draft item to show one
+and AC-28 shows it on third-party relationships.
 """
 
 from __future__ import annotations
@@ -27,10 +31,14 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from weft.domain.confidence import Confidence, ConflictAction
+from weft.domain.contract_schema import contract_json_schema
 from weft.domain.dates import PartialDate
 from weft.domain.taxonomy import Category
 
 NonEmpty = Annotated[str, Field(min_length=1)]
+ItemId = Annotated[
+    str, Field(min_length=1, description="Stable id of this item, unique within the draft")
+]
 
 
 class _Model(BaseModel):
@@ -67,15 +75,25 @@ class Candidate(_Model):
 
 
 class DraftPerson(_Model):
+    id: ItemId
     mention: NonEmpty = Field(description="How the Entry refers to the person, e.g. 老张")
     match: PersonMatch
     person_id: str | None = None
+    name: str | None = Field(
+        default=None, description="Display name of the matched person, e.g. 张伟"
+    )
+    note: str | None = Field(
+        default=None, description="Short hint about the matched person, e.g. 同事"
+    )
     candidates: list[Candidate] | None = None
 
     @model_validator(mode="after")
     def _match_state_is_consistent(self) -> Self:
-        if self.match is PersonMatch.MATCHED and not self.person_id:
-            raise ValueError("a matched person needs person_id")
+        if self.match is PersonMatch.MATCHED:
+            if not self.person_id:
+                raise ValueError("a matched person needs person_id")
+            if not self.name:
+                raise ValueError("a matched person needs the display name of whom it matched")
         if self.match is PersonMatch.AMBIGUOUS:
             if not self.candidates:
                 raise ValueError("an ambiguous person needs candidates")
@@ -95,12 +113,26 @@ class FactConflict(_Model):
 
 
 class DraftFact(_Model):
+    id: ItemId
     subject: NonEmpty = Field(description="Person mention")
     predicate: NonEmpty = Field(description="e.g. WORKS_AT, LIKES, HAS_TRAIT, EXPERIENCED")
     object: NonEmpty
     valid_at: PartialDate | None = None
+    valid_to: PartialDate | None = Field(
+        default=None, description="End of a time span such as 上周末; not before valid_at"
+    )
     confidence: Confidence
     conflict: FactConflict | None = None
+
+    @model_validator(mode="after")
+    def _span_is_ordered(self) -> Self:
+        if (
+            self.valid_at is not None
+            and self.valid_to is not None
+            and self.valid_to.last_day() < self.valid_at.first_day()
+        ):
+            raise ValueError("valid_to must not be earlier than valid_at")
+        return self
 
 
 # --- relationships ---------------------------------------------------------
@@ -120,7 +152,10 @@ class DraftRelationshipType(_Model):
 
 
 class DraftRelationship(_Model):
-    pair: tuple[NonEmpty, NonEmpty]
+    id: ItemId
+    pair: tuple[NonEmpty, NonEmpty] = Field(
+        description="Two person mentions; directional kin types read as pair[0] 是 pair[1] 的 X"
+    )
     types: list[DraftRelationshipType] = Field(default_factory=list)
     met_at: PartialDate | None = None
     origin: str | None = Field(default=None, description="How they met (认识途径)")
@@ -173,6 +208,7 @@ FEELING_DIMENSION_LABELS = {"closeness": "亲密度", "affinity": "好恶", "tru
 
 
 class _FeelingBase(_Model):
+    id: ItemId
     from_: NonEmpty = Field(alias="from", description="Person mention who feels")
     to: NonEmpty = Field(description="Person mention the feeling is about")
     confidence: Confidence
@@ -221,6 +257,7 @@ class ProfileField(StrEnum):
 
 
 class DraftProfileItem(_Model):
+    id: ItemId
     person: NonEmpty = Field(description="Person mention")
     field: ProfileField
     value: NonEmpty
@@ -246,6 +283,16 @@ class Draft(_Model):
     profile: list[DraftProfileItem] = Field(default_factory=list)
 
     @model_validator(mode="after")
+    def _ids_are_unique(self) -> Self:
+        seen: set[str] = set()
+        dupes: set[str] = set()
+        for item_id in self.item_ids():
+            (dupes if item_id in seen else seen).add(item_id)
+        if dupes:
+            raise ValueError(f"item ids must be unique within a draft: {', '.join(sorted(dupes))}")
+        return self
+
+    @model_validator(mode="after")
     def _references_resolve(self) -> Self:
         mentions = [p.mention for p in self.persons]
         if len(mentions) != len(set(mentions)):
@@ -264,6 +311,17 @@ class Draft(_Model):
             raise ValueError(f"unknown person mentions: {', '.join(missing)}")
         return self
 
+    def item_ids(self) -> list[str]:
+        """Ids of every item, in section order (persons, facts, relationships, ...)."""
+        sections: list[list[Any]] = [
+            list(self.persons),
+            list(self.facts),
+            list(self.relationships),
+            list(self.feelings),
+            list(self.profile),
+        ]
+        return [item.id for section in sections for item in section]
+
     def ambiguous_mentions(self) -> list[str]:
         return [p.mention for p in self.persons if p.match is PersonMatch.AMBIGUOUS]
 
@@ -281,12 +339,20 @@ class Draft(_Model):
                 persons.append(p)
                 continue
             if person_id is None:
-                persons.append(DraftPerson(mention=mention, match=PersonMatch.NEW))
+                persons.append(DraftPerson(id=p.id, mention=mention, match=PersonMatch.NEW))
                 continue
-            if not any(c.person_id == person_id for c in p.candidates or []):
+            chosen = next((c for c in p.candidates or [] if c.person_id == person_id), None)
+            if chosen is None:
                 raise ValueError(f"{person_id!r} is not a candidate for {mention!r}")
             persons.append(
-                DraftPerson(mention=mention, match=PersonMatch.MATCHED, person_id=person_id)
+                DraftPerson(
+                    id=p.id,
+                    mention=mention,
+                    match=PersonMatch.MATCHED,
+                    person_id=person_id,
+                    name=chosen.name,
+                    note=chosen.note,
+                )
             )
         if persons == list(self.persons):
             raise ValueError(f"no person mentioned as {mention!r}")
@@ -295,10 +361,7 @@ class Draft(_Model):
 
 def draft_json_schema() -> dict[str, Any]:
     """JSON Schema of the Draft contract, consumed by the frontend."""
-    schema = Draft.model_json_schema(by_alias=True, mode="serialization")
-    schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["$id"] = "https://weft.local/contracts/draft.schema.json"
-    return schema
+    return contract_json_schema(Draft, "draft.schema.json")
 
 
 __all__ = [

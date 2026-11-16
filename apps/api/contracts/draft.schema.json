@@ -1,8 +1,16 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weft.local/contracts/draft.schema.json",
   "$defs": {
     "AffinityFeeling": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "description": "Stable id of this item, unique within the draft",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "from": {
           "description": "Person mention who feels",
           "minLength": 1,
@@ -28,6 +36,7 @@
         }
       },
       "required": [
+        "id",
         "from",
         "to",
         "confidence",
@@ -94,6 +103,12 @@
     "ClosenessFeeling": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "description": "Stable id of this item, unique within the draft",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "from": {
           "description": "Person mention who feels",
           "minLength": 1,
@@ -119,6 +134,7 @@
         }
       },
       "required": [
+        "id",
         "from",
         "to",
         "confidence",
@@ -160,6 +176,12 @@
     "DraftFact": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "description": "Stable id of this item, unique within the draft",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "subject": {
           "description": "Person mention",
           "minLength": 1,
@@ -196,6 +218,26 @@
           "default": null,
           "title": "Valid At"
         },
+        "valid_to": {
+          "anyOf": [
+            {
+              "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+              "examples": [
+                "2015",
+                "2015-06",
+                "2026-11-16"
+              ],
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "End of a time span such as 上周末; not before valid_at",
+          "title": "Valid To"
+        },
         "confidence": {
           "$ref": "#/$defs/Confidence"
         },
@@ -212,6 +254,7 @@
         }
       },
       "required": [
+        "id",
         "subject",
         "predicate",
         "object",
@@ -223,6 +266,12 @@
     "DraftPerson": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "description": "Stable id of this item, unique within the draft",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "mention": {
           "description": "How the Entry refers to the person, e.g. 老张",
           "minLength": 1,
@@ -244,6 +293,32 @@
           "default": null,
           "title": "Person Id"
         },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Display name of the matched person, e.g. 张伟",
+          "title": "Name"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short hint about the matched person, e.g. 同事",
+          "title": "Note"
+        },
         "candidates": {
           "anyOf": [
             {
@@ -261,6 +336,7 @@
         }
       },
       "required": [
+        "id",
         "mention",
         "match"
       ],
@@ -270,6 +346,12 @@
     "DraftProfileItem": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "description": "Stable id of this item, unique within the draft",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "person": {
           "description": "Person mention",
           "minLength": 1,
@@ -289,6 +371,7 @@
         }
       },
       "required": [
+        "id",
         "person",
         "field",
         "value",
@@ -300,19 +383,20 @@
     "DraftRelationship": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "description": "Stable id of this item, unique within the draft",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "pair": {
+          "description": "Two person mentions; directional kin types read as pair[0] 是 pair[1] 的 X",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
           "maxItems": 2,
           "minItems": 2,
-          "prefixItems": [
-            {
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "minLength": 1,
-              "type": "string"
-            }
-          ],
           "title": "Pair",
           "type": "array"
         },
@@ -384,7 +468,9 @@
         }
       },
       "required": [
+        "id",
         "pair",
+        "types",
         "confidence"
       ],
       "title": "DraftRelationship",
@@ -468,6 +554,12 @@
     "TrustFeeling": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "description": "Stable id of this item, unique within the draft",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
         "from": {
           "description": "Person mention who feels",
           "minLength": 1,
@@ -493,6 +585,7 @@
         }
       },
       "required": [
+        "id",
         "from",
         "to",
         "confidence",
@@ -568,8 +661,13 @@
       "type": "array"
     }
   },
+  "required": [
+    "persons",
+    "facts",
+    "relationships",
+    "feelings",
+    "profile"
+  ],
   "title": "Draft",
-  "type": "object",
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://weft.local/contracts/draft.schema.json"
+  "type": "object"
 }

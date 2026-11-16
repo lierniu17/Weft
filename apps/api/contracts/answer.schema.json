@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weft.local/contracts/answer.schema.json",
+  "$defs": {
+    "AnswerKind": {
+      "enum": [
+        "text",
+        "path",
+        "list",
+        "stat",
+        "no_answer"
+      ],
+      "title": "AnswerKind",
+      "type": "string"
+    },
+    "AnswerListItem": {
+      "additionalProperties": false,
+      "properties": {
+        "person_id": {
+          "minLength": 1,
+          "title": "Person Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "is_self": {
+          "default": false,
+          "description": "本人: rendered as 「我」",
+          "title": "Is Self",
+          "type": "boolean"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. 同学 / 客户",
+          "title": "Subtitle"
+        },
+        "citations": {
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "title": "Citations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "person_id",
+        "name",
+        "citations"
+      ],
+      "title": "AnswerListItem",
+      "type": "object"
+    },
+    "AnswerSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "citations": {
+          "default": [],
+          "description": "Indices of the citations backing this piece of text",
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "title": "Citations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "AnswerSegment",
+      "type": "object"
+    },
+    "AnswerStat": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "persons": {
+          "items": {
+            "$ref": "#/$defs/PersonRef"
+          },
+          "title": "Persons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "count",
+        "persons"
+      ],
+      "title": "AnswerStat",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "minimum": 1,
+          "title": "Index",
+          "type": "integer"
+        },
+        "entry_id": {
+          "minLength": 1,
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "entry_excerpt": {
+          "description": "Quote of the source Entry (记录原文)",
+          "minLength": 1,
+          "title": "Entry Excerpt",
+          "type": "string"
+        },
+        "occurred_on": {
+          "description": "The Entry's 发生日期, with precision",
+          "examples": [
+            "2015",
+            "2015-06",
+            "2026-11-16"
+          ],
+          "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+          "title": "Occurred On",
+          "type": "string"
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "told_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Who said it, for 转述 (「据老张说」)",
+          "title": "Told By"
+        },
+        "pair": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/PersonRef"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The relationship this claim is about, for 「查看…的关系」",
+          "title": "Pair"
+        },
+        "is_opinion": {
+          "default": false,
+          "description": "Quotes 我的评价 (AC-23: 「你的评价」)",
+          "title": "Is Opinion",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "index",
+        "entry_id",
+        "entry_excerpt",
+        "occurred_on",
+        "confidence"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Confidence": {
+      "enum": [
+        "witnessed",
+        "self_told",
+        "hearsay",
+        "inferred"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "PersonRef": {
+      "additionalProperties": false,
+      "properties": {
+        "person_id": {
+          "minLength": 1,
+          "title": "Person Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "is_self": {
+          "default": false,
+          "description": "本人: rendered as 「我」",
+          "title": "Is Self",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "person_id",
+        "name"
+      ],
+      "title": "PersonRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "$ref": "#/$defs/AnswerKind"
+    },
+    "segments": {
+      "items": {
+        "$ref": "#/$defs/AnswerSegment"
+      },
+      "title": "Segments",
+      "type": "array"
+    },
+    "citations": {
+      "items": {
+        "$ref": "#/$defs/Citation"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "persons": {
+      "description": "Related persons, shown as chips",
+      "items": {
+        "$ref": "#/$defs/PersonRef"
+      },
+      "title": "Persons",
+      "type": "array"
+    },
+    "path": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/PersonRef"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "kind = path: ordered chain from the first person to the last",
+      "title": "Path"
+    },
+    "items": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/AnswerListItem"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "kind = list",
+      "title": "Items"
+    },
+    "stat": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnswerStat"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "kind = stat"
+    },
+    "follow_ups": {
+      "description": "追问建议, e.g. 「他俩什么时候认识的？」",
+      "items": {
+        "type": "string"
+      },
+      "title": "Follow Ups",
+      "type": "array"
+    }
+  },
+  "required": [
+    "kind",
+    "segments",
+    "citations",
+    "persons",
+    "follow_ups"
+  ],
+  "title": "Answer",
+  "type": "object"
+}

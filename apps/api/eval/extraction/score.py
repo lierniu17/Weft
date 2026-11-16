@@ -7,12 +7,17 @@ Usage::
 ``predictions.jsonl``: one ``{"id": <sample id>, "draft": <Draft JSON>}`` per line.
 Prints a JSON report; exits 1 when any metric is below its threshold.
 
+Gold labels in samples.jsonl leave out the draft-internal item ``id`` and the display
+``name`` / ``note`` of matched persons; ``gold_draft`` fills them in deterministically, so
+the result validates against contracts/draft.schema.json. Scoring never looks at ids.
+
 Standard library only, so it can be run without the app installed.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sys
 from collections.abc import Iterable, Mapping
@@ -28,6 +33,28 @@ SELF_ID = "self"
 DEFAULT_SAMPLES = Path(__file__).with_name("samples.jsonl")
 
 Item = dict[str, Any]
+
+# Draft section -> id prefix of its items (p1, f1, r1, e1, g1, ...).
+SECTIONS = {"persons": "p", "facts": "f", "relationships": "r", "feelings": "e", "profile": "g"}
+
+
+def gold_draft(sample: Mapping[str, Any]) -> Item:
+    """The sample's gold Draft with item ids and matched persons' display fields filled in.
+
+    Hand-written values win; the sample itself is not modified.
+    """
+    draft: Item = copy.deepcopy(sample["gold"])
+    for section, prefix in SECTIONS.items():
+        for n, item in enumerate(draft.get(section) or [], start=1):
+            item.setdefault("id", f"{prefix}{n}")
+    context = {p["id"]: p for p in sample.get("graph_context", {}).get("persons", [])}
+    for person in draft.get("persons") or []:
+        known = context.get(person.get("person_id")) if person.get("match") == "matched" else None
+        if known is not None:
+            person.setdefault("name", known["name"])
+            if known.get("note"):
+                person.setdefault("note", known["note"])
+    return draft
 
 
 def _persons(draft: Mapping[str, Any]) -> set[tuple[str, str, str | None]]:

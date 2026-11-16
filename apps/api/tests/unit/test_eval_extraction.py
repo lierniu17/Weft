@@ -61,13 +61,15 @@ def test_sample_gold_is_a_valid_draft(sample: dict[str, Any]) -> None:
     assert occurred.precision.value == sample["precision"]
     occurred.ensure_not_future(today=TODAY)
 
-    gold = Draft.model_validate(sample["gold"])
+    gold = Draft.model_validate(score.gold_draft(sample))
     context_ids = {p["id"] for p in sample["graph_context"]["persons"]}
     assert "self" in context_ids
 
+    context_names = {p["id"]: p["name"] for p in sample["graph_context"]["persons"]}
     for person in gold.persons:
         if person.match is PersonMatch.MATCHED:
             assert person.person_id in context_ids
+            assert person.name == context_names[person.person_id]
         for candidate in person.candidates or []:
             assert candidate.person_id in context_ids
 
@@ -76,7 +78,8 @@ def test_sample_gold_is_a_valid_draft(sample: dict[str, Any]) -> None:
             assert BUILTIN.contains(t.category, t.subtype), (t.category, t.subtype)
 
     # AC-8: never more precise than the Entry
-    for value in [f.valid_at for f in gold.facts] + [r.met_at for r in gold.relationships]:
+    dates = [f.valid_at for f in gold.facts] + [f.valid_to for f in gold.facts]
+    for value in dates + [r.met_at for r in gold.relationships]:
         if value is not None:
             assert value.precision.level <= occurred.precision.level
 
@@ -87,6 +90,35 @@ def test_sample_gold_is_a_valid_draft(sample: dict[str, Any]) -> None:
         if fact.conflict is not None:
             expected = resolve_conflict(old=old_conf[fact.conflict.old], new=fact.confidence)
             assert fact.conflict.action is expected
+
+
+def test_gold_ids_are_generated_deterministically_and_unique() -> None:
+    sample = next(s for s in _samples() if s["gold"].get("relationships"))
+    first, again = score.gold_draft(sample), score.gold_draft(sample)
+    assert first == again
+    ids = [item["id"] for kind in score.SECTIONS for item in first.get(kind) or []]
+    assert len(ids) == len(set(ids)) > 0
+    assert first["persons"][0]["id"] == "p1"
+    assert "id" not in sample["gold"]["persons"][0], "the loader must not mutate the sample"
+
+
+def test_gold_draft_keeps_hand_written_ids_and_names() -> None:
+    sample = {
+        "graph_context": {"persons": [{"id": "p-zw", "name": "张伟"}]},
+        "gold": {
+            "persons": [
+                {
+                    "id": "x",
+                    "mention": "老张",
+                    "match": "matched",
+                    "person_id": "p-zw",
+                    "name": "老张本名",
+                }
+            ]
+        },
+    }
+    person = score.gold_draft(sample)["persons"][0]
+    assert (person["id"], person["name"]) == ("x", "老张本名")
 
 
 def test_conflict_category_covers_both_update_and_unverified() -> None:

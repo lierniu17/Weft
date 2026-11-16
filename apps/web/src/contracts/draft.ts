@@ -1,17 +1,11 @@
 /**
  * 草稿 (Draft) as the web app consumes it.
  *
- * The machine-readable contract is apps/api/contracts/draft.schema.json; `draft.gen.ts` is
- * generated from it (`pnpm contracts`, freshness checked by scripts/contracts.test.ts).
- * This file only layers on what the spec's 补充约定 promises but the schema does not carry yet:
+ * The contract is owned by the API: apps/api/contracts/draft.schema.json, projected into
+ * `draft.gen.ts` (`pnpm contracts`, freshness checked by scripts/contracts.test.ts). This
+ * module only re-exports the generated types under stable names and adds UI-side helpers.
  *
- *   - every item has a stable `id` within the draft; edits and removals are keyed by it;
- *   - facts may carry `valid_to` (a date range such as 「上周末」);
- *   - a relationship `pair` is two person mentions (the generator cannot express prefixItems);
- *   - a matched person may carry the display `name` / `note` of the person it matched
- *     (「老张 → 张伟（同事）」) — the draft detail endpoint is expected to fill these in.
- *
- * When the schema gains these fields the intersections below become no-ops.
+ * Every item has a stable `id` within the draft; edits and removals are keyed by it.
  * Person references inside items (fact.subject, pair, feeling.from/to, profile.person) are
  * `persons[].mention` strings; 本人 appears as a person with `person_id = "self"`.
  */
@@ -24,6 +18,12 @@ export type {
   ClosenessLevel,
   Confidence,
   ConflictAction,
+  Draft,
+  DraftFact,
+  DraftPerson,
+  DraftProfileItem,
+  DraftRelationship,
+  DraftRelationshipType,
   PersonMatch,
   ProfileField,
   RelationshipStatus,
@@ -36,40 +36,12 @@ export type DraftStatus = "extracting" | "pending" | "failed" | "confirmed" | "d
 /** 本人's person_id inside a draft. */
 export const SELF_ID = "self";
 
-type Keyed<T> = T & { id: string };
-
-export type DraftPerson = Keyed<Gen.DraftPerson> & {
-  name?: string | null;
-  note?: string | null;
-};
-
-export type DraftFact = Keyed<Gen.DraftFact> & { valid_to?: string | null };
-
-export type DraftRelationshipType = Gen.DraftRelationshipType;
-
-export type DraftRelationship = Keyed<Omit<Gen.DraftRelationship, "pair">> & {
-  pair: [string, string];
-};
-
-export type DraftFeeling =
-  | Keyed<Gen.ClosenessFeeling>
-  | Keyed<Gen.AffinityFeeling>
-  | Keyed<Gen.TrustFeeling>;
+export type DraftFeeling = Gen.ClosenessFeeling | Gen.AffinityFeeling | Gen.TrustFeeling;
 
 export type FeelingDimension = DraftFeeling["dimension"];
 
-export type DraftProfileItem = Keyed<Gen.DraftProfileItem>;
-
-export type Draft = {
-  persons: DraftPerson[];
-  facts: DraftFact[];
-  relationships: DraftRelationship[];
-  feelings: DraftFeeling[];
-  profile: DraftProfileItem[];
-};
-
 /** Any keyed item except persons: what the review sheet lists as 「信息」. */
-export type DraftItem = DraftFact | DraftRelationship | DraftFeeling | DraftProfileItem;
+export type DraftItem = Gen.DraftFact | Gen.DraftRelationship | DraftFeeling | Gen.DraftProfileItem;
 
 /** How the user resolves a 需选择 person: an existing candidate, or a new person. */
 export type PersonChoice = { person_id: string } | "new";

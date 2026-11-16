@@ -44,7 +44,7 @@ Field notes:
   - Feed it to the extraction pipeline as pre-seeded Persons (with Aliases) and Facts.
   - The Self person always has id `self`.
   - 同名 and 冲突 samples rely on it.
-- **`gold`.** A valid `Draft` (`weft.domain.draft.Draft`), in the same shape the pipeline produces.
+- **`gold`.** A `Draft` (`weft.domain.draft.Draft`) without the draft-internal item `id`s and without the display `name` / `note` of matched persons; `score.gold_draft(sample)` fills those in deterministically (`p1`, `f1`, `r1`, `e1`, `g1`, ...; names from `graph_context`), and the result must validate. Scoring ignores ids.
   - `persons` gives each mention's expected match: `matched` + `person_id`, `ambiguous` + `candidates`, or `new`.
   - `relationships[].types` gives category, subtype and the original wording.
   - `facts`, `feelings` and `profile` each carry a Confidence.
