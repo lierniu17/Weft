@@ -59,11 +59,24 @@ test("BOT-13 放弃草稿、自定义小类与不对称感受", { tag: "@llm" },
 
   // 4. 在草稿里把本人与小李的关系类型选为“球友”，确认。
   await card.getByRole("button", { name: "查看并确认" }).click();
-  await sheet.getByRole("button", { name: /修改关系类型/ }).click();
-  const option = sheet.getByRole("button", { name: "球友（自定义）" });
-  await expect(option).toBeVisible();
-  await option.click();
-  await expect(sheet.locator("[data-relationship-type]")).toContainText("社会 · 球友");
+  await expect(sheet.getByRole("button", { name: /修改关系类型/ }).first()).toBeVisible();
+  // A real model may already classify the pair as the new custom subtype (AC-32: custom
+  // subtypes take part in extraction). Then there is nothing to change; otherwise the user
+  // picks 球友 for the first relationship type, as the spec's step describes.
+  const alreadyBall = sheet.getByRole("button", { name: "修改关系类型「社会 · 球友」" });
+  if ((await alreadyBall.count()) === 0) {
+    await sheet
+      .getByRole("button", { name: /修改关系类型/ })
+      .first()
+      .click();
+    const option = sheet.getByRole("button", { name: "球友（自定义）" });
+    await expect(option).toBeVisible();
+    await option.click();
+  }
+  await expect(sheet.locator("[data-relationship-type]").first()).toBeVisible();
+  await expect(
+    sheet.locator("[data-relationship-type]").filter({ hasText: "社会 · 球友" }),
+  ).toHaveCount(1);
   await shot(page, "BOT-13-step4-draft");
   await sheet.getByRole("button", { name: "确认入图谱" }).click();
   await expect(card.getByRole("status")).toHaveText(/已入图谱/);
