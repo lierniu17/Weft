@@ -68,15 +68,15 @@ class Trait(BaseModel):
 
 
 class Interest(BaseModel):
-    """喜好或厌恶的对象：活动、食物、事物（如“钓鱼”“喝酒”“露营”“辣”）。"""
+    """喜好或厌恶的对象：这个人自己喜欢、讨厌、爱做或不做的活动、食物、事物和习惯（如“钓鱼”“喝酒”“露营”“辣”“甜食”“被人打断”）。"""
 
 
 class LifeEvent(BaseModel):
-    """生活事件（如“升职”“结婚”“女儿高考”“跳槽”）。"""
+    """生活事件（如“升职”“结婚”“高考”“跳槽”）。"""
 
 
 class Etiquette(BaseModel):
-    """相处之道：和这个人相处时要注意的事（如“不要提他前妻”“不吃辣”）。"""
+    """相处之道：给别人的建议——和这个人打交道时该怎么做、要避开什么（如“别在他面前提前妻”“找他办事要提前约”“他喝多了别劝”）。他本人的喜好、厌恶和习惯不是相处之道，是喜好或厌恶的对象。"""
 
 
 ENTITY_TYPES: dict[str, type[BaseModel]] = {
@@ -113,7 +113,7 @@ class Likes(BaseModel):
 
 
 class Dislikes(BaseModel):
-    """人物不喜欢、不吃或不做某事。"""
+    """人物自己不喜欢、讨厌、不吃或不做某事（他本人的习惯或口味）。"""
 
 
 class Experienced(BaseModel):
@@ -121,7 +121,7 @@ class Experienced(BaseModel):
 
 
 class HasEtiquette(BaseModel):
-    """和人物相处时要注意的事。"""
+    """别人和这个人打交道时该怎么做或要避开什么（给别人的建议，不是他本人的喜好）。"""
 
 
 EDGE_TYPES: dict[str, type[BaseModel]] = {
@@ -286,6 +286,15 @@ ENRICH_SYSTEM = """你是 Weft 的信息整理助手。用户（“我”）写�
   每一项都必须带 confidence。
 - profile：人物的身份信息，每一项都必须带 person（人物叫法）、field、value、confidence；
   field 取 name / gender / birthday / hometown。
+
+事实的类别（predicate），容易混的是 喜好与厌恶 和 相处之道：
+- LIKES / DISLIKES（画像里的“喜好与厌恶”）：这个人自己的喜好、厌恶、口味和习惯，
+  说的是他本人怎样。例：“他爱吃甜食” → LIKES 甜食；“她从不碰咖啡” → DISLIKES 咖啡；
+  “他最讨厌开会时被人打断” → DISLIKES 被人打断。不做、不吃的事也是 DISLIKES。
+- HAS_ETIQUETTE（画像里的“相处之道”）：给别人的建议——和他打交道时该怎么做、要避开什么，
+  说的是别人应该怎样。例：“别在他面前提他前妻”“找他办事要提前约”“他喝多了别劝”。
+- 记录只说了他本人的喜好或习惯、没有说别人该怎么做时，用 LIKES / DISLIKES，
+  不要改写成相处之道。
 
 人物叫法：
 - 输入里的 persons 是初步结果，可能漏人或叫法不合规则；输出时以下面的规则为准，

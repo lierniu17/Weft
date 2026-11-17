@@ -20,6 +20,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # --- deployment -------------------------------------------------------
+    # Baked into the image at build time (git short SHA); reported by /api/health.
+    # Empty means "not a built image": /api/health then reports the package version.
+    app_version: str = ""
+
     # --- databases --------------------------------------------------------
     database_url: str = "postgresql+asyncpg://weft:weft@localhost:5432/weft"
     neo4j_uri: str = "bolt://localhost:7687"

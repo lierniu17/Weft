@@ -3,7 +3,17 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { type APIRequestContext, expect, type Page } from "@playwright/test";
-import { ROOT, SCREENSHOTS, STATE_DIR, serverEnv, TODAY, uvArgs } from "./env.ts";
+import {
+  LLM_WAIT,
+  REMOTE,
+  ROOT,
+  remoteCli,
+  SCREENSHOTS,
+  STATE_DIR,
+  serverEnv,
+  TODAY,
+  uvArgs,
+} from "./env.ts";
 
 let userSeq = 0;
 
@@ -23,9 +33,24 @@ export function uniqueLogin(prefix: string): string {
 
 export const PASSWORD = "weft-e2e-pass";
 
-/** Pins the browser clock to the e2e day (time keeps running from 10:00). */
+/**
+ * Pins the browser clock to the e2e day (time keeps running from 10:00). Remote runs keep
+ * the real clock: the deployed API is not pinned, and the two must agree on "today".
+ */
 export async function pinClock(page: Page) {
-  await page.clock.install({ time: TODAY });
+  if (!REMOTE) await page.clock.install({ time: TODAY });
+}
+
+/** TODAY in Beijing, moved by whole days: { y, m, d } (m is 1-based). */
+export function beijingDay(shiftDays = 0) {
+  const t = new Date(TODAY.getTime() + 8 * 3_600_000 + shiftDays * 86_400_000);
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
+}
+
+/** The month before TODAY's (Beijing): { y, m }. */
+export function lastMonth() {
+  const { y, m } = beijingDay();
+  return m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 };
 }
 
 export async function shot(page: Page, name: string) {
@@ -67,7 +92,7 @@ export async function waitDraft(api: APIRequestContext, id: string, status = "pe
         draft = (await (await api.get(`/api/drafts/${id}`)).json()) as DraftOut;
         return draft.status;
       },
-      { timeout: 60_000 },
+      { timeout: LLM_WAIT },
     )
     .toBe(status);
   return draft as DraftOut;
@@ -114,7 +139,13 @@ export async function personId(page: Page, name: string): Promise<string> {
   return p.id;
 }
 
+/** Writes the seed graph into LOGIN's graph (remote: the admin CLI inside the environment). */
 export function seedGraph(login: string) {
+  if (REMOTE) {
+    const [cmd, args] = remoteCli("seed", "--user", login);
+    execFileSync(cmd, args, { cwd: ROOT, stdio: "pipe" });
+    return;
+  }
   execFileSync("uv", uvArgs("seed", login), { cwd: ROOT, env: serverEnv(), stdio: "pipe" });
 }
 
@@ -145,4 +176,13 @@ export function draftCardOf(page: Page, text: string) {
     .locator("[data-entry-thread]")
     .filter({ hasText: text })
     .getByRole("region", { name: "草稿" });
+}
+
+/**
+ * An expectation on model output: exact against the replayed fixtures (local), tolerant
+ * of wording against real models (remote, stage). Only for wording the spec leaves open
+ * (阿里 vs 阿里巴巴); never to hide a behaviour difference.
+ */
+export function replayedOr<T>(replayed: T, realModel: T): T {
+  return REMOTE ? realModel : replayed;
 }

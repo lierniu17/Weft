@@ -19,6 +19,7 @@ from tests.support.graph import (
     Seed,
     count_group_nodes,
     facts_by_predicate,
+    pair_of,
     persons_of,
     profile_of,
     seed,
@@ -63,15 +64,20 @@ async def test_extraction_turns_the_draft_pending_with_every_item_rated(
 
     assert draft.status is DraftStatus.PENDING
     assert draft.content is not None
-    [laozhang] = draft.content.persons
-    assert (laozhang.mention, laozhang.match) == ("老张", PersonMatch.NEW)
+    assert [(p.mention, p.match) for p in draft.content.persons] == [
+        ("老张", PersonMatch.NEW),
+        ("老张的女儿", PersonMatch.NEW),  # a 称谓人物 (Descriptor Person)
+    ]
     facts = by_object(draft.content)
-    assert {o: (f.predicate, f.confidence) for o, f in facts.items()} == {
-        "女儿高考": ("EXPERIENCED", Confidence.SELF_TOLD),
-        "钓鱼": ("LIKES", Confidence.SELF_TOLD),
-        "喝酒": ("DISLIKES", Confidence.SELF_TOLD),
+    assert {o: (f.subject, f.predicate, f.confidence) for o, f in facts.items()} == {
+        "明年高考": ("老张的女儿", "EXPERIENCED", Confidence.SELF_TOLD),
+        "钓鱼": ("老张", "LIKES", Confidence.SELF_TOLD),
+        "喝酒": ("老张", "DISLIKES", Confidence.SELF_TOLD),
     }
-    assert facts["女儿高考"].valid_at == PartialDate(2027)
+    assert facts["明年高考"].valid_at == PartialDate(2027)
+    [kin] = draft.content.relationships
+    assert (kin.pair, [t.subtype for t in kin.types]) == (("老张", "老张的女儿"), ["父母"])
+    assert all(r.confidence for r in draft.content.relationships)
 
 
 async def test_nothing_from_a_draft_is_in_the_graph_before_confirmation(
@@ -96,7 +102,7 @@ async def test_confirmation_writes_the_edited_items_and_skips_removed_ones(
     draft = await sc.extracted(infra, user, sc.DINNER)
 
     def change(d: dict[str, Any]) -> None:
-        d["facts"] = [f for f in d["facts"] if f["object"] != "女儿高考"]
+        d["facts"] = [f for f in d["facts"] if f["object"] != "明年高考"]
         for f in d["facts"]:
             if f["object"] == "钓鱼":
                 f["confidence"] = "witnessed"
@@ -112,6 +118,55 @@ async def test_confirmation_writes_the_edited_items_and_skips_removed_ones(
     assert [(f.object, f.confidence) for f in dislikes] == [("喝酒", Confidence.SELF_TOLD)]
     assert facts_by_predicate(profile, "EXPERIENCED") == []
     assert likes[0].sources == (str(draft.entry_id),)
+
+
+async def test_a_descriptor_person_whose_items_were_all_removed_is_not_written(
+    infra: Infra, llm: LLMScript
+) -> None:
+    """BOT-2: deleting 老张的女儿's only fact and her relationship leaves no trace of her."""
+    sc.dinner_with_laozhang(llm)
+    user = await new_user(infra)
+    draft = await sc.extracted(infra, user, sc.DINNER)
+    assert draft.content is not None
+    assert [(p.mention, p.match) for p in draft.content.persons] == [
+        ("老张", PersonMatch.NEW),
+        ("老张的女儿", PersonMatch.NEW),
+    ]
+    assert [r.pair for r in draft.content.relationships] == [("老张", "老张的女儿")]
+
+    def change(d: dict[str, Any]) -> None:
+        d["facts"] = [f for f in d["facts"] if f["subject"] != "老张的女儿"]
+        d["relationships"] = []
+
+    with tenant_scope(user.tenant):
+        updated = await drafts.update_draft(infra, draft.id, edited(draft.content, change))
+        assert isinstance(updated, Ok)
+    await sc.confirmed(infra, user, draft.id)
+
+    assert sorted(p.name for p in await persons_of(infra, user)) == ["小明", "老张"]
+    profile = await profile_of(infra, user, "老张")
+    assert sorted(f.object for f in profile.facts) == ["喝酒", "钓鱼"]
+
+
+async def test_a_descriptor_person_with_remaining_items_is_written(
+    infra: Infra, llm: LLMScript
+) -> None:
+    sc.dinner_with_laozhang(llm)
+    user = await new_user(infra)
+    draft = await sc.extracted(infra, user, sc.DINNER)
+
+    def change(d: dict[str, Any]) -> None:
+        d["facts"] = [f for f in d["facts"] if f["subject"] != "老张的女儿"]
+
+    with tenant_scope(user.tenant):
+        updated = await drafts.update_draft(infra, draft.id, edited(draft.content, change))
+        assert isinstance(updated, Ok)
+    await sc.confirmed(infra, user, draft.id)
+
+    assert sorted(p.name for p in await persons_of(infra, user)) == ["小明", "老张", "老张的女儿"]
+    pair = await pair_of(infra, user, "老张", "老张的女儿")
+    assert pair.relationship is not None
+    assert [t.subtype for t in pair.relationship.types] == ["父母"]
 
 
 async def test_an_edited_relationship_type_must_be_in_the_users_vocabulary(
@@ -541,7 +596,7 @@ async def test_confirming_the_same_draft_twice_writes_once(infra: Infra, llm: LL
     first = await sc.confirmed(infra, user, draft.id)
     again = await sc.confirmed(infra, user, draft.id)
     assert first.status is again.status is DraftStatus.CONFIRMED
-    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 3, 1)
+    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 2, 1)
 
 
 async def test_concurrent_confirmations_write_once(infra: Infra, llm: LLMScript) -> None:
@@ -555,7 +610,7 @@ async def test_concurrent_confirmations_write_once(infra: Infra, llm: LLMScript)
 
     results = await asyncio.gather(*(confirm() for _ in range(4)))
     assert all(isinstance(r, Ok) for r in results)
-    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 3, 1)
+    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 2, 1)
 
 
 async def test_a_graph_write_failing_half_way_keeps_the_draft_pending_and_retryable(
@@ -579,7 +634,7 @@ async def test_a_graph_write_failing_half_way_keeps_the_draft_pending_and_retrya
 
     infra.graph_fault_hook = None
     await sc.confirmed(infra, user, draft.id)
-    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 3, 1)
+    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 2, 1)
 
 
 async def test_graph_written_but_draft_left_pending_reconfirms_without_duplicates(
@@ -597,7 +652,7 @@ async def test_graph_written_but_draft_left_pending_reconfirms_without_duplicate
 
     again = await sc.confirmed(infra, user, draft.id)
     assert again.status is DraftStatus.CONFIRMED
-    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 3, 1)
+    assert await _laozhang_counts(infra, user.tenant.group_id) == (1, 2, 1)
 
 
 async def test_unknown_draft_is_not_found(infra: Infra) -> None:

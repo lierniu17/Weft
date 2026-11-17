@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { personId, pinClock, recordConfirmed, registerUser, shot } from "./support/bot.ts";
 
 /** BOT-6 〔AC-26〕 edit the profile in place; the change cites a 手动编辑记录. */
-test("BOT-6 就地编辑画像与手动编辑记录", async ({ page }) => {
+test("BOT-6 就地编辑画像与手动编辑记录", { tag: "@llm" }, async ({ page }) => {
   await pinClock(page);
   await registerUser(page);
   // 前置：老张的画像里有性格标签“急性子”，没有生日。

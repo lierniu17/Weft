@@ -7,9 +7,10 @@ import {
   shot,
   submitRecord,
 } from "./support/bot.ts";
+import { LLM_WAIT } from "./support/env.ts";
 
 /** BOT-3 〔AC-12, AC-13, AC-20〕 需选择 → choose 张伟 → 老张 is learned as an alias. */
-test("BOT-3 需选择候选人与别名", async ({ page }) => {
+test("BOT-3 需选择候选人与别名", { tag: "@llm" }, async ({ page }) => {
   await pinClock(page);
   await registerUser(page);
   // 前置：图谱里已有“张伟（同事）”和“张强（邻居）”。
@@ -20,7 +21,7 @@ test("BOT-3 需选择候选人与别名", async ({ page }) => {
   // 1. 写记录“老张今天升职了”，提交。
   await submitRecord(page, "老张今天升职了");
   const card = draftCardOf(page, "老张今天升职了");
-  await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: 60_000 });
+  await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   await expect(card).toContainText("老张 → ？需选择");
 
   // 2. 在草稿里看到老张为需选择，先不选，尝试确认。
@@ -49,7 +50,7 @@ test("BOT-3 需选择候选人与别名", async ({ page }) => {
   // 4. 再写一条记录“老张请大家喝奶茶”，提交。
   await submitRecord(page, "老张请大家喝奶茶");
   const second = draftCardOf(page, "老张请大家喝奶茶");
-  await expect(second.getByRole("status")).toHaveText(/草稿/, { timeout: 60_000 });
+  await expect(second.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   await expect(second).toContainText("老张 → 张伟");
   await second.getByRole("button", { name: "查看并确认" }).click();
   await expect(

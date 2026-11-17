@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { personId, pinClock, recordConfirmed, registerUser, shot } from "./support/bot.ts";
 
 /** BOT-7 〔AC-27〕 delete a person: impact count, Entries kept, others untouched, 本人 safe. */
-test("BOT-7 删除人物", async ({ page }) => {
+test("BOT-7 删除人物", { tag: "@llm" }, async ({ page }) => {
   await pinClock(page);
   const me = await registerUser(page);
   // 前置：有 3 条记录提到老张，其中一条同时提到小李升职。

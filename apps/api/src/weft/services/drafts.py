@@ -416,8 +416,13 @@ async def _plan(
         )
     )
 
+    referenced = _referenced_mentions(content)
     for p in content.persons:
         if p.match is PersonMatch.NEW:
+            if p.mention not in referenced:
+                # every item about this new person was removed in review (e.g. 老张的女儿 in
+                # BOT-2): nothing left to say about them, so they are not created at all
+                continue
             pid = str(uuid.uuid4())
             write.persons.append(NewPerson(id=pid, name=p.mention))
             ids[p.mention] = pid
@@ -470,6 +475,23 @@ async def _plan(
             )
         )
     return write
+
+
+def _referenced_mentions(content: Draft) -> set[str]:
+    """Every mention some remaining item of the Draft is about (or points to)."""
+    referenced: set[str] = set()
+    for f in content.facts:
+        referenced.add(f.subject)
+        if f.predicate.strip().upper() not in PREDICATE_TARGETS:
+            referenced.add(f.object)  # a fact whose object is another person
+    for r in content.relationships:
+        referenced.update(r.pair)
+        if r.introduced_by:
+            referenced.add(r.introduced_by)
+    for fe in content.feelings:
+        referenced.update((fe.from_, fe.to))
+    referenced.update(item.person for item in content.profile)
+    return referenced
 
 
 def _plan_fact(

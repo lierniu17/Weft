@@ -37,7 +37,7 @@ async def test_submitting_returns_an_extracting_draft_that_becomes_pending(
 
     draft = (await user.client.get(f"/api/drafts/{submitted['draft']['id']}")).json()
     assert draft["status"] == "pending"
-    assert [p["mention"] for p in draft["content"]["persons"]] == ["老张"]
+    assert [p["mention"] for p in draft["content"]["persons"]] == ["老张", "老张的女儿"]
     assert all(f["confidence"] for f in draft["content"]["facts"])
 
 
@@ -89,7 +89,9 @@ async def test_edit_then_confirm_twice_is_idempotent(register: Register, llm: LL
     draft_id = (await submit(user, sc.DINNER))["draft"]["id"]
     draft = (await user.client.get(f"/api/drafts/{draft_id}")).json()
     content = draft["content"]
-    content["facts"] = [f for f in content["facts"] if f["object"] != "女儿高考"]
+    # BOT-2: delete 老张的女儿's only fact and her relationship -> she is not created
+    content["facts"] = [f for f in content["facts"] if f["object"] != "明年高考"]
+    content["relationships"] = []
 
     put = await user.client.put(f"/api/drafts/{draft_id}", json={"content": content})
     assert put.status_code == 200

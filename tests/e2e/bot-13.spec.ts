@@ -1,23 +1,27 @@
 import { expect, test } from "@playwright/test";
 import {
   draftCardOf,
+  lastMonth,
   personId,
   pinClock,
   recordConfirmed,
   registerUser,
+  replayedOr,
   shot,
   submitRecord,
 } from "./support/bot.ts";
+import { LLM_WAIT } from "./support/env.ts";
 
 const BALL = "周末和小李打球，感觉他最近对我挺冷淡的，我倒还是把他当好兄弟";
 
 /** BOT-13 〔AC-17, AC-30, AC-32〕 discard a draft, add 球友, an asymmetric feeling. */
-test("BOT-13 放弃草稿、自定义小类与不对称感受", async ({ page }) => {
+test("BOT-13 放弃草稿、自定义小类与不对称感受", { tag: "@llm" }, async ({ page }) => {
   await pinClock(page);
   const me = await registerUser(page);
   // 前置：图谱里已有小李；本人对小李的亲密度为“亲近”（上个月记录）。
+  const { y, m } = lastMonth(); // local: 2026-10-20
   await recordConfirmed(page, "上个月和小李吃饭聊到很晚，我们挺亲近的。", {
-    occurredOn: "2026-10-20",
+    occurredOn: `${y}-${String(m).padStart(2, "0")}-20`,
   });
   const xiaoli = await personId(page, "小李");
   const graphBefore = await (await page.request.get("/api/graph")).json();
@@ -26,7 +30,7 @@ test("BOT-13 放弃草稿、自定义小类与不对称感受", async ({ page })
   // 1. 写一条随便的记录并提交，在草稿页点放弃并确认。
   await submitRecord(page, "随便写的一句话");
   const casual = draftCardOf(page, "随便写的一句话");
-  await expect(casual.getByRole("status")).toHaveText(/草稿/, { timeout: 60_000 });
+  await expect(casual.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   await casual.getByRole("button", { name: "查看并确认" }).click();
   const sheet = page.getByRole("dialog", { name: "确认草稿" });
   await sheet.getByRole("button", { name: "放弃" }).click();
@@ -51,7 +55,7 @@ test("BOT-13 放弃草稿、自定义小类与不对称感受", async ({ page })
   await page.goto("/");
   await submitRecord(page, BALL);
   const card = draftCardOf(page, BALL);
-  await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: 60_000 });
+  await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
 
   // 4. 在草稿里把本人与小李的关系类型选为“球友”，确认。
   await card.getByRole("button", { name: "查看并确认" }).click();
@@ -75,7 +79,10 @@ test("BOT-13 放弃草稿、自定义小类与不对称感受", async ({ page })
   await theirs.getByRole("button", { name: "历史" }).click();
   const history = theirs.getByRole("list", { name: "小李 → 我 的感受变化" });
   await expect(history).toContainText("今天");
-  await expect(history).toContainText("亲密度 一般");
+  // Spec: 一般或疏远 (the replayed fixture says 一般).
+  await expect(history).toContainText(
+    replayedOr<string | RegExp>("亲密度 一般", /亲密度 (一般|疏远)/),
+  );
   await expect(history.getByRole("img", { name: "可信度：推测" })).toBeVisible();
   await shot(page, "BOT-13-step5-relationship");
 });

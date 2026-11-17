@@ -1,0 +1,10 @@
+# Build context is the repo root; only what the web build needs goes in.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!apps/web/
+!deploy/nginx.conf
+**/node_modules
+apps/web/dist
+apps/web/storybook-static

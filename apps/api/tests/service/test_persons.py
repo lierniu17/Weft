@@ -125,7 +125,8 @@ async def test_deleting_a_person_cascades_in_the_graph_and_keeps_every_entry(
         user,
         Seed(persons=["小李"], facts=[("小李", "LIKES", "钓鱼", Confidence.WITNESSED, None)]),
     )
-    for text in (sc.DINNER, sc.BUBBLE_TEA, sc.ROOMMATES):
+    await sc.dinner_confirmed_as_in_bot2(infra, user)
+    for text in (sc.BUBBLE_TEA, sc.ROOMMATES):
         await sc.confirmed(infra, user, (await sc.extracted(infra, user, text)).id)
     laozhang = await person_named(infra, user, "老张")
     with tenant_scope(user.tenant):

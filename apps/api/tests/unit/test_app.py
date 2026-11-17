@@ -70,6 +70,14 @@ def test_health_route_returns_status_and_version() -> None:
     assert response.json() == {"status": "ok", "version": __version__}
 
 
+def test_health_reports_the_version_baked_into_the_image() -> None:
+    """Deploys are verified by /api/health showing the git SHA the image was built from."""
+    from weft.main import create_app
+
+    client = TestClient(create_app(Settings(_env_file=None, app_version="7e2772f")))
+    assert client.get("/api/health").json() == {"status": "ok", "version": "7e2772f"}
+
+
 def test_every_business_table_carries_user_id() -> None:
     """Spec: all Postgres business tables carry the user id (tenant isolation)."""
     from weft.models.tables import Base

@@ -1,9 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { pinClock, recordConfirmed, registerUser, shot } from "./support/bot.ts";
-import { E2E } from "./support/env.ts";
+import { E2E, REMOTE, REMOTE_LIMITED_BASE_URL } from "./support/env.ts";
 
 // The API behind this web app runs with DAILY_ENTRY_LIMIT=2 (tests/e2e/global-setup.ts).
-test.use({ baseURL: `http://127.0.0.1:${E2E.limited.web}` });
+// Remote: only when E2E_LIMITED_BASE_URL points at such an API of the same environment.
+test.use({ baseURL: REMOTE ? REMOTE_LIMITED_BASE_URL : `http://127.0.0.1:${E2E.limited.web}` });
+test.skip(
+  REMOTE && !REMOTE_LIMITED_BASE_URL,
+  "remote: needs E2E_LIMITED_BASE_URL (an API with DAILY_ENTRY_LIMIT=2)",
+);
 
 /** BOT-10 〔AC-40〕 the third Entry of the day is refused, with the reset time. */
 test("BOT-10 录入额度用完", async ({ page }) => {
