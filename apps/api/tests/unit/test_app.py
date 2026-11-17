@@ -88,3 +88,21 @@ def test_every_business_table_carries_user_id() -> None:
         if name in {"users", "invite_codes"}:
             continue
         assert "user_id" in table.c, f"{name} lacks user_id"
+
+
+def test_the_test_process_never_sees_the_local_env_file() -> None:
+    # graphiti_core calls load_dotenv() on import, which would copy apps/api/.env (with the
+    # developer's real API keys) into os.environ; tests/conftest.py scrubs it again.
+    import graphiti_core.graphiti  # noqa: F401
+    from dotenv import dotenv_values
+
+    from tests import PRE_IMPORT_ENV
+
+    leaked = [
+        k for k in dotenv_values(API_DIR / ".env") if k in os.environ and k not in PRE_IMPORT_ENV
+    ]
+    assert leaked == []
+    assert Settings.model_config.get("env_file") is None
+    keyless = Settings()
+    assert keyless.deepseek_api_key.get_secret_value() == os.environ.get("DEEPSEEK_API_KEY", "")
+    assert keyless.dashscope_api_key.get_secret_value() == os.environ.get("DASHSCOPE_API_KEY", "")

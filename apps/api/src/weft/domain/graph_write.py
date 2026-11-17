@@ -5,6 +5,10 @@ A ``GraphWrite`` is computed by the service layer from the Draft and the current
 ``GraphRepository.apply`` in a single Neo4j transaction. The Entry id doubles as the
 Graphiti episode id and as the idempotency key: a write whose episode already exists is
 skipped (AC-19).
+
+Embeddings (``name_embedding`` / ``fact_embedding`` / ``object_embedding``) are attached by
+``weft.services.embeddings.attach`` just before the write; ``None`` means "not embedded yet"
+(the backfill command fills those in later).
 """
 
 from __future__ import annotations
@@ -72,10 +76,14 @@ class EpisodeWrite:
     created_at: datetime
 
 
+Vector = list[float]
+
+
 @dataclass(frozen=True)
 class NewPerson:
     id: str
     name: str
+    name_embedding: Vector | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +98,7 @@ class IdentitySet:
     field: str
     value: str
     confidence: Confidence
+    name_embedding: Vector | None = None  # field == "name": the new name's embedding
 
 
 @dataclass(frozen=True)
@@ -106,6 +115,8 @@ class NewFact:
     invalid_at: PartialDate | None = None
     unverified: bool = False
     kind: str = "fact"  # "fact" | "opinion"
+    fact_embedding: Vector | None = None
+    object_embedding: Vector | None = None  # the object entity's name (non-person objects)
 
 
 @dataclass(frozen=True)
@@ -144,6 +155,7 @@ class RelationshipUpsert:
     status: str | None = None
     summary: str | None = None
     exists: bool = False
+    summary_from_user: bool = False  # the user wrote ``summary``: do not regenerate it
 
 
 @dataclass(frozen=True)
@@ -171,6 +183,28 @@ class GraphWrite:
     feelings: list[NewFeeling] = field(default_factory=list)
     mentions: list[str] = field(default_factory=list)  # person ids the Entry mentions
 
+    def touched_persons(self) -> list[str]:
+        """Persons whose profile this write changes: their 综合描述 must be regenerated."""
+        ids = [p.id for p in self.persons]
+        ids += [i.person_id for i in self.identity]
+        ids += [f.object_person_id or f.subject_id for f in self.facts if f.kind == "opinion"]
+        ids += [f.subject_id for f in self.facts if f.kind != "opinion"]
+        return list(dict.fromkeys(i for i in ids if i))
+
+    def touched_pairs(self) -> list[tuple[str, str]]:
+        """Pairs whose Relationship summary must be regenerated (types, facts, feelings)."""
+        pairs = [(r.person_a, r.person_b) for r in self.relationships if not r.summary_from_user]
+        pairs += [(f.from_id, f.to_id) for f in self.feelings]
+        pairs += [
+            (f.subject_id, f.object_person_id)
+            for f in self.facts
+            if f.object_person_id is not None and f.kind != "opinion"
+        ]
+        seen: dict[frozenset[str], tuple[str, str]] = {}
+        for a, b in pairs:
+            seen.setdefault(frozenset((a, b)), (a, b))
+        return list(seen.values())
+
 
 __all__ = [
     "OPINION",
@@ -188,5 +222,6 @@ __all__ = [
     "NewFeeling",
     "NewPerson",
     "RelationshipUpsert",
+    "Vector",
     "fact_sentence",
 ]

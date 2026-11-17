@@ -23,6 +23,7 @@ from fastapi import FastAPI
 
 from tests.route.conftest import ApiUser, Register
 from tests.support import scenarios as sc
+from tests.support.asks import final
 from tests.support.llm_script import LLMScript
 from weft.main import PUBLIC_ROUTES
 
@@ -62,6 +63,20 @@ async def snapshot(user: ApiUser, **ids: str) -> dict[str, Any]:
     }
 
 
+B_QUESTION = "老张喜欢什么？"
+FOREIGN_GROUP = "u_ffffffffffffffffffffffffffffffff"
+
+
+def b_asks_about_laozhang(llm: LLMScript) -> None:
+    """B's model first smuggles a tenant into a tool call, then asks properly."""
+    llm.ask(
+        B_QUESTION,
+        [("read_profile", {"person": "老张", "group_id": FOREIGN_GROUP})],
+        [("read_profile", {"person": "老张"})],
+        final("text", ("老张最近迷上了钓鱼。", ["E2"])),
+    )
+
+
 @pytest.fixture
 async def world(register: Register, llm: LLMScript) -> World:
     sc.dinner_with_laozhang(llm)
@@ -70,6 +85,7 @@ async def world(register: Register, llm: LLMScript) -> World:
     sc.flaky_ok(llm)
     sc.graphiti_only(llm, sc.GARBLED)
     llm.enrichment_raw(sc.GARBLED, "这不是 JSON")
+    b_asks_about_laozhang(llm)
     a, b = await register("甲"), await register("乙")
 
     confirmed = (await a.client.post("/api/entries", json={"text": sc.DINNER})).json()
@@ -295,6 +311,45 @@ async def _edit_pair(w: World) -> None:
     }
     for x, y in _pairs(w):
         assert_not_found(await w.b.client.patch(f"/api/persons/{x}/relationships/{y}", json=body))
+
+
+# --- graph views / ask (AC-4, AC-39) ------------------------------------------------------
+
+
+@case("GET", "/api/persons/{person_id}/graph")
+async def _local_graph(w: World) -> None:
+    for person in (w.a_person, w.a.self_person_id):
+        for hops in (1, 2):
+            response = await w.b.client.get(f"/api/persons/{person}/graph", params={"hops": hops})
+            assert_not_found(response)
+    own = await w.b.client.get(
+        f"/api/persons/{w.b_person}/graph", params={"hops": 2, **smuggled(w)}
+    )
+    assert_no_a_data(w, own)
+
+
+@case("GET", "/api/graph")
+async def _panorama(w: World) -> None:
+    for params in (smuggled(w), {"category": "social", **smuggled(w)}):
+        response = await w.b.client.get("/api/graph", params=params)
+        assert_no_a_data(w, response)
+    nodes = (await w.b.client.get("/api/graph")).json()["nodes"]
+    assert {n["id"] for n in nodes} == {w.b.self_person_id, w.b_person}
+
+
+@case("POST", "/api/ask")
+async def _ask(w: World) -> None:
+    response = await w.b.client.post("/api/ask", json={"question": B_QUESTION}, params=smuggled(w))
+    assert_no_a_data(w, response)
+    answer = response.json()
+    assert answer["kind"] == "text" and answer["citations"]
+    b_entries = {e["id"] for e in (await w.b.client.get("/api/entries")).json()}
+    assert {c["entry_id"] for c in answer["citations"]} <= b_entries
+    assert [p["person_id"] for p in answer["persons"]] in ([], [w.b_person])
+    smuggling = await w.b.client.post(
+        "/api/ask", json={"question": B_QUESTION, "group_id": f"u_{w.a.id.hex}"}
+    )
+    assert smuggling.status_code == 422
 
 
 # --- taxonomy / usage -------------------------------------------------------------------

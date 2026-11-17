@@ -18,6 +18,7 @@ from weft.repositories.accounts import (
 )
 from weft.repositories.records import UserRecord
 from weft.security import DUMMY_HASH, hash_password, verify_password
+from weft.services import embeddings
 from weft.services._uow import graph
 from weft.services.results import Err, Ok, Result
 
@@ -71,6 +72,7 @@ class _RefusedError(Exception):
 async def _register(
     infra: Infra, *, invite_code: str, username: str, password: str, display_name: str
 ) -> Result[SessionInfo]:
+    self_embedding = await embeddings.embed_one(infra, display_name)  # best effort
     async with infra.sql() as session, session.begin():
         invites = InviteCodeRepository(session)
         state = await invites.state_of(invite_code)
@@ -90,7 +92,10 @@ async def _register(
         tenant = TenantContext.for_user(user.id)
         with tenant_scope(tenant):
             await graph(infra, tenant).create_self(
-                person_id=str(uuid.uuid4()), name=display_name, now=infra.clock()
+                person_id=str(uuid.uuid4()),
+                name=display_name,
+                now=infra.clock(),
+                name_embedding=self_embedding,
             )
     return Ok(SessionInfo(user=user, token=token, expires_at=expires_at))
 

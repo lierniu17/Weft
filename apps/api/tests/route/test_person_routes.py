@@ -31,6 +31,15 @@ async def test_manual_profile_edits_create_manual_edit_entries(
         "value": "03-05",
         "confidence": "witnessed",
         "sources": [body["entry_id"]],
+        "citations": [  # AC-25: the 手动编辑记录 is the source, with its text and date
+            {
+                "entry_id": body["entry_id"],
+                "entry_excerpt": "手动编辑：将老张的生日设为「03-05」",
+                "occurred_on": "2026-11-16",
+                "kind": "manual_edit",
+                "confidence": "witnessed",
+            }
+        ],
     }
     [trait] = [f for f in body["profile"]["facts"] if f["predicate"] == "HAS_TRAIT"]
     deleted = await user.client.patch(url, json={"op": "delete_fact", "fact_id": trait["id"]})

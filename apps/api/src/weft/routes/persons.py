@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, BackgroundTasks, Query, status
 
 from weft.domain.taxonomy import RelationshipType
 from weft.domain.taxonomy_contract import TaxonomyResponse
 from weft.domain.tenancy import tenant_scope
 from weft.routes.deps import InfraDep, SessionDep, unwrap
+from weft.routes.jobs import summary_job
 from weft.routes.schemas import (
     AddFactOp,
     AddSubtypeRequest,
@@ -63,12 +64,17 @@ def _profile_edit(body: ProfileEditRequest) -> persons.ProfileEdit:
 
 @router.patch("/persons/{person_id}/profile", response_model=ProfileEdited, tags=["persons"])
 async def edit_profile(
-    person_id: str, body: ProfileEditRequest, session: SessionDep, infra: InfraDep
+    person_id: str,
+    body: ProfileEditRequest,
+    session: SessionDep,
+    infra: InfraDep,
+    background: BackgroundTasks,
 ) -> ProfileEdited:
     with tenant_scope(session.tenant):
         edited = unwrap(
             await persons.edit_profile(infra, person_id, _profile_edit(body)), EDIT_ERRORS
         )
+    background.add_task(summary_job, infra, session.tenant)
     return ProfileEdited(profile=ProfileOut.of(edited.value), entry_id=edited.entry.id)
 
 
@@ -111,6 +117,7 @@ async def edit_pair(
     body: RelationshipEditRequest,
     session: SessionDep,
     infra: InfraDep,
+    background: BackgroundTasks,
 ) -> PairEdited:
     ends = {"a_to_b": (person_id, other_id), "b_to_a": (other_id, person_id)}
     edit = persons.RelationshipEdit(
@@ -130,6 +137,7 @@ async def edit_pair(
         edited = unwrap(
             await persons.edit_relationship(infra, person_id, other_id, edit), EDIT_ERRORS
         )
+    background.add_task(summary_job, infra, session.tenant)
     return PairEdited(pair=PairOut.of(edited.value), entry_id=edited.entry.id)
 
 

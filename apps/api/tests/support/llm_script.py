@@ -9,6 +9,10 @@ honest DeepSeek answer to that request looks like). The HTTP stack under test is
   ``timeout`` rules (a timeout cannot be recorded), and checks that the replayed fixture is
   exactly the scripted response — so a hand-edited rule can never silently disagree with
   a stale fixture file.
+* Embedding requests (DashScope ``/embeddings``) are answered by ``fake_embedding``: a
+  deterministic hashed bag of characters and character bigrams, so texts sharing words are
+  close (cosine) and semantic search is testable without a fixture per vector. They never
+  reach the replay layer or the network.
 * Fixture files are keyed by the request hash (``weft.llm.replay``). To (re)author them run
   ``WEFT_AUTHOR_LLM_FIXTURES=1 uv run pytest ...``: the gate then puts the transport in
   RECORD mode with the script as the "provider", which writes the fixture files. No test
@@ -17,7 +21,10 @@ honest DeepSeek answer to that request looks like). The HTTP stack under test is
 
 from __future__ import annotations
 
+import hashlib
+import itertools
 import json
+import math
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -33,6 +40,33 @@ FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "llm"
 AUTHOR_MODE = os.environ.get("WEFT_AUTHOR_LLM_FIXTURES") == "1"
 
 Matcher = Callable[[dict[str, Any]], bool]
+
+
+def fake_embedding(text: str, dimensions: int = 1024) -> list[float]:
+    """A deterministic unit vector: hashed characters + bigrams (punctuation ignored)."""
+    chars = [c for c in text if c.isalnum()]
+    features = chars + [a + b for a, b in itertools.pairwise(chars)]
+    vector = [0.0] * dimensions
+    for feature in features:
+        digest = hashlib.sha256(feature.encode("utf-8")).digest()
+        vector[int.from_bytes(digest[:4], "big") % dimensions] += 1.0
+    norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+    return [v / norm for v in vector]
+
+
+def embeddings_response(body: dict[str, Any]) -> dict[str, Any]:
+    """What DashScope's OpenAI-compatible ``/embeddings`` returns for ``body``."""
+    texts = body["input"] if isinstance(body["input"], list) else [body["input"]]
+    dimensions = int(body.get("dimensions") or 1024)
+    return {
+        "object": "list",
+        "model": body.get("model", "text-embedding-v4"),
+        "data": [
+            {"object": "embedding", "index": i, "embedding": fake_embedding(t, dimensions)}
+            for i, t in enumerate(texts)
+        ],
+        "usage": {"prompt_tokens": 0, "total_tokens": 0},
+    }
 
 
 def chat_completion(content: str) -> dict[str, Any]:
@@ -55,9 +89,49 @@ def chat_completion(content: str) -> dict[str, Any]:
     }
 
 
+def tool_calls_completion(calls: list[tuple[str, dict[str, Any]]], turn: int) -> dict[str, Any]:
+    """A DeepSeek chat completion that calls tools (``finish_reason = tool_calls``)."""
+    completion = chat_completion("")
+    completion["choices"][0]["message"] = {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": f"call_{turn}_{i}",
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(args, ensure_ascii=False)},
+            }
+            for i, (name, args) in enumerate(calls)
+        ],
+    }
+    completion["choices"][0]["finish_reason"] = "tool_calls"
+    return completion
+
+
+def _ask_turn(body: dict[str, Any], question: str, turn: int) -> bool:
+    tools = {t["function"]["name"] for t in body.get("tools") or []}
+    messages = body.get("messages", [])
+    return (
+        "final_answer" in tools
+        and len(messages) > 1
+        and messages[1].get("content") == question
+        and sum(m.get("role") == "assistant" for m in messages) == turn
+    )
+
+
 def _schema_name(body: dict[str, Any]) -> str | None:
-    fmt = body.get("response_format") or {}
-    return (fmt.get("json_schema") or {}).get("name")
+    """The response model Graphiti asked for. DeepSeek only takes ``json_object``, so
+    Graphiti appends the model's JSON schema to the last message instead."""
+    messages = body.get("messages") or []
+    marker = "Respond with a JSON object in the following format:"
+    last = (messages[-1].get("content") or "") if messages else ""
+    if marker not in last:
+        return None
+    try:
+        schema = json.loads(last.rsplit(marker, 1)[1])
+    except ValueError:
+        return None
+    return schema.get("title") if isinstance(schema, dict) else None
 
 
 def _user_text(body: dict[str, Any]) -> str:
@@ -85,6 +159,9 @@ class Rule:
 @dataclass
 class LLMScript:
     rules: list[Rule] = field(default_factory=list)
+    embedded: list[str] = field(default_factory=list)  # every text sent for embedding
+    embeddings_down: bool = False  # the embedding provider answers HTTP 503
+    tool_outputs: list[str] = field(default_factory=list)  # tool results the model last saw
 
     # --- Graphiti step functions ------------------------------------------
 
@@ -180,6 +257,73 @@ class LLMScript:
             {"decision": decision, "candidate_indices": candidates or []},
         )
 
+    # --- generated summaries ----------------------------------------------------
+
+    def person_summary(self, name: str, summary: str, *, has: str | None = None) -> LLMScript:
+        """The 综合描述 DeepSeek writes for ``name`` (only if the profile mentions ``has``)."""
+
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return (
+                task is not None
+                and task["task"] == "summarize_person"
+                and task["person"]["name"] == name
+                and (has is None or has in json.dumps(task, ensure_ascii=False))
+            )
+
+        return self._add(
+            f"summary[{name}]{'+' + has if has else ''}", matches, {"summary": summary}
+        )
+
+    def person_summary_timeout(self, name: str) -> LLMScript:
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return (
+                task is not None
+                and task["task"] == "summarize_person"
+                and task["person"]["name"] == name
+            )
+
+        self.rules.append(Rule(f"summary-timeout[{name}]", matches, None))
+        return self
+
+    def relationship_summary(self, a: str, b: str, summary: str) -> LLMScript:
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return (
+                task is not None
+                and task["task"] == "summarize_relationship"
+                and set(task["pair"]) == {a, b}
+            )
+
+        return self._add(f"relationship-summary[{a}-{b}]", matches, {"summary": summary})
+
+    # --- 问答 ------------------------------------------------------------------
+
+    def ask(self, question: str, *turns: list[tuple[str, dict[str, Any]]]) -> LLMScript:
+        """A Q&A conversation: turn ``i`` answers the request that already carries ``i``
+        assistant turns, by calling the given tools (the last turn calls final_answer)."""
+        for turn, calls in enumerate(turns):
+            self.rules.append(
+                Rule(
+                    f"ask[{question[:12]}]#{turn}",
+                    lambda b, t=turn: _ask_turn(b, question, t),
+                    tool_calls_completion(calls, turn),
+                )
+            )
+        return self
+
+    def ask_says(self, question: str, turn: int, content: str) -> LLMScript:
+        """The model answering turn ``turn`` in plain text, without calling any tool."""
+        self.rules.append(
+            Rule(
+                f"ask-text[{question[:12]}]#{turn}",
+                lambda b: _ask_turn(b, question, turn),
+                chat_completion(content),
+            )
+        )
+        return self
+
     # --- plumbing -------------------------------------------------------------
 
     def _add(self, name: str, matches: Matcher, content: dict[str, Any]) -> LLMScript:
@@ -211,6 +355,14 @@ class ScriptGate(httpx.AsyncBaseTransport):
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         await request.aread()
         body = json.loads(request.content)
+        if request.url.path.endswith("/embeddings"):
+            if self.script.embeddings_down:
+                return httpx.Response(503, json={"error": "unavailable"}, request=request)
+            self.script.embedded.extend(body["input"])
+            return httpx.Response(200, json=embeddings_response(body), request=request)
+        tool_outputs = [m["content"] for m in body.get("messages", []) if m.get("role") == "tool"]
+        if tool_outputs:
+            self.script.tool_outputs = tool_outputs
         rule = self.script.find(body)
         if rule.response is None:
             raise httpx.ReadTimeout("scripted LLM timeout", request=request)
@@ -229,4 +381,11 @@ class ScriptGate(httpx.AsyncBaseTransport):
         return response
 
 
-__all__ = ["AUTHOR_MODE", "FIXTURES_DIR", "LLMScript", "ScriptGate", "chat_completion"]
+__all__ = [
+    "AUTHOR_MODE",
+    "FIXTURES_DIR",
+    "LLMScript",
+    "ScriptGate",
+    "chat_completion",
+    "fake_embedding",
+]

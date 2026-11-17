@@ -120,7 +120,15 @@ def tenant_scoped[F: Callable[..., Any]](method: F) -> F:
 
 
 class _GraphitiSearch(Protocol):
-    async def search(self, query: str, **kwargs: Any) -> Any: ...
+    async def search(
+        self,
+        query: str,
+        *,
+        group_ids: list[str],
+        num_results: int = ...,
+        center_node_uuid: str | None = ...,
+        search_filter: Any = ...,
+    ) -> Any: ...
 
 
 class ScopedGraphiti:

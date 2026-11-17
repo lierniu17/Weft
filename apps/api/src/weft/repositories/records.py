@@ -92,10 +92,23 @@ class FactRecord:
 
 
 @dataclass(frozen=True)
+class EpisodeRecord:
+    """An Entry as the graph keeps it (the Graphiti episode): the source of a Citation."""
+
+    entry_id: str
+    content: str
+    occurred: PartialDate
+    kind: str  # "user" | "manual_edit"
+
+
+@dataclass(frozen=True)
 class ProfileRecord:
     person: PersonRecord
     identity: dict[str, IdentityValue]
     facts: list[FactRecord]
+    summary: str | None = None  # 综合描述 (AC-24)
+    summary_generated_at: datetime | None = None
+    episodes: dict[str, EpisodeRecord] = field(default_factory=dict)  # every source above
 
 
 @dataclass(frozen=True)
@@ -118,6 +131,7 @@ class RelationshipRecord:
     summary: str | None
     confidence: Confidence
     sources: tuple[str, ...]
+    summary_generated_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -140,11 +154,13 @@ class PairRecord:
     relationship: RelationshipRecord | None
     feelings: list[FeelingRecord] = field(default_factory=list)
     facts: list[FactRecord] = field(default_factory=list)
+    episodes: dict[str, EpisodeRecord] = field(default_factory=dict)  # every source above
 
 
 __all__ = [
     "DraftRecord",
     "EntryRecord",
+    "EpisodeRecord",
     "FactRecord",
     "FeelingRecord",
     "IdentityValue",

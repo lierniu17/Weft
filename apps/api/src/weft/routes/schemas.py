@@ -15,13 +15,21 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate, Precision
-from weft.domain.draft import Draft, DraftStatus, ProfileField, RelationshipStatus
+from weft.domain.draft import (
+    ClosenessLevel,
+    Draft,
+    DraftStatus,
+    ProfileField,
+    RelationshipStatus,
+)
 from weft.domain.feelings import DIMENSIONS, by_direction
+from weft.domain.graph_view import GraphView
 from weft.domain.quota import QuotaDecision
 from weft.domain.taxonomy import Category
 from weft.repositories.records import (
     DraftRecord,
     EntryRecord,
+    EpisodeRecord,
     FactRecord,
     FeelingRecord,
     IdentityValue,
@@ -88,6 +96,34 @@ class MeResponse(_Out):
 
 # --- persons / facts -------------------------------------------------------------------
 
+Episodes = dict[str, EpisodeRecord]
+
+
+class CitationOut(_Out):
+    """出处 (AC-25): one source Entry of an item, with the item's Confidence."""
+
+    entry_id: str
+    entry_excerpt: str = Field(description="记录原文")
+    occurred_on: PartialDate = Field(description="The Entry's 发生日期, with precision")
+    kind: Literal["user", "manual_edit"]
+    confidence: Confidence
+
+    @classmethod
+    def all_of(
+        cls, sources: tuple[str, ...], confidence: Confidence, episodes: Episodes
+    ) -> list[CitationOut]:
+        return [
+            cls(
+                entry_id=e.entry_id,
+                entry_excerpt=e.content,
+                occurred_on=e.occurred,
+                kind="manual_edit" if e.kind == "manual_edit" else "user",
+                confidence=confidence,
+            )
+            for s in dict.fromkeys(sources)
+            if (e := episodes.get(s)) is not None
+        ]
+
 
 class PersonOut(_Out):
     id: str
@@ -114,9 +150,10 @@ class FactOut(_Out):
     unverified: bool
     current: bool
     sources: list[str] = Field(description="Ids of the Entries backing this fact")
+    citations: list[CitationOut] = Field(description="Every source Entry (AC-25)")
 
     @classmethod
-    def of(cls, f: FactRecord) -> FactOut:
+    def of(cls, f: FactRecord, episodes: Episodes | None = None) -> FactOut:
         return cls(
             id=f.id,
             subject_id=f.subject_id,
@@ -130,6 +167,7 @@ class FactOut(_Out):
             unverified=f.unverified,
             current=f.current,
             sources=list(f.sources),
+            citations=CitationOut.all_of(f.sources, f.confidence, episodes or {}),
         )
 
 
@@ -137,23 +175,43 @@ class IdentityOut(_Out):
     value: str
     confidence: Confidence
     sources: list[str]
+    citations: list[CitationOut]
 
     @classmethod
-    def of(cls, v: IdentityValue) -> IdentityOut:
-        return cls(value=v.value, confidence=v.confidence, sources=list(v.sources))
+    def of(cls, v: IdentityValue, episodes: Episodes) -> IdentityOut:
+        return cls(
+            value=v.value,
+            confidence=v.confidence,
+            sources=list(v.sources),
+            citations=CitationOut.all_of(v.sources, v.confidence, episodes),
+        )
+
+
+class SummaryOut(_Out):
+    """综合描述 (AC-24): generated from the profile; regenerated after every change."""
+
+    text: str
+    generated_at: datetime
 
 
 class ProfileOut(_Out):
     person: PersonOut
     identity: dict[str, IdentityOut]
     facts: list[FactOut]
+    summary: SummaryOut | None
 
     @classmethod
     def of(cls, p: ProfileRecord) -> ProfileOut:
+        summary = (
+            SummaryOut(text=p.summary, generated_at=p.summary_generated_at)
+            if p.summary and p.summary_generated_at
+            else None
+        )
         return cls(
             person=PersonOut.of(p.person),
-            identity={k: IdentityOut.of(v) for k, v in p.identity.items()},
-            facts=[FactOut.of(f) for f in p.facts],
+            identity={k: IdentityOut.of(v, p.episodes) for k, v in p.identity.items()},
+            facts=[FactOut.of(f, p.episodes) for f in p.facts],
+            summary=summary,
         )
 
 
@@ -215,11 +273,13 @@ class RelationshipOut(_Out):
     introduced_by: PersonOut | None
     status: RelationshipStatus | None
     summary: str | None
+    summary_generated_at: datetime | None = Field(description="None: written by the user")
     confidence: Confidence
     sources: list[str]
+    citations: list[CitationOut]
 
     @classmethod
-    def of(cls, r: RelationshipRecord) -> RelationshipOut:
+    def of(cls, r: RelationshipRecord, episodes: Episodes | None = None) -> RelationshipOut:
         return cls(
             id=r.id,
             person_a=r.person_a,
@@ -235,8 +295,10 @@ class RelationshipOut(_Out):
             introduced_by=None if r.introduced_by is None else PersonOut.of(r.introduced_by),
             status=None if r.status is None else RelationshipStatus(r.status),
             summary=r.summary,
+            summary_generated_at=r.summary_generated_at,
             confidence=r.confidence,
             sources=list(r.sources),
+            citations=CitationOut.all_of(r.sources, r.confidence, episodes or {}),
         )
 
 
@@ -246,15 +308,17 @@ class FeelingOut(_Out):
     confidence: Confidence
     occurred_at: PartialDate
     source: str
+    citations: list[CitationOut]
 
     @classmethod
-    def of(cls, f: FeelingRecord) -> FeelingOut:
+    def of(cls, f: FeelingRecord, episodes: Episodes) -> FeelingOut:
         return cls(
             id=f.id,
             level=f.level,
             confidence=f.confidence,
             occurred_at=f.occurred_at,
             source=f.source,
+            citations=CitationOut.all_of((f.source,), f.confidence, episodes),
         )
 
 
@@ -288,8 +352,8 @@ class PairOut(_Out):
                 to_id=dst,
                 dimensions={
                     d: DimensionOut(
-                        current=FeelingOut.of(v.current),
-                        history=[FeelingOut.of(f) for f in v.history],
+                        current=FeelingOut.of(v.current, p.episodes),
+                        history=[FeelingOut.of(f, p.episodes) for f in v.history],
                     )
                     for d, v in views.items()
                 },
@@ -298,10 +362,12 @@ class PairOut(_Out):
         return cls(
             a=PersonOut.of(p.a),
             b=PersonOut.of(p.b),
-            relationship=None if p.relationship is None else RelationshipOut.of(p.relationship),
+            relationship=None
+            if p.relationship is None
+            else RelationshipOut.of(p.relationship, p.episodes),
             a_to_b=direction(p.a.id, p.b.id),
             b_to_a=direction(p.b.id, p.a.id),
-            facts=[FactOut.of(f) for f in p.facts],
+            facts=[FactOut.of(f, p.episodes) for f in p.facts],
         )
 
 
@@ -396,6 +462,59 @@ class UpdateDraftRequest(_In):
     content: Draft
 
 
+# --- graph views / ask -------------------------------------------------------------------
+
+
+class GraphNodeOut(_Out):
+    id: str
+    name: str
+    is_self: bool
+
+
+class GraphEdgeOut(_Out):
+    id: str
+    source: str
+    target: str
+    types: list[RelationshipTypeOut]
+    status: RelationshipStatus | None
+    closeness: ClosenessLevel | None = Field(description="The closer direction's current level")
+
+
+class GraphOut(_Out):
+    center_id: str
+    nodes: list[GraphNodeOut]
+    edges: list[GraphEdgeOut]
+    omitted: int = Field(description="Persons left out by the 50-node cap (AC-33)")
+
+    @classmethod
+    def of(cls, v: GraphView) -> GraphOut:
+        return cls(
+            center_id=v.center_id,
+            nodes=[GraphNodeOut(id=n.id, name=n.name, is_self=n.is_self) for n in v.nodes],
+            edges=[
+                GraphEdgeOut(
+                    id=e.id,
+                    source=e.source,
+                    target=e.target,
+                    types=[
+                        RelationshipTypeOut(
+                            category=Category(t.category), subtype=t.subtype, original=t.original
+                        )
+                        for t in e.types
+                    ],
+                    status=None if e.status is None else RelationshipStatus(e.status),
+                    closeness=None if e.closeness is None else ClosenessLevel(e.closeness),
+                )
+                for e in v.edges
+            ],
+            omitted=v.omitted,
+        )
+
+
+class AskRequest(_In):
+    question: Annotated[str, Field(min_length=1, max_length=500)]
+
+
 # --- taxonomy / usage -----------------------------------------------------------------
 
 
@@ -423,6 +542,8 @@ class UsageOut(_Out):
 __all__ = [
     "DIMENSIONS",
     "AddSubtypeRequest",
+    "AskRequest",
+    "CitationOut",
     "DeleteAccountRequest",
     "DeletionImpactOut",
     "DraftOut",
@@ -431,6 +552,7 @@ __all__ = [
     "EntrySubmitted",
     "ErrorBody",
     "FactOut",
+    "GraphOut",
     "LoginRequest",
     "MeResponse",
     "PairEdited",
@@ -442,6 +564,7 @@ __all__ = [
     "RegisterRequest",
     "RelationshipEditRequest",
     "SubmitEntryRequest",
+    "SummaryOut",
     "UpdateDraftRequest",
     "UsageOut",
 ]

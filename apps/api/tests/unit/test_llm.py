@@ -310,3 +310,29 @@ async def test_clients_are_built_from_settings_for_deepseek_and_dashscope(tmp_pa
     assert chat_req.headers["authorization"] == "Bearer sk-deepseek"
     assert str(embed_req.url) == "https://dashscope.test/compatible-mode/v1/embeddings"
     assert embed_req.headers["authorization"] == "Bearer sk-dashscope"
+
+
+async def test_graphiti_asks_deepseek_for_json_object_not_json_schema() -> None:
+    # DeepSeek answers HTTP 400 「This response_format type is unavailable now」 to
+    # response_format json_schema; Graphiti's generic client then puts the schema in the prompt.
+    from graphiti_core.prompts.models import Message
+
+    from weft.extraction.llm import build_extraction_llm
+
+    class Reply(BaseModel):
+        name: str
+
+    upstream = FakeUpstream(reply=_chat_reply(content='{"name": "老张"}'))
+    http = httpx.AsyncClient(transport=upstream.transport)
+    llm = build_extraction_llm(Settings(_env_file=None, deepseek_api_key="sk-x"), http)
+    result = await llm.graphiti.llm_client.generate_response(
+        [Message(role="system", content="s"), Message(role="user", content="u")],
+        response_model=Reply,
+    )
+    assert result == {"name": "老张"}
+    [request] = upstream.requests
+    body = json.loads(request.content)
+    assert body["response_format"] == {"type": "json_object"}
+    assert '"title": "Reply"' in body["messages"][-1]["content"]
+    assert body["max_tokens"] <= 8192  # deepseek-chat's output limit
+    await http.aclose()

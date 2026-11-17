@@ -16,6 +16,11 @@ Node and edge shapes follow Graphiti's schema so Graphiti's search (batch 2) can
 * ``(:Episodic {uuid: entry id, ...})-[:MENTIONS]->(:Person)``.
 * ``(:Relationship)`` nodes linked by ``IN_RELATIONSHIP`` (and ``INTRODUCED_BY``).
 * Feelings: ``(Person)-[:FEELS {dimension, level, confidence, occurred_at, ...}]->(Person)``.
+* Embeddings for Graphiti's hybrid search: ``name_embedding`` on persons and entities,
+  ``fact_embedding`` on facts.
+* Generated summaries: ``summary`` / ``summary_generated_at`` / ``summary_stale`` on persons
+  (综合描述, AC-24) and on Relationship nodes (AC-28). A write marks what it touched stale;
+  ``weft.services.summaries`` regenerates.
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ from weft.domain.graph_write import GraphWrite, NewFact
 from weft.domain.taxonomy import OTHER
 from weft.domain.tenancy import TenantContext, tenant_scoped
 from weft.repositories.records import (
+    EpisodeRecord,
     FactRecord,
     FeelingRecord,
     IdentityValue,
@@ -104,6 +110,19 @@ def _fact(rel: dict[str, Any], subject_id: str, object_id: str) -> FactRecord:
     )
 
 
+def _maybe_native(value: Any) -> datetime | None:
+    return None if value is None else _native(value)
+
+
+def _episode(props: dict[str, Any]) -> EpisodeRecord:
+    return EpisodeRecord(
+        entry_id=props["uuid"],
+        content=props.get("content") or "",
+        occurred=PartialDate.parse(props["occurred"]),
+        kind=props.get("kind") or "user",
+    )
+
+
 def _relationship(node: dict[str, Any], introducer: dict[str, Any] | None) -> RelationshipRecord:
     return RelationshipRecord(
         id=node["uuid"],
@@ -117,6 +136,7 @@ def _relationship(node: dict[str, Any], introducer: dict[str, Any] | None) -> Re
         summary=node.get("summary"),
         confidence=Confidence(node.get("confidence") or Confidence.WITNESSED.value),
         sources=tuple(node.get("entry_ids") or ()),
+        summary_generated_at=_maybe_native(node.get("summary_generated_at")),
     )
 
 
@@ -137,15 +157,12 @@ def _feeling(rel: dict[str, Any], from_id: str, to_id: str) -> FeelingRecord:
 Runner = AsyncTransaction | AsyncManagedTransaction
 
 
-class GraphRepository:
-    def __init__(
-        self, driver: AsyncDriver, tenant: TenantContext, *, fault_hook: FaultHook | None = None
-    ) -> None:
+class ScopedCypher:
+    """Plumbing shared by every Neo4j repository: Cypher always filtered by the tenant."""
+
+    def __init__(self, driver: AsyncDriver, tenant: TenantContext) -> None:
         self._driver = driver
         self.tenant = tenant
-        self._fault_hook = fault_hook
-
-    # --- plumbing ---------------------------------------------------------
 
     def _params(self, query: LiteralString, params: dict[str, Any]) -> dict[str, Any]:
         if "$group_id" not in query:
@@ -164,6 +181,14 @@ class GraphRepository:
         result = await tx.run(query, self._params(query, params))
         return [record.data() async for record in result]
 
+
+class GraphRepository(ScopedCypher):
+    def __init__(
+        self, driver: AsyncDriver, tenant: TenantContext, *, fault_hook: FaultHook | None = None
+    ) -> None:
+        super().__init__(driver, tenant)
+        self._fault_hook = fault_hook
+
     def _step(self, name: str) -> None:
         if self._fault_hook is not None:
             self._fault_hook(name)
@@ -171,31 +196,42 @@ class GraphRepository:
     # --- persons ------------------------------------------------------------
 
     @tenant_scoped
-    async def create_self(self, *, person_id: str, name: str, now: datetime) -> PersonRecord:
+    async def create_self(
+        self,
+        *,
+        person_id: str,
+        name: str,
+        now: datetime,
+        name_embedding: list[float] | None = None,
+    ) -> PersonRecord:
         rows = await self._read(
             """
             MERGE (p:Entity:Person {group_id: $group_id, is_self: true})
             ON CREATE SET p.uuid = $id, p.name = $name, p.aliases = [], p.aliases_text = '',
-                          p.summary = '', p.created_at = $now
-            RETURN p {.*} AS p
+                          p.summary = '', p.created_at = $now, p.name_embedding = $embedding
+            RETURN p {.uuid, .name, .aliases, .is_self} AS p
             """,
             id=person_id,
             name=name,
             now=now,
+            embedding=name_embedding,
         )
         return _person(rows[0]["p"])
 
     @tenant_scoped
     async def get_self(self) -> PersonRecord | None:
         rows = await self._read(
-            "MATCH (p:Person {group_id: $group_id, is_self: true}) RETURN p {.*} AS p"
+            "MATCH (p:Person {group_id: $group_id, is_self: true}) "
+            "RETURN p {.*, name_embedding: null} AS p"
         )
         return _person(rows[0]["p"]) if rows else None
 
     @tenant_scoped
     async def get_person(self, person_id: str) -> PersonRecord | None:
         rows = await self._read(
-            "MATCH (p:Person {group_id: $group_id, uuid: $id}) RETURN p {.*} AS p", id=person_id
+            "MATCH (p:Person {group_id: $group_id, uuid: $id}) "
+            "RETURN p {.*, name_embedding: null} AS p",
+            id=person_id,
         )
         return _person(rows[0]["p"]) if rows else None
 
@@ -209,7 +245,7 @@ class GraphRepository:
                   -[:IN_RELATIONSHIP]->(r:Relationship {group_id: $group_id})
                   <-[:IN_RELATIONSHIP]-(p)
             WHERE s <> p
-            RETURN p {.*} AS p, head(collect(r.types_json)) AS types
+            RETURN p {.*, name_embedding: null} AS p, head(collect(r.types_json)) AS types
             ORDER BY coalesce(p.is_self, false) DESC, p.name
             """
         )
@@ -225,7 +261,7 @@ class GraphRepository:
             MATCH (p:Person {group_id: $group_id})-[r:RELATES_TO {group_id: $group_id}]
                   ->(o:Entity {group_id: $group_id})
             WHERE p.uuid IN $ids AND r.expired_at IS NULL AND coalesce(r.kind, 'fact') = 'fact'
-            RETURN r {.*} AS r, p.uuid AS s, o.uuid AS o
+            RETURN r {.*, fact_embedding: null} AS r, p.uuid AS s, o.uuid AS o
             ORDER BY r.created_at
             """,
             ids=person_ids,
@@ -239,7 +275,7 @@ class GraphRepository:
             MATCH (p:Entity {group_id: $group_id})-[r:RELATES_TO {group_id: $group_id, uuid: $id}]
                   ->(o:Entity {group_id: $group_id})
             WHERE r.expired_at IS NULL
-            RETURN r {.*} AS r, p.uuid AS s, o.uuid AS o
+            RETURN r {.*, fact_embedding: null} AS r, p.uuid AS s, o.uuid AS o
             """,
             id=fact_id,
         )
@@ -254,7 +290,9 @@ class GraphRepository:
     @tenant_scoped
     async def get_profile(self, person_id: str) -> ProfileRecord | None:
         rows = await self._read(
-            "MATCH (p:Person {group_id: $group_id, uuid: $id}) RETURN p {.*} AS p", id=person_id
+            "MATCH (p:Person {group_id: $group_id, uuid: $id}) "
+            "RETURN p {.*, name_embedding: null} AS p",
+            id=person_id,
         )
         if not rows:
             return None
@@ -275,13 +313,22 @@ class GraphRepository:
                   -[r:RELATES_TO {group_id: $group_id, kind: 'opinion'}]
                   ->(p:Person {group_id: $group_id, uuid: $id})
             WHERE r.expired_at IS NULL
-            RETURN r {.*} AS r, s.uuid AS s
+            RETURN r {.*, fact_embedding: null} AS r, s.uuid AS s
             ORDER BY r.created_at
             """,
             id=person_id,
         )
         facts += [_fact(r["r"], person_id, r["s"]) for r in opinion_rows]
-        return ProfileRecord(person=_person(props), identity=identity, facts=facts)
+        sources = [s for f in facts for s in f.sources]
+        sources += [s for v in identity.values() for s in v.sources]
+        return ProfileRecord(
+            person=_person(props),
+            identity=identity,
+            facts=facts,
+            summary=props.get("summary") or None,
+            summary_generated_at=_maybe_native(props.get("summary_generated_at")),
+            episodes=await self.episodes(sources),
+        )
 
     @tenant_scoped
     async def relationships_between(
@@ -296,7 +343,7 @@ class GraphRepository:
                   -[:IN_RELATIONSHIP]->(r:Relationship {group_id: $group_id})
                   <-[:IN_RELATIONSHIP]-(b:Person {group_id: $group_id, uuid: pair[1]})
             OPTIONAL MATCH (r)-[:INTRODUCED_BY]->(i:Person {group_id: $group_id})
-            RETURN DISTINCT r {.*} AS r, i {.*} AS i
+            RETURN DISTINCT r {.*} AS r, i {.*, name_embedding: null} AS i
             """,
             pairs=[list(p) for p in pairs],
         )
@@ -312,7 +359,7 @@ class GraphRepository:
             """
             MATCH (a:Person {group_id: $group_id, uuid: $a}),
                   (b:Person {group_id: $group_id, uuid: $b})
-            RETURN a {.*} AS a, b {.*} AS b
+            RETURN a {.*, name_embedding: null} AS a, b {.*, name_embedding: null} AS b
             """,
             a=a_id,
             b=b_id,
@@ -340,21 +387,42 @@ class GraphRepository:
                   ->(y:Person {group_id: $group_id})
             WHERE r.expired_at IS NULL AND coalesce(r.kind, 'fact') = 'fact'
               AND ((x.uuid = $a AND y.uuid = $b) OR (x.uuid = $b AND y.uuid = $a))
-            RETURN r {.*} AS r, x.uuid AS x, y.uuid AS y
+            RETURN r {.*, fact_embedding: null} AS r, x.uuid AS x, y.uuid AS y
             ORDER BY r.valid_at, r.created_at
             """,
             a=a_id,
             b=b_id,
         )
+        feelings = [_feeling(r["f"], r["x"], r["y"]) for r in feeling_rows]
+        facts = [_fact(r["r"], r["x"], r["y"]) for r in fact_rows]
+        sources = [s for f in facts for s in f.sources] + [f.source for f in feelings]
+        sources += list(relationship.sources) if relationship else []
         return PairRecord(
             a=a,
             b=b,
             relationship=relationship,
-            feelings=[_feeling(r["f"], r["x"], r["y"]) for r in feeling_rows],
-            facts=[_fact(r["r"], r["x"], r["y"]) for r in fact_rows],
+            feelings=feelings,
+            facts=facts,
+            episodes=await self.episodes(sources),
         )
 
     # --- entries ----------------------------------------------------------
+
+    @tenant_scoped
+    async def episodes(self, entry_ids: list[str]) -> dict[str, EpisodeRecord]:
+        """The Entries (as episodes) with these ids, for Citations (AC-25)."""
+        wanted = sorted(set(entry_ids))
+        if not wanted:
+            return {}
+        rows = await self._read(
+            """
+            MATCH (e:Episodic {group_id: $group_id})
+            WHERE e.uuid IN $ids
+            RETURN e {.uuid, .content, .occurred, .kind} AS e
+            """,
+            ids=wanted,
+        )
+        return {r["e"]["uuid"]: _episode(r["e"]) for r in rows}
 
     @tenant_scoped
     async def episode_exists(self, entry_id: str) -> bool:
@@ -370,7 +438,7 @@ class GraphRepository:
             """
             MATCH (e:Episodic {group_id: $group_id, uuid: $id})-[:MENTIONS]
                   ->(p:Person {group_id: $group_id})
-            RETURN p {.*} AS p ORDER BY p.name
+            RETURN p {.*, name_embedding: null} AS p ORDER BY p.name
             """,
             id=entry_id,
         )
@@ -379,7 +447,7 @@ class GraphRepository:
             MATCH (s:Entity {group_id: $group_id})-[r:RELATES_TO {group_id: $group_id}]
                   ->(o:Entity {group_id: $group_id})
             WHERE $id IN r.episodes AND r.expired_at IS NULL
-            RETURN r {.*} AS r, s.uuid AS s, o.uuid AS o ORDER BY r.created_at
+            RETURN r {.*, fact_embedding: null} AS r, s.uuid AS s, o.uuid AS o ORDER BY r.created_at
             """,
             id=entry_id,
         )
@@ -414,10 +482,17 @@ class GraphRepository:
         Either everything is written or nothing is (a failure rolls the transaction back),
         so a retried confirmation never duplicates persons or facts (AC-19).
         """
+        return await self.apply_all([write]) == 1
+
+    @tenant_scoped
+    async def apply_all(self, writes: list[GraphWrite]) -> int:
+        """Execute several writes in one transaction (all or nothing); how many were new."""
         async with self._driver.session() as session:
             tx = await session.begin_transaction()
             try:
-                applied = await self._apply(tx, write)
+                applied = 0
+                for write in writes:
+                    applied += int(await self._apply(tx, write))
                 if applied:
                     self._step("commit")
                     await tx.commit()
@@ -457,16 +532,19 @@ class GraphRepository:
         now = ep.created_at
 
         self._step("persons")
-        for person in w.persons:
+        if w.persons:
             await self._tx(
                 tx,
                 """
-                CREATE (:Entity:Person {uuid: $id, group_id: $group_id, name: $name,
+                UNWIND $rows AS row
+                CREATE (p:Entity:Person {uuid: row.id, group_id: $group_id, name: row.name,
                         aliases: [], aliases_text: '', is_self: false, summary: '',
                         created_at: $now})
+                SET p.name_embedding = row.embedding
                 """,
-                id=person.id,
-                name=person.name,
+                rows=[
+                    {"id": p.id, "name": p.name, "embedding": p.name_embedding} for p in w.persons
+                ],
                 now=now,
             )
 
@@ -498,9 +576,11 @@ class GraphRepository:
                                          ELSE coalesce(p.aliases, []) + old END
                     SET p.aliases = [a IN p.aliases WHERE a <> $value]
                     SET p.aliases_text = reduce(t = '', a IN p.aliases | t + ' ' + a)
+                    SET p.name_embedding = $embedding
                     """,
                     id=item.person_id,
                     value=item.value,
+                    embedding=item.name_embedding,
                 )
                 continue
             if item.field not in IDENTITY_FIELDS:
@@ -538,8 +618,7 @@ class GraphRepository:
             )
 
         self._step("facts")
-        for fact in w.facts:
-            await self._create_fact(tx, fact, ep.entry_id, now)
+        await self._create_facts(tx, w.facts, ep.entry_id, now)
 
         self._step("restated")
         for restated in w.restated:
@@ -620,27 +699,36 @@ class GraphRepository:
             )
 
         self._step("feelings")
-        for feeling in w.feelings:
+        if w.feelings:
             await self._tx(
                 tx,
                 """
-                MATCH (a:Person {group_id: $group_id, uuid: $a}),
-                      (b:Person {group_id: $group_id, uuid: $b})
-                CREATE (a)-[:FEELS {uuid: $id, group_id: $group_id, dimension: $dimension,
-                        level: $level, confidence: $confidence, occurred_at: $occurred,
-                        occurred_sort: $sort, entry_id: $entry, created_at: $now}]->(b)
+                UNWIND $rows AS row
+                MATCH (a:Person {group_id: $group_id, uuid: row.a}),
+                      (b:Person {group_id: $group_id, uuid: row.b})
+                CREATE (a)-[:FEELS {uuid: row.id, group_id: $group_id, dimension: row.dimension,
+                        level: row.level, confidence: row.confidence, occurred_at: row.occurred,
+                        occurred_sort: row.sort, entry_id: $entry, created_at: $now}]->(b)
                 """,
-                id=feeling.id,
-                a=feeling.from_id,
-                b=feeling.to_id,
-                dimension=feeling.dimension,
-                level=feeling.level,
-                confidence=feeling.confidence.value,
-                occurred=feeling.occurred_at.isoformat(),
-                sort=feeling.occurred_at.first_day(),
+                rows=[
+                    {
+                        "id": f.id,
+                        "a": f.from_id,
+                        "b": f.to_id,
+                        "dimension": f.dimension,
+                        "level": f.level,
+                        "confidence": f.confidence.value,
+                        "occurred": f.occurred_at.isoformat(),
+                        "sort": f.occurred_at.first_day(),
+                    }
+                    for f in w.feelings
+                ],
                 entry=ep.entry_id,
                 now=now,
             )
+
+        self._step("summaries")
+        await self._mark_stale(tx, w)
 
         self._step("mentions")
         if w.mentions:
@@ -659,60 +747,115 @@ class GraphRepository:
             )
         return True
 
-    async def _create_fact(
-        self, tx: AsyncTransaction, fact: NewFact, entry_id: str, now: datetime
+    async def _mark_stale(self, tx: AsyncTransaction, w: GraphWrite) -> None:
+        """What this write touched needs its generated summary regenerated (AC-24, AC-28)."""
+        await self._tx(
+            tx,
+            """
+            MATCH (p:Person {group_id: $group_id})
+            WHERE p.uuid IN $ids
+            SET p.summary_stale = true
+            """,
+            ids=w.touched_persons(),
+        )
+        pairs = [list(p) for p in w.touched_pairs()]
+        if pairs:
+            await self._tx(
+                tx,
+                """
+            UNWIND $pairs AS pair
+            MATCH (:Person {group_id: $group_id, uuid: pair[0]})
+                  -[:IN_RELATIONSHIP]->(r:Relationship {group_id: $group_id})
+                  <-[:IN_RELATIONSHIP]-(:Person {group_id: $group_id, uuid: pair[1]})
+            SET r.summary_stale = true
+            """,
+                pairs=pairs,
+            )
+        written_by_user = [r.id for r in w.relationships if r.summary_from_user]
+        if written_by_user:
+            await self._tx(
+                tx,
+                """
+                MATCH (r:Relationship {group_id: $group_id})
+                WHERE r.uuid IN $ids
+                SET r.summary_stale = false, r.summary_generated_at = null
+                """,
+                ids=written_by_user,
+            )
+
+    async def _create_facts(
+        self, tx: AsyncTransaction, facts: list[NewFact], entry_id: str, now: datetime
     ) -> None:
-        props = {
-            "uuid": fact.id,
-            "name": fact.predicate,
-            "fact": fact.fact,
-            "object": fact.object,
-            "episodes": [entry_id],
-            "created_at": now,
-            "valid_at": _dt(fact.valid_at),
-            "valid_at_partial": None if fact.valid_at is None else fact.valid_at.isoformat(),
-            "invalid_at": _dt(fact.invalid_at),
-            "invalid_at_partial": None if fact.invalid_at is None else fact.invalid_at.isoformat(),
-            "expired_at": None,
-            "confidence": fact.confidence.value,
-            "unverified": fact.unverified,
-            "kind": fact.kind,
-        }
-        if fact.object_person_id is not None:
+        """Create the write's facts in two statements, keeping their order."""
+
+        def props(fact: NewFact) -> dict[str, Any]:
+            return {
+                "uuid": fact.id,
+                "name": fact.predicate,
+                "fact": fact.fact,
+                "object": fact.object,
+                "episodes": [entry_id],
+                "created_at": now,
+                "valid_at": _dt(fact.valid_at),
+                "valid_at_partial": None if fact.valid_at is None else fact.valid_at.isoformat(),
+                "invalid_at": _dt(fact.invalid_at),
+                "invalid_at_partial": (
+                    None if fact.invalid_at is None else fact.invalid_at.isoformat()
+                ),
+                "expired_at": None,
+                "confidence": fact.confidence.value,
+                "unverified": fact.unverified,
+                "kind": fact.kind,
+                "fact_embedding": fact.fact_embedding,
+            }
+
+        between_persons = [f for f in facts if f.object_person_id is not None]
+        if between_persons:
             # opinions are stored Self -> person; person-to-person facts subject -> object
             await self._tx(
                 tx,
                 """
-                MATCH (s:Person {group_id: $group_id, uuid: $s}),
-                      (o:Person {group_id: $group_id, uuid: $o})
+                UNWIND $rows AS row
+                MATCH (s:Person {group_id: $group_id, uuid: row.s}),
+                      (o:Person {group_id: $group_id, uuid: row.o})
                 CREATE (s)-[r:RELATES_TO]->(o)
-                SET r = $props, r.group_id = $group_id
+                SET r = row.props, r.group_id = $group_id
                 """,
-                s=fact.subject_id,
-                o=fact.object_person_id,
-                props=props,
+                rows=[
+                    {"s": f.subject_id, "o": f.object_person_id, "props": props(f)}
+                    for f in between_persons
+                ],
             )
-            return
-        label = fact.object_label or "Entity"
-        await self._tx(
-            tx,
-            """
-            MATCH (s:Person {group_id: $group_id, uuid: $s})
-            MERGE (o:Entity {group_id: $group_id, name: $object, weft_label: $label})
-            ON CREATE SET o.uuid = randomUUID(), o.summary = '', o.created_at = $now
-            CREATE (s)-[r:RELATES_TO]->(o)
-            SET r = $props, r.group_id = $group_id
-            """,
-            s=fact.subject_id,
-            object=fact.object,
-            label=label,
-            now=now,
-            props=props,
-        )
-        # Graphiti reads the entity type from the node label; labels cannot be parameters,
-        # so they come from a fixed allow-list.
-        if label in _ENTITY_LABEL_QUERIES:
-            await self._tx(tx, _ENTITY_LABEL_QUERIES[label], object=fact.object, label=label)
+        about_entities = [f for f in facts if f.object_person_id is None]
+        if about_entities:
+            # Graphiti reads the entity type from the node label; labels cannot be
+            # parameters, so each allowed label has its own (static) SET.
+            await self._tx(
+                tx,
+                """
+                UNWIND $rows AS row
+                MATCH (s:Person {group_id: $group_id, uuid: row.s})
+                MERGE (o:Entity {group_id: $group_id, name: row.object, weft_label: row.label})
+                ON CREATE SET o.uuid = randomUUID(), o.summary = '', o.created_at = $now
+                SET o.name_embedding = coalesce(o.name_embedding, row.embedding)
+                """
+                + _SET_ENTITY_LABEL
+                + """
+                CREATE (s)-[r:RELATES_TO]->(o)
+                SET r = row.props, r.group_id = $group_id
+                """,
+                now=now,
+                rows=[
+                    {
+                        "s": f.subject_id,
+                        "object": f.object,
+                        "label": f.object_label or "Entity",
+                        "embedding": f.object_embedding,
+                        "props": props(f),
+                    }
+                    for f in about_entities
+                ],
+            )
 
     @tenant_scoped
     async def delete_person(self, person_id: str) -> bool:
@@ -773,26 +916,124 @@ class GraphRepository:
                     await tx.rollback()
                 raise
 
+    # --- embeddings backfill ----------------------------------------------------
+
+    @tenant_scoped
+    async def missing_embeddings(self, limit: int = 100) -> tuple[dict[str, str], dict[str, str]]:
+        """(node uuid -> name, fact uuid -> fact text) still lacking an embedding."""
+        nodes = await self._read(
+            """
+            MATCH (n:Entity {group_id: $group_id})
+            WHERE n.name_embedding IS NULL
+            RETURN n.uuid AS id, n.name AS text ORDER BY n.uuid LIMIT $limit
+            """,
+            limit=limit,
+        )
+        facts = await self._read(
+            """
+            MATCH (:Entity {group_id: $group_id})-[r:RELATES_TO {group_id: $group_id}]
+                  ->(:Entity {group_id: $group_id})
+            WHERE r.fact_embedding IS NULL
+            RETURN r.uuid AS id, r.fact AS text ORDER BY r.uuid LIMIT $limit
+            """,
+            limit=limit,
+        )
+        return (
+            {r["id"]: r["text"] or "" for r in nodes},
+            {r["id"]: r["text"] or "" for r in facts},
+        )
+
+    @tenant_scoped
+    async def store_embeddings(
+        self, nodes: dict[str, list[float]], facts: dict[str, list[float]]
+    ) -> None:
+        await self._read(
+            """
+            UNWIND $rows AS row
+            MATCH (n:Entity {group_id: $group_id, uuid: row.id})
+            SET n.name_embedding = row.v
+            """,
+            rows=[{"id": k, "v": v} for k, v in nodes.items()],
+        )
+        await self._read(
+            """
+            UNWIND $rows AS row
+            MATCH (:Entity {group_id: $group_id})
+                  -[r:RELATES_TO {group_id: $group_id, uuid: row.id}]
+                  ->(:Entity {group_id: $group_id})
+            SET r.fact_embedding = row.v
+            """,
+            rows=[{"id": k, "v": v} for k, v in facts.items()],
+        )
+
+    # --- generated summaries ------------------------------------------------------
+
+    @tenant_scoped
+    async def stale_summaries(self, limit: int = 20) -> tuple[list[str], list[tuple[str, str]]]:
+        """(person ids, relationship pairs) whose generated summary is out of date."""
+        persons = await self._read(
+            """
+            MATCH (p:Person {group_id: $group_id})
+            WHERE p.summary_stale = true AND coalesce(p.is_self, false) = false
+            RETURN p.uuid AS id ORDER BY p.name, p.uuid LIMIT $limit
+            """,
+            limit=limit,
+        )
+        pairs = await self._read(
+            """
+            MATCH (r:Relationship {group_id: $group_id})
+            WHERE r.summary_stale = true
+            RETURN r.person_a AS a, r.person_b AS b ORDER BY r.uuid LIMIT $limit
+            """,
+            limit=limit,
+        )
+        return [r["id"] for r in persons], [(r["a"], r["b"]) for r in pairs]
+
+    @tenant_scoped
+    async def set_person_summary(self, person_id: str, summary: str, at: datetime) -> bool:
+        rows = await self._read(
+            """
+            MATCH (p:Person {group_id: $group_id, uuid: $id})
+            SET p.summary = $summary, p.summary_generated_at = $at, p.summary_stale = false
+            RETURN p.uuid AS id
+            """,
+            id=person_id,
+            summary=summary,
+            at=at,
+        )
+        return bool(rows)
+
+    @tenant_scoped
+    async def set_relationship_summary(
+        self, relationship_id: str, summary: str, at: datetime
+    ) -> bool:
+        rows = await self._read(
+            """
+            MATCH (r:Relationship {group_id: $group_id, uuid: $id})
+            SET r.summary = $summary, r.summary_generated_at = $at, r.summary_stale = false
+            RETURN r.uuid AS id
+            """,
+            id=relationship_id,
+            summary=summary,
+            at=at,
+        )
+        return bool(rows)
+
     @tenant_scoped
     async def delete_tenant(self) -> None:
         """Delete the whole tenant graph (account deletion, AC-5)."""
         await self._read("MATCH (n) WHERE n.group_id = $group_id DETACH DELETE n")
 
 
-_ENTITY_LABEL_QUERIES: dict[str, LiteralString] = {
-    label: (
-        "MATCH (o:Entity {group_id: $group_id, name: $object, weft_label: $label}) SET o:" + label
-    )
-    for label in (
-        "Organization",
-        "School",
-        "City",
-        "Trait",
-        "Interest",
-        "LifeEvent",
-        "Etiquette",
-    )
-}
+_SET_ENTITY_LABEL: LiteralString = """
+    FOREACH (_ IN CASE WHEN row.label = 'Organization' THEN [1] ELSE [] END | SET o:Organization)
+    FOREACH (_ IN CASE WHEN row.label = 'School' THEN [1] ELSE [] END | SET o:School)
+    FOREACH (_ IN CASE WHEN row.label = 'City' THEN [1] ELSE [] END | SET o:City)
+    FOREACH (_ IN CASE WHEN row.label = 'Trait' THEN [1] ELSE [] END | SET o:Trait)
+    FOREACH (_ IN CASE WHEN row.label = 'Interest' THEN [1] ELSE [] END | SET o:Interest)
+    FOREACH (_ IN CASE WHEN row.label = 'LifeEvent' THEN [1] ELSE [] END | SET o:LifeEvent)
+    FOREACH (_ IN CASE WHEN row.label = 'Etiquette' THEN [1] ELSE [] END | SET o:Etiquette)
+"""
 
 
-__all__ = ["IDENTITY_FIELDS", "GraphRepository", "UnscopedQueryError"]
+__all__ = ["IDENTITY_FIELDS", "GraphRepository", "ScopedCypher", "UnscopedQueryError"]

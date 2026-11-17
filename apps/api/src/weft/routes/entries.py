@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, status
 from weft.domain.tenancy import TenantContext, tenant_scope
 from weft.infra import Infra
 from weft.routes.deps import InfraDep, SessionDep, unwrap
+from weft.routes.jobs import summary_job
 from weft.routes.schemas import (
     DraftOut,
     EntryDetailOut,
@@ -96,9 +97,13 @@ async def update_draft(
 
 
 @router.post("/drafts/{draft_id}/confirm", response_model=DraftOut)
-async def confirm_draft(draft_id: uuid.UUID, session: SessionDep, infra: InfraDep) -> DraftOut:
+async def confirm_draft(
+    draft_id: uuid.UUID, session: SessionDep, infra: InfraDep, background: BackgroundTasks
+) -> DraftOut:
     with tenant_scope(session.tenant):
-        return DraftOut.of(unwrap(await drafts.confirm_draft(infra, draft_id), DRAFT_ERRORS))
+        confirmed = unwrap(await drafts.confirm_draft(infra, draft_id), DRAFT_ERRORS)
+    background.add_task(summary_job, infra, session.tenant)
+    return DraftOut.of(confirmed)
 
 
 @router.post("/drafts/{draft_id}/discard", response_model=DraftOut)

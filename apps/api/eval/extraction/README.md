@@ -73,12 +73,27 @@ If a sample has no prediction, it is scored as an empty Draft and listed under `
 
 ## Running
 
-1. Produce predictions with the real pipeline. A runner script comes with the extraction service in batch 1/2; it needs `DEEPSEEK_API_KEY` and `DASHSCOPE_API_KEY`. For each sample, seed `graph_context`, extract the `text` with `occurred_date` as the reference time, and write `{"id": ..., "draft": <Draft JSON>}` per line.
-2. Score the predictions:
+Needs `DEEPSEEK_API_KEY` and `DASHSCOPE_API_KEY` in `apps/api/.env` (or the environment) and the docker compose Postgres + Neo4j. Without keys the runner prints these instructions and exits with 2.
 
-   ```bash
-   cd apps/api
-   uv run python eval/extraction/score.py predictions.jsonl
-   ```
+```bash
+cd apps/api
+uv run python -m weft.eval extraction            # all samples
+uv run python -m weft.eval extraction --limit 5  # a quick smoke run
+uv run python -m weft.eval extraction --record tests/fixtures/llm-eval  # also save the responses
+```
 
-   The script prints a JSON report. It exits with 1 if any metric is below its threshold.
+For each sample the runner seeds `graph_context` into a throwaway tenant, runs the same extraction a Draft gets (`weft.services.drafts.draft_for`) with `occurred_date` as the reference time, scores all predictions with `score.py`, prints the summary and writes the full report (with every prediction) to `eval/out/extraction-<time>.json`. It exits with 1 if a metric is below its threshold or a sample failed.
+
+`score.py` also works on its own, on a file of `{"id": ..., "draft": <Draft JSON>}` lines:
+
+```bash
+uv run python eval/extraction/score.py predictions.jsonl
+```
+
+## Q&A quality (AC-36, AC-38)
+
+`eval/qa/questions.jsonl` holds 43 questions over the seed graph (`weft.services.seed`): profile 6, relationship 5, path 5, filter 6, time 6, count 5, and 10 questions the graph cannot answer. `weft.eval.qa_score` explains the gold format. The runner registers a throwaway account, seeds it, asks every question through `POST /api/ask`'s service, reports per-kind accuracy and the fabrication rate (must be 0), and deletes the account:
+
+```bash
+uv run python -m weft.eval qa
+```

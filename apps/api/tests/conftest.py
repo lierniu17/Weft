@@ -25,12 +25,33 @@ import pytest
 from pydantic import SecretStr
 from sqlalchemy import make_url, text
 
+from tests import PRE_IMPORT_ENV
 from tests.support.llm_script import LLMScript, ScriptGate
 from weft.db import migrate
 from weft.domain.tenancy import TenantContext, group_id_for_user
 from weft.infra import Infra, build_infra, create_neo4j_driver
 from weft.repositories.graph_schema import ensure_graph_schema
-from weft.settings import Settings
+from weft.settings import API_DIR, Settings
+
+
+def _forget_local_env_file() -> None:
+    """Never let the developer's apps/api/.env (real API keys, database) into a test run.
+
+    graphiti_core calls python-dotenv's ``load_dotenv()`` when imported, copying that file
+    into ``os.environ``; drop whatever it added after ``tests/__init__.py`` took its snapshot.
+    """
+    import graphiti_core.driver.driver
+    import graphiti_core.graphiti
+    import graphiti_core.helpers  # noqa: F401  (each of these calls load_dotenv())
+    from dotenv import dotenv_values
+
+    for key in dotenv_values(API_DIR / ".env"):
+        if key not in PRE_IMPORT_ENV:
+            os.environ.pop(key, None)
+    Settings.model_config["env_file"] = None  # Settings() in a test reads only the environment
+
+
+_forget_local_env_file()
 
 # 2026-11-16 12:00 Beijing time — the date the spec's examples use.
 DEFAULT_NOW = datetime(2026, 11, 16, 4, 0, tzinfo=UTC)
@@ -104,8 +125,14 @@ def graph_schema() -> None:
 
 @pytest.fixture
 def settings(database_url: str, graph_schema: None) -> Settings:
+    # 64-dimensional fake embeddings (tests/support/llm_script.py) keep vectors cheap to
+    # move through the Python Neo4j driver; production uses text-embedding-v4's 1024.
     return _base_settings().model_copy(
-        update={"database_url": database_url, "deepseek_api_key": SecretStr("sk-test")}
+        update={
+            "database_url": database_url,
+            "deepseek_api_key": SecretStr("sk-test"),
+            "embedding_dimensions": 64,
+        }
     )
 
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
@@ -27,10 +28,13 @@ from weft.domain.taxonomy import Category, RelationshipType
 from weft.infra import Infra
 from weft.repositories.entries import EntryRepository
 from weft.repositories.records import EntryRecord, PairRecord, PersonRecord, ProfileRecord
+from weft.services import embeddings
 from weft.services._uow import graph, tenant
 from weft.services.results import Err, Ok, Result, not_found
 from weft.services.taxonomy import taxonomy_in
 
+# Placeholder episode for embedding a manual edit's facts before its Entry exists.
+_NO_EPISODE = EpisodeWrite("", "", PartialDate(1970), "manual_edit", datetime.fromtimestamp(0, UTC))
 FIELD_LABELS = {"name": "姓名", "gender": "性别", "birthday": "生日", "hometown": "籍贯"}
 MANUAL = Confidence.WITNESSED  # a manual edit is 亲历 (AC-26)
 
@@ -196,6 +200,8 @@ async def _write_manual(
     g = graph(infra, scope)
     me = await g.get_self()
     assert me is not None
+    vectors = await embeddings.attach(infra, GraphWrite(episode=_NO_EPISODE, facts=ops.facts))
+    ops = dataclasses.replace(ops, facts=vectors.facts)
     async with infra.sql() as session, session.begin():
         entry = await EntryRepository(session, scope).create(
             text=text, occurred=PartialDate.from_date(infra.today()), kind="manual_edit"
@@ -324,6 +330,7 @@ async def edit_relationship(
                     edit.summary if edit.summary is not None else (old.summary if old else None)
                 ),
                 exists=old is not None,
+                summary_from_user=edit.summary is not None,
             )
         ]
         parts.append("关系")

@@ -52,6 +52,7 @@ from weft.repositories.records import (
     RelationshipRecord,
     RelationshipTypeRecord,
 )
+from weft.services import embeddings
 from weft.services._uow import graph, tenant
 from weft.services.results import Err, Ok, Result, not_found
 from weft.services.taxonomy import taxonomy_in
@@ -102,16 +103,8 @@ async def run_extraction(infra: Infra, draft_id: uuid.UUID) -> Result[DraftRecor
         taxonomy = await taxonomy_in(session)
     assert entry is not None  # drafts cascade with their entry
 
-    g = graph(infra)
     try:
-        persons = await g.list_persons()
-        raw = await extract(
-            infra.llm,
-            ExtractionInput(
-                text=entry.text, occurred=entry.occurred, group_id=scope.group_id, taxonomy=taxonomy
-            ),
-        )
-        content = await _draft_from(infra, g, raw, entry, persons)
+        content = await draft_for(infra, entry, taxonomy)
     except Exception as exc:  # any provider / parsing failure -> 抽取失败 (AC-18)
         logger.warning("extraction of draft %s failed: %r", draft_id, exc)
         async with infra.sql.begin() as session:
@@ -131,6 +124,23 @@ async def run_extraction(infra: Infra, draft_id: uuid.UUID) -> Result[DraftRecor
             content=content,
         )
     return await _current_or(infra, draft_id, pending)
+
+
+async def draft_for(infra: Infra, entry: EntryRecord, taxonomy: Taxonomy) -> Draft:
+    """Extract ``entry`` against the session's graph into Draft content (writes nothing).
+
+    The whole extraction step of a Draft; also what the extraction quality eval runs.
+    Raises on any LLM failure.
+    """
+    g = graph(infra)
+    persons = await g.list_persons()
+    raw = await extract(
+        infra.llm,
+        ExtractionInput(
+            text=entry.text, occurred=entry.occurred, group_id=g.tenant.group_id, taxonomy=taxonomy
+        ),
+    )
+    return await _draft_from(infra, g, raw, entry, persons)
 
 
 async def _current_or(
@@ -364,6 +374,7 @@ async def confirm_draft(infra: Infra, draft_id: uuid.UUID) -> Result[DraftRecord
     planned = await _plan(g, entry, content, infra)
     if isinstance(planned, Err):
         return planned
+    planned = await embeddings.attach(infra, planned)
     try:
         await g.apply(planned)
     except ConstraintError:
@@ -633,6 +644,7 @@ __all__ = [
     "SELF_ID",
     "confirm_draft",
     "discard_draft",
+    "draft_for",
     "get_draft",
     "retry_extraction",
     "run_extraction",

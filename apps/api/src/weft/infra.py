@@ -18,7 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from weft.db import SessionFactory, create_engine, session_factory
 from weft.domain.quota import beijing_day
 from weft.extraction.llm import ExtractionLLM, build_extraction_llm
-from weft.llm import build_http_client
+from weft.graph_search import GraphitiSearchClient, build_graph_search
+from weft.llm import OpenAICompatibleClient, build_http_client
+from weft.llm.embeddings import Embedder
 from weft.settings import Settings
 
 Clock = Callable[[], datetime]
@@ -37,6 +39,8 @@ class Infra:
     neo4j: AsyncDriver
     http: httpx.AsyncClient
     llm: ExtractionLLM
+    embedder: Embedder
+    graph_search: GraphitiSearchClient  # only ever used through ScopedGraphiti
     clock: Clock = utc_now
     # Test seam: called with a step name at each step of a graph write; raising there
     # simulates the graph write failing half-way (AC-19).
@@ -47,6 +51,7 @@ class Infra:
         return beijing_day(self.clock())
 
     async def aclose(self) -> None:
+        await self.graph_search.aclose()
         await self.http.aclose()
         await self.neo4j.close()
         await self.engine.dispose()
@@ -60,6 +65,17 @@ def create_neo4j_driver(settings: Settings) -> AsyncDriver:
     )
 
 
+def build_embedder(settings: Settings, http: httpx.AsyncClient) -> Embedder:
+    client = OpenAICompatibleClient(
+        base_url=settings.dashscope_base_url,
+        api_key=settings.dashscope_api_key.get_secret_value(),
+        http_client=http,
+    )
+    return Embedder(
+        client, model=settings.dashscope_embedding_model, dimensions=settings.embedding_dimensions
+    )
+
+
 def build_infra(
     settings: Settings,
     *,
@@ -69,6 +85,7 @@ def build_infra(
 ) -> Infra:
     engine = create_engine(settings.database_url)
     http = http or build_http_client(settings, upstream_transport=upstream_transport)
+    embedder = build_embedder(settings, http)
     return Infra(
         settings=settings,
         engine=engine,
@@ -76,8 +93,18 @@ def build_infra(
         neo4j=create_neo4j_driver(settings),
         http=http,
         llm=build_extraction_llm(settings, http),
+        embedder=embedder,
+        graph_search=build_graph_search(settings, embedder),
         clock=clock,
     )
 
 
-__all__ = ["Clock", "FaultHook", "Infra", "build_infra", "create_neo4j_driver", "utc_now"]
+__all__ = [
+    "Clock",
+    "FaultHook",
+    "Infra",
+    "build_embedder",
+    "build_infra",
+    "create_neo4j_driver",
+    "utc_now",
+]

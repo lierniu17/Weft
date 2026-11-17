@@ -24,6 +24,8 @@ from openai import AsyncOpenAI
 from weft.llm import OpenAICompatibleClient
 from weft.settings import Settings
 
+DEEPSEEK_MAX_OUTPUT_TOKENS = 8192  # deepseek-chat's limit; Graphiti's default is 16384
+
 
 @dataclass(frozen=True)
 class ExtractionLLM:
@@ -52,6 +54,10 @@ def build_extraction_llm(settings: Settings, http: httpx.AsyncClient) -> Extract
             temperature=0.0,
         ),
         client=openai_client,
+        # DeepSeek refuses response_format json_schema (HTTP 400 「This response_format type
+        # is unavailable now」); in json_object mode Graphiti puts the schema in the prompt.
+        structured_output_mode="json_object",
+        max_tokens=DEEPSEEK_MAX_OUTPUT_TOKENS,
     )
     # No driver / embedder / reranker: extract_nodes and extract_edges only use the LLM.
     unused: dict[str, Any] = {"driver": None, "embedder": None, "cross_encoder": None}
