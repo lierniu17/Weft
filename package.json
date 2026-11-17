@@ -9,17 +9,25 @@
   "scripts": {
     "dev": "pnpm --filter @weft/web dev",
     "storybook": "pnpm --filter @weft/web storybook",
-    "typecheck": "pnpm --filter @weft/web typecheck",
-    "lint": "biome check apps/web",
-    "lint:fix": "biome check --write apps/web",
+    "typecheck": "pnpm --filter @weft/web typecheck && tsc -p tests/e2e",
+    "lint": "biome check apps/web tests/e2e playwright.config.ts",
+    "lint:fix": "biome check --write apps/web tests/e2e playwright.config.ts",
     "tokens": "pnpm --filter @weft/web tokens",
     "tokens:check": "pnpm --filter @weft/web tokens:check",
     "test:unit": "pnpm --filter @weft/web test:unit",
     "test:stories": "pnpm --filter @weft/web test:stories",
-    "test:web": "pnpm test:unit && pnpm test:stories"
+    "test:web": "pnpm test:unit && pnpm test:stories",
+    "e2e:bot": "playwright test",
+    "e2e:fixtures": "node tests/e2e/run.mjs --author",
+    "test:all": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:stories",
+    "e2e:walkthrough": "node tests/e2e/run.mjs --walkthrough --author"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",
+    "@playwright/test": "1.64.1",
+    "@types/node": "^22.20.5",
+    "axe-core": "4.14.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

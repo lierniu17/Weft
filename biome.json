@@ -11,12 +11,15 @@
       "apps/web/**/*.ts",
       "apps/web/**/*.tsx",
       "apps/web/**/*.css",
+      "tests/e2e/**/*.ts",
+      "playwright.config.ts",
       "!**/node_modules",
       "!**/dist",
       "!**/storybook-static",
       "!**/tokens.gen.ts",
       "!**/styles/tokens.css",
-      "!**/contracts/*.gen.ts"
+      "!**/contracts/*.gen.ts",
+      "!**/api/schema.gen.ts"
     ]
   },
   "formatter": {

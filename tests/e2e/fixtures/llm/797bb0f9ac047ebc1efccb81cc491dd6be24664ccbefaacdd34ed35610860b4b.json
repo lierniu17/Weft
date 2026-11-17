@@ -1,0 +1,25 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/compatible-mode/v1/embeddings",
+    "body": {
+      "model": "text-embedding-v4",
+      "input": [
+        "张伟经历了请大家喝奶茶",
+        "请大家喝奶茶"
+      ],
+      "dimensions": 1024,
+      "encoding_format": "float"
+    }
+  },
+  "response": {
+    "status_code": 503,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "error": {
+        "message": "embeddings are not available in e2e"
+      }
+    }
+  }
+}

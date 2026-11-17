@@ -1,0 +1,79 @@
+/** 确认草稿: the DraftReviewSheet wired to the draft endpoints. Edits stay local until 确认. */
+import { useState } from "react";
+import { ApiError } from "../../api/client.ts";
+import {
+  type DraftOut,
+  useConfirmDraft,
+  useDiscardDraft,
+  useDraft,
+  useUpdateDraft,
+} from "../../api/entries.ts";
+import { useTaxonomy } from "../../api/graph.ts";
+import { useSheetVariant, useToday } from "../../app/layout.ts";
+import { DraftReviewSheet } from "../../components/business/DraftReviewSheet/DraftReviewSheet.tsx";
+import type { Draft } from "../../contracts/draft.ts";
+import { parsePartialDate } from "../../lib/datePrecision.ts";
+import { choosePerson, removeItem, setConfidence, setRelationshipType } from "../../lib/draft.ts";
+
+export type DraftReviewProps = {
+  draftId: string | null;
+  /** The Entry's 发生日期 (contract form). */
+  occurredOn: string;
+  onClose: () => void;
+  onError: (message: string) => void;
+};
+
+export function DraftReview({ draftId, occurredOn, onClose, onError }: DraftReviewProps) {
+  const draft = useDraft(draftId ?? undefined);
+  const taxonomy = useTaxonomy();
+  const update = useUpdateDraft();
+  const confirm = useConfirmDraft();
+  const discard = useDiscardDraft();
+  const variant = useSheetVariant();
+  const today = useToday();
+  const [edited, setEdited] = useState<Draft | null>(null);
+
+  const original = (draft.data as DraftOut | undefined)?.content ?? null;
+  // Local edits start from the API copy; the parent keys this component by draft id.
+  const value = edited ?? original;
+  const edit = (fn: (d: Draft) => Draft) =>
+    setEdited((d) => {
+      const base = d ?? original;
+      return base ? fn(base) : base;
+    });
+
+  if (!draftId || !value || draft.data?.status !== "pending") return null;
+
+  const fail = (e: unknown) => onError(e instanceof ApiError ? e.message : "操作失败，请稍后再试");
+
+  const onConfirm = async () => {
+    try {
+      if (edited) {
+        await update.mutateAsync({ id: draftId, content: edited });
+      }
+      await confirm.mutateAsync({ id: draftId });
+      onClose();
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  return (
+    <DraftReviewSheet
+      open
+      onOpenChange={(open) => !open && onClose()}
+      variant={variant}
+      draft={value}
+      occurredOn={parsePartialDate(occurredOn)}
+      today={today}
+      taxonomy={taxonomy.data ?? []}
+      onChoosePerson={(id, choice) => edit((d) => choosePerson(d, id, choice))}
+      onConfidenceChange={(id, c) => edit((d) => setConfidence(d, id, c))}
+      onRemoveItem={(id) => edit((d) => removeItem(d, id))}
+      onRelationshipTypeChange={(id, i, t) => edit((d) => setRelationshipType(d, id, i, t))}
+      confirming={update.isPending || confirm.isPending}
+      onConfirm={onConfirm}
+      onDiscard={() => discard.mutate({ id: draftId }, { onSuccess: onClose, onError: fail })}
+    />
+  );
+}
