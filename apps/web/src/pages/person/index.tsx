@@ -14,7 +14,7 @@ import {
   useProfile,
 } from "../../api/graph.ts";
 import { exposeGraph } from "../../app/devHooks.ts";
-import { useLayout, useSheetVariant, useToday } from "../../app/layout.ts";
+import { useLayout, useSidePanel, useToday } from "../../app/layout.ts";
 import { Banner } from "../../components/basics/Banner/Banner.tsx";
 import { Button } from "../../components/basics/Button/Button.tsx";
 import { Modal } from "../../components/basics/Modal/Modal.tsx";
@@ -37,7 +37,7 @@ export function PersonPage() {
   const navigate = useNavigate();
   const today = useToday();
   const layout = useLayout();
-  const sheetVariant = useSheetVariant();
+  const sheet = useSidePanel();
   const me = useMe();
   const selfId = me.data?.self_person_id;
   const profile = useProfile(personId);
@@ -171,67 +171,69 @@ export function PersonPage() {
   );
 
   return (
-    <>
-      <NavBar
-        title={p?.person.name ?? "人物"}
-        subtitle={editing ? "编辑中" : undefined}
-        variant="pushed"
-        onBack={back}
-        actions={
-          editing ? (
-            <Button variant="ghost" size="sm" loading={edit.isPending} onClick={finishEditing}>
-              完成
-            </Button>
-          ) : undefined
-        }
-      />
-      <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-container">
-        {profile.isError && !notFound && (
-          <Banner variant="error" className="m-md">
-            人物加载失败
-          </Banner>
-        )}
-        {header}
-        {!isSelf && p && (
-          <ListItem
-            variant="navigational"
-            title={
-              rel ? `我和他：${rel.types.map((t) => t.subtype).join(" · ") || "关系"}` : "我和他"
-            }
-            subtitle={feelingSummary(pair.data?.a_to_b) ?? (rel ? undefined : "还没有记录")}
-            onClick={() =>
-              selfId && navigate(`/people/${enc(selfId)}/relationships/${enc(personId)}`)
-            }
-            trailing={
-              <span className="flex items-center">
-                关系
-                <FiChevronRight aria-hidden="true" />
-              </span>
-            }
-          />
-        )}
-        {layout === "desktop" ? (
-          <div className="flex gap-lg p-md">
-            <div className="min-w-[0] flex-1">{body}</div>
-            <div className="flex w-[360px] shrink-0 flex-col gap-lg">
+    <div className="flex min-h-[0] flex-1">
+      <div className="flex min-w-[0] flex-1 flex-col">
+        <NavBar
+          title={p?.person.name ?? "人物"}
+          subtitle={editing ? "编辑中" : undefined}
+          variant="pushed"
+          onBack={back}
+          actions={
+            editing ? (
+              <Button variant="ghost" size="sm" loading={edit.isPending} onClick={finishEditing}>
+                完成
+              </Button>
+            ) : undefined
+          }
+        />
+        <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-container">
+          {profile.isError && !notFound && (
+            <Banner variant="error" className="m-md">
+              人物加载失败
+            </Banner>
+          )}
+          {header}
+          {!isSelf && p && (
+            <ListItem
+              variant="navigational"
+              title={
+                rel ? `我和他：${rel.types.map((t) => t.subtype).join(" · ") || "关系"}` : "我和他"
+              }
+              subtitle={feelingSummary(pair.data?.a_to_b) ?? (rel ? undefined : "还没有记录")}
+              onClick={() =>
+                selfId && navigate(`/people/${enc(selfId)}/relationships/${enc(personId)}`)
+              }
+              trailing={
+                <span className="flex items-center">
+                  关系
+                  <FiChevronRight aria-hidden="true" />
+                </span>
+              }
+            />
+          )}
+          {layout === "desktop" ? (
+            <div className="flex gap-lg p-md">
+              <div className="min-w-[0] flex-1">{body}</div>
+              <div className="flex w-[360px] shrink-0 flex-col gap-lg">
+                {relationGraph}
+                {relations}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-lg p-md">
               {relationGraph}
+              {body}
               {relations}
             </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-lg p-md">
-            {relationGraph}
-            {body}
-            {relations}
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <CitationSheet
         open={citations !== null}
         onOpenChange={(open) => !open && setCitations(null)}
         citations={citations ?? []}
         today={today}
-        variant={sheetVariant}
+        {...sheet}
       />
       <Modal
         open={deleting}
@@ -262,6 +264,6 @@ export function PersonPage() {
       >
         {toast?.text}
       </Toast>
-    </>
+    </div>
   );
 }
