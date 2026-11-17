@@ -171,7 +171,7 @@ components:
       bg: "colors.neutral.bg-container"
       variants:
         bottom-sheet: { handle: "36x4px rounded.full colors.neutral.border", max-height: "92vh", radius-top: "rounded.lg" }
-        side-panel: { width: "360px", border-left: "colors.neutral.divider" }
+        side-panel: { width: "360px", border-left: "colors.neutral.divider", desktop: "≥1200px 时为页面布局内的非模态右栏：无遮罩、页面可继续操作；打开时焦点进入、关闭时回到触发处；✕ 关闭，Esc 仅在焦点位于面板内时关闭。768–1199px 为模态右侧抽屉，<768px 用 bottom-sheet" }
       transition: "transform 240ms cubic-bezier(0.2, 0, 0, 1)"
     Tooltip:
       description: "截断文本 hover 时显示全称；出处标记 hover 时显示摘要。"

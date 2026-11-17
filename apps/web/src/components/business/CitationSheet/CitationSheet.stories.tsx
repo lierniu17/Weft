@@ -124,3 +124,54 @@ export const SidePanel: Story = {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   },
 };
+
+/**
+ * Desktop ≥1200 on 人物 / 关系 / 对话 (D1–D3): the non-modal right column beside the page.
+ * No mask, the page stays usable, Esc only closes it from inside.
+ */
+function Column(props: Omit<CitationSheetProps, "open" | "onOpenChange">) {
+  const [open, setOpen] = useState(false);
+  const [clicks, setClicks] = useState(0);
+  return (
+    <div className="flex h-[600px] w-[1000px]">
+      <div className="flex flex-1 flex-col items-start gap-sm p-md">
+        <Button variant="secondary" onClick={() => setOpen(true)}>
+          打开出处
+        </Button>
+        <Button variant="secondary" onClick={() => setClicks((c) => c + 1)}>
+          页面按钮 {clicks}
+        </Button>
+      </div>
+      <CitationSheet {...props} open={open} onOpenChange={setOpen} />
+    </div>
+  );
+}
+
+export const DesktopColumn: Story = {
+  name: "Side panel · non-modal (desktop column)",
+  args: { variant: "side-panel", modal: false },
+  render: (args) => <Column {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "打开出处" });
+    await userEvent.click(trigger);
+    const panel = await canvas.findByRole("dialog", { name: "出处 [2]" });
+    await expect(canvasElement).toContainElement(panel);
+    await expect(document.querySelector("[data-drawer-mask]")).toBeNull();
+    await waitFor(() => expect(panel).toContainElement(document.activeElement as HTMLElement));
+
+    // The page stays interactive and Esc pressed there leaves the panel open.
+    const other = canvas.getByRole("button", { name: /页面按钮/ });
+    await userEvent.click(other);
+    await expect(canvas.getByRole("button", { name: "页面按钮 1" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(panel).toBeVisible();
+
+    // Esc inside closes it; focus goes back to the trigger.
+    within(panel).getByRole("button", { name: "关闭" }).focus();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(canvas.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
+  },
+};

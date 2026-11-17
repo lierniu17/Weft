@@ -169,6 +169,37 @@
     "mask": 1,
     "focusInPanel": true,
     "chatInteractive": false,
+    "escInComposerKeepsOpen": false,
+    "focusBack": true
+  },
+  "AC-UI-7 1024 person side panel": {
+    "mask": 1,
+    "pageHidden": true,
+    "inPageFlow": false,
+    "width": 360,
+    "right": 0,
+    "focusInPanel": true,
+    "escInsideCloses": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1024 relationship side panel": {
+    "mask": 1,
+    "pageHidden": true,
+    "inPageFlow": false,
+    "width": 360,
+    "right": 0,
+    "focusInPanel": true,
+    "escInsideCloses": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1024 panorama side panel": {
+    "mask": 1,
+    "pageHidden": true,
+    "inPageFlow": false,
+    "width": 360,
+    "right": 0,
+    "focusInPanel": true,
+    "escInsideCloses": true,
     "focusBack": true
   },
   "AC-UI-7 1440 layout": {
@@ -205,6 +236,49 @@
     "mask": 0,
     "focusInPanel": true,
     "chatInteractive": true,
+    "escInComposerKeepsOpen": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1440 person side panel": {
+    "mask": 0,
+    "pageHidden": false,
+    "inPageFlow": true,
+    "width": 360,
+    "right": 0,
+    "focusInPanel": true,
+    "triggerHitTestable": true,
+    "pageInteractive": true,
+    "escOutsideKeepsOpen": true,
+    "axe": [],
+    "escInsideCloses": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1440 relationship side panel": {
+    "mask": 0,
+    "pageHidden": false,
+    "inPageFlow": true,
+    "width": 360,
+    "right": 0,
+    "focusInPanel": true,
+    "triggerHitTestable": true,
+    "pageInteractive": true,
+    "escOutsideKeepsOpen": true,
+    "axe": [],
+    "escInsideCloses": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1440 panorama side panel": {
+    "mask": 0,
+    "pageHidden": false,
+    "inPageFlow": true,
+    "width": 360,
+    "right": 0,
+    "focusInPanel": true,
+    "triggerHitTestable": true,
+    "pageInteractive": true,
+    "escOutsideKeepsOpen": true,
+    "axe": [],
+    "escInsideCloses": true,
     "focusBack": true
   },
   "AC-UI-7 1680 layout": {
@@ -239,6 +313,49 @@
     "mask": 0,
     "focusInPanel": true,
     "chatInteractive": true,
+    "escInComposerKeepsOpen": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1680 person side panel": {
+    "mask": 0,
+    "pageHidden": false,
+    "inPageFlow": true,
+    "width": 360,
+    "right": 120,
+    "focusInPanel": true,
+    "triggerHitTestable": true,
+    "pageInteractive": true,
+    "escOutsideKeepsOpen": true,
+    "axe": [],
+    "escInsideCloses": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1680 relationship side panel": {
+    "mask": 0,
+    "pageHidden": false,
+    "inPageFlow": true,
+    "width": 360,
+    "right": 120,
+    "focusInPanel": true,
+    "triggerHitTestable": true,
+    "pageInteractive": true,
+    "escOutsideKeepsOpen": true,
+    "axe": [],
+    "escInsideCloses": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1680 panorama side panel": {
+    "mask": 0,
+    "pageHidden": false,
+    "inPageFlow": true,
+    "width": 360,
+    "right": 120,
+    "focusInPanel": true,
+    "triggerHitTestable": true,
+    "pageInteractive": true,
+    "escOutsideKeepsOpen": true,
+    "axe": [],
+    "escInsideCloses": true,
     "focusBack": true
   }
 }
