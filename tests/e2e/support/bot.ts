@@ -139,14 +139,22 @@ export async function personId(page: Page, name: string): Promise<string> {
   return p.id;
 }
 
-/** Writes the seed graph into LOGIN's graph (remote: the admin CLI inside the environment). */
-export function seedGraph(login: string) {
+/**
+ * Writes the seed graph into LOGIN's graph (remote: the admin CLI inside the environment).
+ * `size` grows it with generated persons to that many (graph performance, e.g. 300).
+ */
+export function seedGraph(login: string, size?: number) {
+  const sized = size ? ["--size", String(size)] : [];
   if (REMOTE) {
-    const [cmd, args] = remoteCli("seed", "--user", login);
+    const [cmd, args] = remoteCli("seed", "--user", login, ...sized);
     execFileSync(cmd, args, { cwd: ROOT, stdio: "pipe" });
     return;
   }
-  execFileSync("uv", uvArgs("seed", login), { cwd: ROOT, env: serverEnv(), stdio: "pipe" });
+  execFileSync("uv", uvArgs("seed", login, ...sized), {
+    cwd: ROOT,
+    env: serverEnv(),
+    stdio: "pipe",
+  });
 }
 
 /** No horizontal scrollbar at the current viewport (AC-35, AC-UI-7). */

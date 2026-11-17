@@ -240,6 +240,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Preferences */
+        get: operations["get_preferences_api_me_preferences_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Preferences */
+        patch: operations["update_preferences_api_me_preferences_patch"];
+        trace?: never;
+    };
     "/api/persons": {
         parameters: {
             query?: never;
@@ -995,33 +1013,75 @@ export interface components {
         };
         /** GraphEdgeOut */
         GraphEdgeOut: {
-            /** @description The closer direction's current level */
+            /** @description The closer direction's level */
             closeness: components["schemas"]["ClosenessLevel"] | null;
+            confidence: components["schemas"]["Confidence"];
             /** Id */
             id: string;
             /** Source */
             source: string;
+            /** @description source's closeness to target (感受, this direction) */
+            source_closeness: components["schemas"]["ClosenessLevel"] | null;
             status: components["schemas"]["RelationshipStatus"] | null;
             /** Target */
             target: string;
-            /** Types */
+            /** @description target's closeness to source (感受, the other direction) */
+            target_closeness: components["schemas"]["ClosenessLevel"] | null;
+            /**
+             * Types
+             * @description types[0] is the primary type
+             */
             types: components["schemas"]["RelationshipTypeOut"][];
+        };
+        /**
+         * GraphGroupOut
+         * @description 群体: a workplace, school or family with two or more members (Self never counted).
+         */
+        GraphGroupOut: {
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "family" | "organization" | "school";
+            /** Member Ids */
+            member_ids: string[];
+            /** Name */
+            name: string;
         };
         /** GraphNodeOut */
         GraphNodeOut: {
+            /**
+             * Anchor Person Id
+             * @description Persons with no Relationship to Self (间接认识): the connected person nearest to Self, whose angle they sit near
+             */
+            anchor_person_id: string | null;
             /** Id */
             id: string;
             /** Is Self */
             is_self: boolean;
+            /**
+             * Met At
+             * @description 认识时间: the Relationship with Self's met_at, else the 发生日期 of the first Entry mentioning the person; None for Self or when unknown
+             */
+            met_at: string | null;
             /** Name */
             name: string;
         };
         /** GraphOut */
         GraphOut: {
+            /**
+             * At
+             * @description The time point shown; None = now
+             */
+            at: string | null;
             /** Center Id */
             center_id: string;
             /** Edges */
             edges: components["schemas"]["GraphEdgeOut"][];
+            /** Groups */
+            groups: components["schemas"]["GraphGroupOut"][];
             /** Nodes */
             nodes: components["schemas"]["GraphNodeOut"][];
             /**
@@ -1029,6 +1089,27 @@ export interface components {
              * @description Persons left out by the 50-node cap (AC-33)
              */
             omitted: number;
+            /** @description Panorama only: the time axis' range */
+            timeline: components["schemas"]["GraphTimelineOut"] | null;
+        };
+        /**
+         * GraphTheme
+         * @enum {string}
+         */
+        GraphTheme: "light" | "starfield";
+        /** GraphTimelineOut */
+        GraphTimelineOut: {
+            /**
+             * From
+             * @description The earliest 认识时间; None when nobody has one
+             */
+            from: string | null;
+            /**
+             * To
+             * Format: date
+             * @description Today
+             */
+            to: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1140,6 +1221,19 @@ export interface components {
          * @enum {string}
          */
         Precision: "year" | "month" | "day";
+        /** PreferencesOut */
+        PreferencesOut: {
+            /** @description 图谱外观: light = 清蓝 (default), starfield = 星空 */
+            graph_theme: components["schemas"]["GraphTheme"];
+        };
+        /**
+         * PreferencesPatch
+         * @description Only the fields given change; ``null`` is not a value.
+         */
+        PreferencesPatch: {
+            /** @description Omit to keep */
+            graph_theme?: components["schemas"]["GraphTheme"] | null;
+        };
         /** ProfileEdited */
         ProfileEdited: {
             /**
@@ -1805,6 +1899,8 @@ export interface operations {
                 subtype?: string | null;
                 /** @description 亲密度至少到这一档 */
                 closeness?: components["schemas"]["ClosenessLevel"] | null;
+                /** @description 时间点（YYYY / YYYY-MM / YYYY-MM-DD，含当期最后一天）：只显示那时已认识的人，亲密度与关系按那时；不传为现在 */
+                at?: string | null;
             };
             header?: never;
             path?: never;
@@ -1848,6 +1944,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthReport"];
+                };
+            };
+        };
+    };
+    get_preferences_api_me_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+        };
+    };
+    update_preferences_api_me_preferences_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

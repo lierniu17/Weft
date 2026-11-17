@@ -35,6 +35,7 @@ from weft.domain.graph_write import (
     NewFact,
     NewFeeling,
     NewPerson,
+    RelationshipStatement,
     RelationshipUpsert,
     fact_sentence,
 )
@@ -570,6 +571,9 @@ def _plan_relationship(
     key = frozenset((a, b))
     old = state.relationships.get(key)
     new_types = [RelationshipType(t.category, t.subtype, t.original) for t in r.types]
+    stated = RelationshipStatement(
+        tuple(_dedupe_types(new_types)), r.status.value if r.status else None, r.confidence
+    )
     if old is None:
         types = new_types
         upsert = RelationshipUpsert(
@@ -582,6 +586,7 @@ def _plan_relationship(
             origin=r.origin,
             introduced_by_id=ids.get(r.introduced_by) if r.introduced_by else None,
             status=r.status.value if r.status else None,
+            stated=stated,
         )
     else:
         merged = [RelationshipType(Category(t.category), t.subtype, t.original) for t in old.types]
@@ -601,6 +606,7 @@ def _plan_relationship(
             status=r.status.value if r.status else old.status,
             summary=old.summary,
             exists=True,
+            stated=stated,
         )
     # keep the merged state for a second item about the same pair in this Draft
     write.relationships[:] = [

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
@@ -107,7 +108,7 @@ async def test_the_local_graph_shows_one_hop_by_default_and_two_on_request(seede
         "王浩",
         "吴昊",
         "黄丽",
-        "张小雨",
+        "老张的女儿",
     }
     assert len(two["nodes"]) > len(one["nodes"])
     assert {"刘洋", "宋佳", "周涛"} <= {n["name"] for n in two["nodes"]}
@@ -168,14 +169,66 @@ async def test_the_panorama_filters_by_category_and_closeness(seeded: Seeded) ->
         "/api/graph", params={"category": "social", "closeness": "close"}
     )
     graph = response.json()
-    assert {n["name"] for n in graph["nodes"]} == {"小明", "张伟", "李明"}
+    # 郑凯 is 合伙人 and (since 2025-12) also 朋友
+    assert {n["name"] for n in graph["nodes"]} == {"小明", "张伟", "李明", "郑凯"}
     assert all(any(t["category"] == "social" for t in e["types"]) for e in graph["edges"])
-    assert len(graph["edges"]) == 3
+    assert len(graph["edges"]) == 4
 
 
 async def test_the_panorama_filters_by_subtype(seeded: Seeded) -> None:
     graph = (await seeded.api.client.get("/api/graph", params={"subtype": "同学,师生"})).json()
     assert {n["name"] for n in graph["nodes"]} == {"小明", "李明", "陈静", "周涛", "罗建华"}
+
+
+async def test_the_panorama_carries_what_the_star_graph_needs(seeded: Seeded) -> None:
+    graph = (await seeded.api.client.get("/api/graph")).json()
+    nodes = {n["name"]: n for n in graph["nodes"]}
+    me, zhang = nodes["小明"], nodes["张伟"]
+    assert (me["met_at"], me["anchor_person_id"]) == (None, None)
+    assert (zhang["met_at"], zhang["anchor_person_id"]) == ("2018-03", None)
+    daughter = nodes["老张的女儿"]
+    assert (daughter["met_at"], daughter["anchor_person_id"]) == ("2026-11-10", zhang["id"])
+    [me_zhang] = [
+        e for e in graph["edges"] if {e["source"], e["target"]} == {me["id"], zhang["id"]}
+    ]
+    mine, theirs = (
+        (me_zhang["source_closeness"], me_zhang["target_closeness"])
+        if me_zhang["source"] == me["id"]
+        else (me_zhang["target_closeness"], me_zhang["source_closeness"])
+    )
+    assert (mine, theirs, me_zhang["closeness"]) == ("intimate", "close", "intimate")
+    assert me_zhang["confidence"] == "witnessed"
+    assert [t["subtype"] for t in me_zhang["types"]] == ["同事", "朋友"]
+    groups = {(g["kind"], g["name"]) for g in graph["groups"]}
+    assert {("organization", "字节跳动"), ("school", "浙江大学"), ("family", "张伟家")} <= groups
+    assert graph["timeline"] == {"from": "2012", "to": "2026-11-16"}
+    assert graph["at"] is None
+
+
+async def test_the_panorama_at_a_time_point(seeded: Seeded) -> None:
+    client = seeded.api.client
+    then = (await client.get("/api/graph", params={"at": "2013"})).json()
+    assert {n["name"] for n in then["nodes"]} == {"小明", "唐亮"}
+    assert then["at"] == "2013" and then["timeline"] == {"from": "2012", "to": "2026-11-16"}
+
+    def roommates(graph: dict[str, Any]) -> dict[str, Any]:
+        ids = {seeded.ids["老张"], seeded.ids["小李"]}
+        [e] = [e for e in graph["edges"] if {e["source"], e["target"]} == ids]
+        return e
+
+    before = (await client.get("/api/graph", params={"at": "2024-12"})).json()
+    after = (await client.get("/api/graph", params={"at": "2025-06"})).json()
+    assert (roommates(before)["status"], roommates(after)["status"]) == (None, "tense")
+    filtered = await client.get(
+        "/api/graph", params={"at": "2016", "category": "social", "closeness": "close"}
+    )
+    assert {n["name"] for n in filtered.json()["nodes"]} == {"小明", "李明"}
+
+
+@pytest.mark.parametrize("at", ["2013-13", "13", "yesterday", "2013-02-30"])
+async def test_a_malformed_time_point_is_refused(seeded: Seeded, at: str) -> None:
+    response = await seeded.api.client.get("/api/graph", params={"at": at})
+    assert response.status_code == 422 and response.json()["error"] == "validation_error"
 
 
 @pytest.mark.parametrize("params", [{"category": "friends"}, {"closeness": "very"}])
@@ -207,8 +260,11 @@ async def test_every_profile_and_relationship_item_returns_its_citations(seeded:
     pair = (
         await client.get(f"/api/persons/{seeded.ids['老张']}/relationships/{seeded.ids['小李']}")
     ).json()
-    [rel_citation] = pair["relationship"]["citations"]
-    assert (rel_citation["confidence"], rel_citation["occurred_on"]) == ("hearsay", "2026-10-08")
+    # told twice: 紧张 since 2025 (陈静), 闹掰 in 2026-09 (小王)
+    assert [(c["confidence"], c["occurred_on"]) for c in pair["relationship"]["citations"]] == [
+        ("hearsay", "2025-05-18"),
+        ("hearsay", "2026-10-08"),
+    ]
     assert all(f["citations"] for f in pair["facts"])
     trust = pair["b_to_a"]["dimensions"]["trust"]["current"]
     assert trust["citations"][0]["entry_excerpt"].startswith("听小王说")
@@ -234,4 +290,5 @@ async def test_a_confirmed_draft_gets_its_summary_with_the_generation_time(
 
 async def test_a_person_is_found_by_any_alias(seeded: Seeded) -> None:
     found = (await seeded.api.client.get("/api/persons", params={"q": "老张"})).json()
-    assert [(p["name"], p["aliases"]) for p in found] == [("张伟", ["老张"])]
+    # and the descriptor person 老张的女儿 by her name
+    assert [(p["name"], p["aliases"]) for p in found] == [("张伟", ["老张"]), ("老张的女儿", [])]

@@ -11,7 +11,7 @@
         },
         {
           "role": "user",
-          "content": "谁喜欢户外活动？"
+          "content": "老张和小李是什么关系？"
         },
         {
           "role": "assistant",
@@ -21,15 +21,15 @@
               "id": "call_0_0",
               "type": "function",
               "function": {
-                "name": "semantic_search",
-                "arguments": "{\"query\": \"户外露营\"}"
+                "name": "read_relationship",
+                "arguments": "{\"person_a\": \"老张\", \"person_b\": \"小李\"}"
               }
             }
           ]
         },
         {
           "role": "tool",
-          "content": "{\"found\":true,\"facts\":[{\"evidence\":\"E1\",\"about\":\"P1\",\"kind\":\"fact\",\"predicate\":\"LIKES\",\"label\":\"喜欢\",\"object\":\"露营\",\"status\":\"current\",\"text\":\"刘洋喜欢露营\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"sources\":[{\"excerpt\":\"小王说他们组的刘洋也喜欢露营，之前在美团。\",\"date\":\"2026-08-02\"}]},{\"evidence\":\"E2\",\"about\":\"P1\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"腾讯\",\"status\":\"current\",\"text\":\"刘洋在腾讯工作\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"sources\":[{\"excerpt\":\"小王说他们组的刘洋也喜欢露营，之前在美团。\",\"date\":\"2026-08-02\"}]},{\"evidence\":\"E3\",\"about\":\"P2\",\"kind\":\"fact\",\"predicate\":\"LIKES\",\"label\":\"喜欢\",\"object\":\"露营\",\"status\":\"current\",\"text\":\"孙悦喜欢露营\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"sources\":[{\"excerpt\":\"周末去露营认识了孙悦，她是摄影师，也很喜欢露营和徒步。\",\"date\":\"2026-07-12\"}]},{\"evidence\":\"E4\",\"about\":\"P3\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"阿里巴巴\",\"status\":\"current\",\"text\":\"宋佳在阿里巴巴工作\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"sources\":[{\"excerpt\":\"小李跟我说他上个月跳槽去了阿里巴巴，在那边的新同事宋佳很会做饭。\",\"date\":\"2026-10-20\"}]},{\"evidence\":\"E5\",\"about\":\"P4\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"阿里巴巴\",\"status\":\"current\",\"text\":\"李明在阿里巴巴工作\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"from\":\"2026-09\",\"sources\":[{\"excerpt\":\"小李跟我说他上个月跳槽去了阿里巴巴，在那边的新同事宋佳很会做饭。\",\"date\":\"2026-10-20\"}]},{\"evidence\":\"E6\",\"about\":\"P5\",\"kind\":\"fact\",\"predicate\":\"LIKES\",\"label\":\"喜欢\",\"object\":\"露营\",\"status\":\"current\",\"text\":\"林芳喜欢露营\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"sources\":[{\"excerpt\":\"搬家后认识了邻居林芳，她在市一院当护士，也喜欢露营。\",\"date\":\"2026-10-15\"}]},{\"evidence\":\"E7\",\"about\":\"P6\",\"kind\":\"fact\",\"predicate\":\"LIKES\",\"label\":\"喜欢\",\"object\":\"露营\",\"status\":\"current\",\"text\":\"王浩喜欢露营\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"sources\":[{\"excerpt\":\"老张介绍我认识了他的老朋友王浩，大家叫他小王。小王说他在腾讯做产品，特别喜欢露营。\",\"date\":\"2024-05-01\"}]},{\"evidence\":\"E8\",\"about\":\"P6\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"腾讯\",\"status\":\"current\",\"text\":\"王浩在腾讯工作\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"sources\":[{\"excerpt\":\"老张介绍我认识了他的老朋友王浩，大家叫他小王。小王说他在腾讯做产品，特别喜欢露营。\",\"date\":\"2024-05-01\"}]},{\"evidence\":\"E9\",\"about\":\"P7\",\"kind\":\"fact\",\"predicate\":\"LIVES_IN\",\"label\":\"住在\",\"object\":\"上海\",\"status\":\"current\",\"text\":\"苏珊住在上海\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"sources\":[{\"excerpt\":\"前女友苏珊去了上海，已经很久没联系了。\",\"date\":\"2017-06\"}]},{\"evidence\":\"E10\",\"about\":\"P8\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"百度\",\"status\":\"history\",\"text\":\"郑凯在百度工作\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"from\":\"2020\",\"until\":\"2025-03\",\"sources\":[{\"excerpt\":\"和郑凯合伙开了工作室，他负责技术，之前在百度干了五年。\",\"date\":\"2025-03-01\"}]},{\"evidence\":\"E11\",\"about\":\"P9\",\"kind\":\"fact\",\"predicate\":\"LIKES\",\"label\":\"喜欢\",\"object\":\"露营\",\"status\":\"current\",\"text\":\"陈静喜欢露营\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"sources\":[{\"excerpt\":\"陈静说她现在在杭州的阿里巴巴工作，周末常去露营。\",\"date\":\"2025-06-08\"}]},{\"evidence\":\"E12\",\"about\":\"P9\",\"kind\":\"fact\",\"predicate\":\"LIVES_IN\",\"label\":\"住在\",\"object\":\"杭州\",\"status\":\"current\",\"text\":\"陈静住在杭州\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"sources\":[{\"excerpt\":\"陈静说她现在在杭州的阿里巴巴工作，周末常去露营。\",\"date\":\"2025-06-08\"}]},{\"evidence\":\"E13\",\"about\":\"P9\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"阿里巴巴\",\"status\":\"current\",\"text\":\"陈静在阿里巴巴工作\",\"confidence\":\"self_told\",\"confidence_label\":\"本人说\",\"from\":\"2025\",\"sources\":[{\"excerpt\":\"陈静说她现在在杭州的阿里巴巴工作，周末常去露营。\",\"date\":\"2025-06-08\"}]}],\"persons\":[{\"person\":\"P10\",\"name\":\"唐亮\"},{\"person\":\"P11\",\"name\":\"杜鹃\"},{\"person\":\"P12\",\"name\":\"赵磊\"},{\"person\":\"P13\",\"name\":\"陈晓\",\"aliases\":[\"妹妹\"]},{\"person\":\"P9\",\"name\":\"陈静\"}]}",
+          "content": "{\"found\":true,\"pair\":[\"P1\",\"P2\"],\"relationship\":{\"evidence\":\"E3\",\"between\":[\"P1\",\"P2\"],\"types\":[{\"category\":\"社会\",\"subtype\":\"室友\",\"original\":\"大学室友\"}],\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"origin\":\"大学\",\"status\":\"紧张\",\"sources\":[{\"excerpt\":\"听陈静说，老张和小李因为借钱的事有了矛盾，关系挺僵的。\",\"date\":\"2025-05-18\"},{\"excerpt\":\"听小王说，老张和小李以前是大学室友，今年九月因为借钱的事闹掰了。\",\"date\":\"2026-10-08\"}]},\"timeline\":[{\"evidence\":\"E2\",\"about\":\"P1\",\"kind\":\"fact\",\"predicate\":\"RELATED_EVENT\",\"label\":\"两人之间的事\",\"object\":\"小李\",\"status\":\"current\",\"text\":\"老张和小李因为借钱闹掰了\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"from\":\"2026-09\",\"sources\":[{\"excerpt\":\"听小王说，老张和小李以前是大学室友，今年九月因为借钱的事闹掰了。\",\"date\":\"2026-10-08\"}]}],\"feelings\":{\"a_to_b\":[],\"b_to_a\":[{\"evidence\":\"E1\",\"dimension\":\"信任\",\"current\":\"低\",\"history\":[{\"level\":\"低\",\"date\":\"2026-10-08\"}],\"confidence\":\"hearsay\"}]}}",
           "tool_call_id": "call_0_0"
         }
       ],
@@ -699,7 +699,7 @@
                 "type": "function",
                 "function": {
                   "name": "final_answer",
-                  "arguments": "{\"kind\": \"list\", \"segments\": [{\"text\": \"喜欢露营的有这些人：\", \"evidence\": [\"E1\", \"E3\", \"E6\", \"E7\", \"E11\"]}], \"items\": [{\"person\": \"P1\", \"evidence\": [\"E1\"]}, {\"person\": \"P2\", \"evidence\": [\"E3\"]}, {\"person\": \"P5\", \"evidence\": [\"E6\"]}, {\"person\": \"P6\", \"evidence\": [\"E7\"]}, {\"person\": \"P9\", \"evidence\": [\"E11\"]}]}"
+                  "arguments": "{\"kind\": \"text\", \"segments\": [{\"text\": \"据小王说，老张和小李以前是大学室友，现在关系紧张。\", \"evidence\": [\"E3\"]}, {\"text\": \"今年九月两人因为借钱闹掰了。\", \"evidence\": [\"E2\"]}], \"persons\": [\"P1\", \"P2\"]}"
                 }
               }
             ]

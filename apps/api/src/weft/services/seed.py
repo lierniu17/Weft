@@ -9,17 +9,25 @@ relationship and feeling cites a real Entry.
 It contains what BOT-5 / BOT-9 rely on:
 
 * 我 → 老张 → 小王: 老张 introduced 小王 to me (``introduced_by``);
-* 老张 and 小李 were 大学室友, fell out over borrowed money in 2026-09 — told by 小王
-  (可信度 转述), relationship status 紧张;
+* 老张 and 小李 were 大学室友; their relationship is 紧张 from 2025 (told by 陈静) and they
+  fell out over borrowed money in 2026-09 — told by 小王 (可信度 转述);
 * five persons 喜欢露营 (one of them only by hearsay);
 * 小李 moved from 字节跳动 to 阿里巴巴 (history, AC-14); 我的评价 of 老张 (AC-23);
-* persons I only know through others (赵磊 via 周涛, 刘洋 via 小王) for path questions.
+* persons I only know through others (赵磊 via 周涛, 刘洋 via 小王, the descriptor person
+  老张的女儿) for path questions and the graph's 间接认识 ring;
+* for the graph timeline (graph-viz AC-14): closeness that changes over the years (周涛 and
+  唐亮 drift away, 老张 becomes 至交), asymmetric feelings (小李 → 我, 老张 → 我), a person
+  with two relationship categories (郑凯: 合伙人 + 朋友) and several groups (字节跳动,
+  浙江大学, 腾讯, 阿里巴巴, 华为, two families).
+
+``seed --size N`` adds generated persons up to N in total (graph performance, BOT-5).
 
 Usage: ``uv run python -m weft.cli seed --user <login>`` (refuses a non-empty graph).
 """
 
 from __future__ import annotations
 
+import random
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -37,6 +45,7 @@ from weft.domain.graph_write import (
     NewFact,
     NewFeeling,
     NewPerson,
+    RelationshipStatement,
     RelationshipUpsert,
     fact_sentence,
 )
@@ -141,6 +150,11 @@ ENTRIES: tuple[SeedEntry, ...] = (
         feelings=(E(SELF, "唐亮", "closeness", "casual"),),
     ),
     SeedEntry(
+        "小李过生日，喝多了说我是他最好的朋友。",
+        "2016-05-04",
+        feelings=(E("小李", SELF, "closeness", "intimate", S),),
+    ),
+    SeedEntry(
         "前女友苏珊去了上海，已经很久没联系了。",
         "2017-06",
         persons=(("苏珊", ()),),
@@ -160,6 +174,11 @@ ENTRIES: tuple[SeedEntry, ...] = (
         ),
         relationships=(R(SELF, "老张", SOCIAL, "同事", "同组同事", W, "2018-03", "字节跳动同组"),),
         feelings=(E(SELF, "老张", "closeness", "close"), E(SELF, "老张", "trust", "high")),
+    ),
+    SeedEntry(
+        "大学毕业了，周涛去了深圳，联系渐渐少了。",
+        "2019-07-01",
+        feelings=(E(SELF, "周涛", "closeness", "casual"),),
     ),
     SeedEntry(
         "以前的竞争对手马超抢过我们好几个单子，听说他现在在拼多多。",
@@ -189,6 +208,11 @@ ENTRIES: tuple[SeedEntry, ...] = (
         ),
     ),
     SeedEntry(
+        "好几年没和战友唐亮联系了，连他的电话都换了。",
+        "2020-05-20",
+        feelings=(E(SELF, "唐亮", "closeness", "distant"),),
+    ),
+    SeedEntry(
         "部门聚餐，同组的吴昊、郭佳、钱多多都在，大家都在字节跳动好几年了。",
         "2020-12-18",
         persons=(("吴昊", ()), ("郭佳", ()), ("钱多多", ())),
@@ -215,6 +239,15 @@ ENTRIES: tuple[SeedEntry, ...] = (
         persons=(("赵磊", ()),),
         facts=(F("赵磊", "WORKS_AT", "华为", H), F("周涛", "WORKS_AT", "华为", S)),
         relationships=(R("周涛", "赵磊", SOCIAL, "同事", "同事", H, origin="华为"),),
+    ),
+    SeedEntry(
+        "和老张一起熬过了项目上线，现在是无话不谈的好朋友。",
+        "2021-06-18",
+        relationships=(R(SELF, "老张", SOCIAL, "朋友", "好朋友", W),),
+        feelings=(
+            E(SELF, "老张", "closeness", "intimate"),
+            E("老张", SELF, "closeness", "close", S),
+        ),
     ),
     SeedEntry(
         "和刘婷结婚了，我们是 2019 年在朋友聚会上认识的。她在中信银行工作。",
@@ -276,6 +309,13 @@ ENTRIES: tuple[SeedEntry, ...] = (
         feelings=(E(SELF, "郑凯", "closeness", "close"), E(SELF, "郑凯", "trust", "high")),
     ),
     SeedEntry(
+        "听陈静说，老张和小李因为借钱的事有了矛盾，关系挺僵的。",
+        "2025-05-18",
+        relationships=(
+            R("老张", "小李", SOCIAL, "室友", "大学室友", H, origin="大学", status="tense"),
+        ),
+    ),
+    SeedEntry(
         "陈静说她现在在杭州的阿里巴巴工作，周末常去露营。",
         "2025-06-08",
         facts=(
@@ -291,6 +331,11 @@ ENTRIES: tuple[SeedEntry, ...] = (
         facts=(F("高峰", "HAS_TRAIT", "热情", W),),
         relationships=(R(SELF, "高峰", SOCIAL, "其他", "健身教练", W, "2025-09", "健身房"),),
         feelings=(E(SELF, "高峰", "closeness", "casual"),),
+    ),
+    SeedEntry(
+        "和郑凯不只是合伙人，也成了好朋友，常一起打球。",
+        "2025-12-20",
+        relationships=(R(SELF, "郑凯", SOCIAL, "朋友", "好朋友", W),),
     ),
     SeedEntry(
         "部门里郭佳刚升职了，请大家喝了奶茶。",
@@ -367,19 +412,108 @@ ENTRIES: tuple[SeedEntry, ...] = (
         ends=(("小李", "WORKS_AT", "字节跳动", "2026-09"),),
     ),
     SeedEntry(
-        "老张说他老婆黄丽是中学老师，女儿张小雨明年高考。",
+        "老张说他老婆黄丽是中学老师，女儿明年高考。",
         "2026-11-10",
-        persons=(("黄丽", ()), ("张小雨", ())),
+        persons=(("黄丽", ()), ("老张的女儿", ())),
         facts=(
             F("黄丽", "WORKS_AT", "中学", H),
-            F("张小雨", "EXPERIENCED", "高考", H, "2027"),
+            F("老张的女儿", "EXPERIENCED", "高考", H, "2027"),
         ),
         relationships=(
             R("黄丽", "老张", KIN, "配偶", "老婆", S),
-            R("老张", "张小雨", KIN, "父母", "女儿", S),
+            R("老张", "老张的女儿", KIN, "父母", "女儿", S),
         ),
     ),
 )
+
+
+# --- the large graph (``--size N``) -----------------------------------------------------
+
+_SURNAMES = "赵钱孙李周吴郑王冯陈褚卫蒋沈韩杨朱秦尤许何吕施张孔曹严华金魏陶姜谢邹喻柏水窦章"
+_GIVEN = "伟芳娜敏静丽强磊军洋勇艳杰娟涛明超秀霞平刚桂英华玉兰萍红鹏飞宇轩浩然子涵思雨欣怡梓博文"
+_ORGS = (
+    "字节跳动",
+    "腾讯",
+    "阿里巴巴",
+    "华为",
+    "美团",
+    "百度",
+    "京东",
+    "网易",
+    "小米",
+    "中信银行",
+    "浙江大学",
+    "市一院",
+)
+_CATEGORIES = (
+    (SOCIAL, ("朋友", "同事", "同学", "邻居", "老乡", "网友"), 60),
+    (INTEREST, ("客户", "合伙人", "供应商"), 20),
+    (KIN, ("亲戚", "姻亲", "兄弟姐妹"), 9),
+    (LOVE, ("前任", "暧昧"), 5),
+    (HOSTILE, ("竞争", "矛盾"), 6),
+)
+_LEVELS = (("intimate", 5), ("close", 15), ("familiar", 30), ("casual", 35), ("distant", 15))
+_CONFIDENCES = ((W, 55), (S, 25), (H, 15), (Confidence.INFERRED, 5))
+
+
+def _pick[T](rng: random.Random, options: tuple[tuple[T, int], ...]) -> T:
+    return rng.choices([o for o, _ in options], weights=[w for _, w in options])[0]
+
+
+def large_entries(extra: int, *, taken: set[str] | None = None) -> tuple[SeedEntry, ...]:
+    """``extra`` generated persons (deterministic), ten per Entry, 2010–2025: most related to
+    me with a closeness, about one in six known only through someone else, each working at
+    one of a dozen places (groups). For graph performance tests (BOT-5)."""
+    rng = random.Random(20261117)
+    used = set(taken or ())
+    names: list[str] = []
+    while len(names) < extra:
+        name = rng.choice(_SURNAMES) + rng.choice(_GIVEN) + rng.choice(("", *_GIVEN))
+        if name not in used:
+            used.add(name)
+            names.append(name)
+    entries: list[SeedEntry] = []
+    for start in range(0, extra, 10):
+        batch = names[start : start + 10]
+        year = 2010 + (start // 10) % 16
+        occurred = f"{year}-{1 + (start // 10) % 12:02d}"
+        facts: list[F] = []
+        rels: list[R] = []
+        feelings: list[E] = []
+        for i, name in enumerate(batch):
+            confidence = _pick(rng, _CONFIDENCES)
+            facts.append(F(name, "WORKS_AT", rng.choice(_ORGS), confidence))
+            category, subtypes, _ = rng.choices(_CATEGORIES, weights=[w for *_, w in _CATEGORIES])[
+                0
+            ]
+            subtype = rng.choice(subtypes)
+            known = names[:start] + batch[:i]
+            if known and rng.random() < 0.16:
+                other = rng.choice(known)
+                rels.append(R(other, name, category, subtype, subtype, H))
+                continue
+            rels.append(R(SELF, name, category, subtype, subtype, confidence, str(year)))
+            feelings.append(E(SELF, name, "closeness", _pick(rng, _LEVELS)))
+        entries.append(
+            SeedEntry(
+                f"那段时间认识了{'、'.join(batch)}。",
+                occurred,
+                persons=tuple((n, ()) for n in batch),
+                facts=tuple(facts),
+                relationships=tuple(rels),
+                feelings=tuple(feelings),
+            )
+        )
+    return tuple(entries)
+
+
+def entries_for(size: int | None) -> tuple[SeedEntry, ...]:
+    """The seed's Entries, plus generated persons up to ``size`` persons in all (Self too)."""
+    base = 1 + sum(len(e.persons) for e in ENTRIES)
+    if size is None or size <= base:
+        return ENTRIES
+    taken = {name for e in ENTRIES for name, _ in e.persons}
+    return ENTRIES + large_entries(size - base, taken=taken)
 
 
 @dataclass
@@ -549,24 +683,40 @@ class _Builder:
         key = frozenset((a, b))
         new_type = RelationshipType(r.category, r.subtype, r.original)
         old = self.relationships.get(key)
+        types: tuple[RelationshipType, ...] = (new_type,)
+        if old is not None:
+            types = old.types if new_type in old.types else (*old.types, new_type)
         upsert = RelationshipUpsert(
             id=old.id if old else str(uuid.uuid4()),
             person_a=old.person_a if old else a,
             person_b=old.person_b if old else b,
-            types=(*old.types, new_type) if old else (new_type,),
+            types=types,
             confidence=r.confidence,
             met_at=PartialDate.parse(r.met_at) if r.met_at else (old.met_at if old else None),
             origin=r.origin or (old.origin if old else None),
-            introduced_by_id=self.person(r.introduced_by) if r.introduced_by else None,
+            introduced_by_id=(
+                self.person(r.introduced_by)
+                if r.introduced_by
+                else (old.introduced_by_id if old else None)
+            ),
             status=r.status,
             exists=old is not None,
+            stated=RelationshipStatement((new_type,), r.status, r.confidence),
         )
         self.relationships[key] = upsert
         return upsert
 
 
-async def seed_graph(infra: Infra, entries: tuple[SeedEntry, ...] = ENTRIES) -> Result[Seeded]:
-    """Write the seed into the session's tenant; refuses a graph that already has persons."""
+async def seed_graph(
+    infra: Infra, entries: tuple[SeedEntry, ...] = ENTRIES, *, size: int | None = None
+) -> Result[Seeded]:
+    """Write the seed into the session's tenant; refuses a graph that already has persons.
+
+    ``size`` grows the graph with generated persons (``large_entries``) up to that many
+    persons; those are written without embeddings (``embeddings backfill`` adds them).
+    """
+    if size is not None:
+        entries = entries_for(size)
     scope = tenant()
     g = graph(infra, scope)
     me = await g.get_self()
@@ -598,9 +748,12 @@ async def seed_graph(infra: Infra, entries: tuple[SeedEntry, ...] = ENTRIES) -> 
                 now=infra.clock(),
             )
             seeded.entries.append(str(entry.id))
-        await g.apply_all([await embeddings.attach(infra, w) for w in writes])
+        embedded = len(ENTRIES) if size is not None else len(writes)
+        await g.apply_all(
+            [await embeddings.attach(infra, w) for w in writes[:embedded]] + writes[embedded:]
+        )
     seeded.persons = dict(builder.ids)
     return Ok(seeded)
 
 
-__all__ = ["ENTRIES", "SELF", "SeedEntry", "Seeded", "seed_graph"]
+__all__ = ["ENTRIES", "SELF", "SeedEntry", "Seeded", "entries_for", "large_entries", "seed_graph"]

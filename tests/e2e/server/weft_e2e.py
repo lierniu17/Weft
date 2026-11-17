@@ -8,7 +8,8 @@ Commands
     serve --port P        the FastAPI app under uvicorn
     db-reset              drop + recreate the e2e Postgres database (migrations run separately)
     invites N             print N invite codes
-    seed LOGIN            write the seed graph (BOT-5 / BOT-9) into LOGIN's graph
+    seed LOGIN [--size N] write the seed graph (BOT-5 / BOT-9) into LOGIN's graph; --size
+                          grows it with generated persons to N (graph performance, e.g. 300)
 
 What is pinned
     * LLM traffic: replay only, from tests/e2e/fixtures/llm/ (LLM_FIXTURES_DIR). Provider
@@ -129,7 +130,7 @@ async def _invites(count: int) -> int:
     return 0
 
 
-async def _seed(login: str) -> int:
+async def _seed(login: str, size: int | None = None) -> int:
     from weft.repositories.accounts import UserRepository
     from weft.services import seed
     from weft.services.results import Err
@@ -142,7 +143,7 @@ async def _seed(login: str) -> int:
             print(f"no such user: {login}", file=sys.stderr)
             return 1
         with tenant_scope(TenantContext.for_user(found[0].id)):
-            result = await seed.seed_graph(built)
+            result = await seed.seed_graph(built, size=size)
         if isinstance(result, Err):
             print(f"cannot seed: {result.message}", file=sys.stderr)
             return 1
@@ -168,7 +169,9 @@ def main() -> int:
     sub.add_parser("serve").add_argument("--port", type=int, required=True)
     sub.add_parser("db-reset")
     sub.add_parser("invites").add_argument("count", type=int)
-    sub.add_parser("seed").add_argument("login")
+    seed_cmd = sub.add_parser("seed")
+    seed_cmd.add_argument("login")
+    seed_cmd.add_argument("--size", type=int, default=None)
     args = parser.parse_args()
     if args.command == "serve":
         return _serve(args.port)
@@ -176,7 +179,7 @@ def main() -> int:
         return asyncio.run(_db_reset())
     if args.command == "invites":
         return asyncio.run(_invites(args.count))
-    return asyncio.run(_seed(args.login))
+    return asyncio.run(_seed(args.login, args.size))
 
 
 if __name__ == "__main__":

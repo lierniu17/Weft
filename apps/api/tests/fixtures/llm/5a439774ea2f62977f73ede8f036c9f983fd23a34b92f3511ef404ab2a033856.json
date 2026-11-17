@@ -11,7 +11,7 @@
         },
         {
           "role": "user",
-          "content": "我认识的人里有几个在字节跳动上班？"
+          "content": "老张和小李什么时候闹僵的？"
         },
         {
           "role": "assistant",
@@ -21,15 +21,15 @@
               "id": "call_0_0",
               "type": "function",
               "function": {
-                "name": "count_persons",
-                "arguments": "{\"predicate\": \"WORKS_AT\", \"object_keywords\": [\"字节跳动\"]}"
+                "name": "time_query",
+                "arguments": "{\"kind\": \"pair_events\", \"person_a\": \"老张\", \"person_b\": \"小李\"}"
               }
             }
           ]
         },
         {
           "role": "tool",
-          "content": "{\"found\":true,\"count\":4,\"persons\":[{\"person\":\"P1\",\"name\":\"吴昊\",\"note\":\"同事\",\"relationship\":{\"evidence\":\"E1\",\"between\":[\"P2\",\"P1\"],\"types\":[{\"category\":\"社会\",\"subtype\":\"同事\",\"original\":\"同事\"}],\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"met_at\":\"2019\",\"origin\":\"字节跳动\",\"status\":\"活跃\",\"sources\":[{\"excerpt\":\"部门聚餐，同组的吴昊、郭佳、钱多多都在，大家都在字节跳动好几年了。\",\"date\":\"2020-12-18\"}]},\"facts\":[{\"evidence\":\"E2\",\"about\":\"P1\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"字节跳动\",\"status\":\"current\",\"text\":\"吴昊在字节跳动工作\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"from\":\"2019\",\"sources\":[{\"excerpt\":\"部门聚餐，同组的吴昊、郭佳、钱多多都在，大家都在字节跳动好几年了。\",\"date\":\"2020-12-18\"}]}]},{\"person\":\"P3\",\"name\":\"张伟\",\"aliases\":[\"老张\"],\"note\":\"同事\",\"relationship\":{\"evidence\":\"E3\",\"between\":[\"P2\",\"P3\"],\"types\":[{\"category\":\"社会\",\"subtype\":\"同事\",\"original\":\"同组同事\"}],\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"met_at\":\"2018-03\",\"origin\":\"字节跳动同组\",\"status\":\"活跃\",\"sources\":[{\"excerpt\":\"2018 年入职字节跳动，认识了同组的张伟，大家都叫他老张。他是个急性子，但做事很靠谱。\",\"date\":\"2018-03-12\"}]},\"facts\":[{\"evidence\":\"E4\",\"about\":\"P3\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"字节跳动\",\"status\":\"current\",\"text\":\"张伟在字节跳动工作\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"from\":\"2018-03\",\"sources\":[{\"excerpt\":\"2018 年入职字节跳动，认识了同组的张伟，大家都叫他老张。他是个急性子，但做事很靠谱。\",\"date\":\"2018-03-12\"}]}]},{\"person\":\"P4\",\"name\":\"郭佳\",\"note\":\"同事\",\"relationship\":{\"evidence\":\"E5\",\"between\":[\"P2\",\"P4\"],\"types\":[{\"category\":\"社会\",\"subtype\":\"同事\",\"original\":\"同事\"}],\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"met_at\":\"2020\",\"origin\":\"字节跳动\",\"status\":\"活跃\",\"sources\":[{\"excerpt\":\"部门聚餐，同组的吴昊、郭佳、钱多多都在，大家都在字节跳动好几年了。\",\"date\":\"2020-12-18\"}]},\"facts\":[{\"evidence\":\"E6\",\"about\":\"P4\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"字节跳动\",\"status\":\"current\",\"text\":\"郭佳在字节跳动工作\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"from\":\"2020\",\"sources\":[{\"excerpt\":\"部门聚餐，同组的吴昊、郭佳、钱多多都在，大家都在字节跳动好几年了。\",\"date\":\"2020-12-18\"}]}]},{\"person\":\"P5\",\"name\":\"钱多多\",\"note\":\"同事\",\"relationship\":{\"evidence\":\"E7\",\"between\":[\"P2\",\"P5\"],\"types\":[{\"category\":\"社会\",\"subtype\":\"同事\",\"original\":\"同事\"}],\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"met_at\":\"2020\",\"origin\":\"字节跳动\",\"status\":\"活跃\",\"sources\":[{\"excerpt\":\"部门聚餐，同组的吴昊、郭佳、钱多多都在，大家都在字节跳动好几年了。\",\"date\":\"2020-12-18\"}]},\"facts\":[{\"evidence\":\"E8\",\"about\":\"P5\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"字节跳动\",\"status\":\"current\",\"text\":\"钱多多在字节跳动工作\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"from\":\"2020\",\"sources\":[{\"excerpt\":\"部门聚餐，同组的吴昊、郭佳、钱多多都在，大家都在字节跳动好几年了。\",\"date\":\"2020-12-18\"}]}]}]}",
+          "content": "{\"found\":true,\"events\":[{\"evidence\":\"E1\",\"date\":\"2026-09\",\"event\":\"老张和小李因为借钱闹掰了\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"sources\":[{\"excerpt\":\"听小王说，老张和小李以前是大学室友，今年九月因为借钱的事闹掰了。\",\"date\":\"2026-10-08\"}]},{\"evidence\":\"E2\",\"date\":\"2026-10-08\",\"event\":\"李明对张伟的信任：低\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"sources\":[{\"excerpt\":\"听小王说，老张和小李以前是大学室友，今年九月因为借钱的事闹掰了。\",\"date\":\"2026-10-08\"}]},{\"evidence\":\"E3\",\"date\":null,\"event\":\"关系现状：紧张\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"sources\":[{\"excerpt\":\"听陈静说，老张和小李因为借钱的事有了矛盾，关系挺僵的。\",\"date\":\"2025-05-18\"},{\"excerpt\":\"听小王说，老张和小李以前是大学室友，今年九月因为借钱的事闹掰了。\",\"date\":\"2026-10-08\"}]}]}",
           "tool_call_id": "call_0_0"
         }
       ],
@@ -699,7 +699,7 @@
                 "type": "function",
                 "function": {
                   "name": "final_answer",
-                  "arguments": "{\"kind\": \"stat\", \"segments\": [{\"text\": \"有 4 个人现在在字节跳动工作：吴昊、张伟、郭佳、钱多多。\", \"evidence\": [\"E2\", \"E4\", \"E6\", \"E8\"]}], \"stat_persons\": [\"P1\", \"P3\", \"P4\", \"P5\"]}"
+                  "arguments": "{\"kind\": \"text\", \"segments\": [{\"text\": \"据小王说，老张和小李是在 2026 年 9 月因为借钱闹掰的。\", \"evidence\": [\"E1\"]}]}"
                 }
               }
             ]
