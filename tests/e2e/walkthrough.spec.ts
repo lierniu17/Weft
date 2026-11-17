@@ -58,6 +58,56 @@ const primaryCount = (page: Page, scope = "body") =>
 const settled = (el: Locator) =>
   el.evaluate((e) => Promise.all(e.getAnimations().map((a) => a.finished)).then(() => true));
 
+/**
+ * A page's right-side sheet (出处 / 筛选), opened from `trigger`. From 1200px it is the
+ * non-modal right column (D1–D3): no mask, in the page flow, the page beside it usable,
+ * focus in on open, Esc pressed outside leaves it open, Esc inside closes it and focus goes
+ * back to the trigger. Below 1200px it stays a modal drawer with a mask.
+ */
+async function sidePanel(page: Page, trigger: Locator, name: RegExp | string, shot: string) {
+  await trigger.click();
+  const panel = page.getByRole("dialog", { name });
+  await expect(panel).toBeVisible();
+  await settled(panel);
+  const r: Record<string, unknown> = {
+    mask: await page.locator("[data-drawer-mask]").count(),
+    ...(await panel.evaluate((el) => {
+      const b = el.getBoundingClientRect();
+      return {
+        // A modal Radix dialog hides the rest of the app from assistive tech.
+        pageHidden: Boolean(document.querySelector("main")?.closest("[aria-hidden=true]")),
+        inPageFlow: getComputedStyle(el).position !== "fixed" && Boolean(el.closest("main")),
+        width: Math.round(b.width),
+        right: Math.round(window.innerWidth - b.right),
+      };
+    })),
+    focusInPanel: await panel.evaluate((el) => el.contains(document.activeElement)),
+  };
+  await snap(page, shot);
+  if (r.mask === 0) {
+    // The page beside the panel: nothing covers the trigger, and it still takes clicks.
+    r.triggerHitTestable = await trigger.evaluate((el) => {
+      const b = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      return Boolean(hit && el.contains(hit));
+    });
+    await trigger.click();
+    r.pageInteractive =
+      (await trigger.evaluate((el) => el === document.activeElement)) && (await panel.isVisible());
+    // Esc with focus outside the panel keeps it open.
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    r.escOutsideKeepsOpen = await panel.isVisible();
+    r.axe = await axe(page);
+    await panel.getByRole("button", { name: "关闭" }).focus();
+  }
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  r.escInsideCloses = true;
+  r.focusBack = await trigger.evaluate((el) => el === document.activeElement);
+  return r;
+}
+
 async function axe(page: Page) {
   await page.addScriptTag({ path: resolve(ROOT, "node_modules/axe-core/axe.min.js") });
   return page.evaluate(async () => {
@@ -363,6 +413,7 @@ test("AC-UI walkthrough", async ({ page }) => {
         mask: await page.locator("[data-drawer-mask]").count(),
         focusInPanel: await s.evaluate((el) => el.contains(document.activeElement)),
         chatInteractive: false,
+        escInComposerKeepsOpen: false,
         focusBack: false,
       };
       if (width >= 1200) {
@@ -371,7 +422,12 @@ test("AC-UI walkthrough", async ({ page }) => {
         await box.fill("面板开着也能写");
         panel.chatInteractive =
           (await box.inputValue()) === "面板开着也能写" && (await s.isVisible());
+        // Esc in the composer is the composer's: the panel stays open.
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(200);
+        panel.escInComposerKeepsOpen = await s.isVisible();
         await box.fill("");
+        if (!panel.escInComposerKeepsOpen) await trigger.click(); // keep measuring the rest
         await s.getByRole("button", { name: "关闭" }).focus();
       }
       await snap(page, `${width}-draft-panel`);
@@ -385,6 +441,7 @@ test("AC-UI walkthrough", async ({ page }) => {
           mask: 0,
           focusInPanel: true,
           chatInteractive: true,
+          escInComposerKeepsOpen: true,
           focusBack: true,
         });
       }
@@ -392,8 +449,57 @@ test("AC-UI walkthrough", async ({ page }) => {
     await page.goto(`/people/${laozhang}`);
     await page.waitForLoadState("networkidle");
     await snap(page, `${width}-person`);
+    const panels: Record<string, Record<string, unknown>> = {};
+    panels.person = await sidePanel(
+      page,
+      page.locator("[data-profile-section]").getByRole("button", { name: "急性子", exact: true }),
+      /出处/,
+      `${width}-person-citation-panel`,
+    );
+    await page.goto(`/people/${laozhang}/relationships/${xiaoli}`);
+    await page.waitForLoadState("networkidle");
+    await snap(page, `${width}-relationship`);
+    panels.relationship = await sidePanel(
+      page,
+      page.getByRole("button", { name: /查看关系的出处/ }),
+      /出处/,
+      `${width}-relationship-citation-panel`,
+    );
     await page.goto("/graph");
     await page.waitForLoadState("networkidle");
     await snap(page, `${width}-panorama`);
+    panels.panorama = await sidePanel(
+      page,
+      page.getByRole("button", { name: /筛选/ }),
+      "筛选",
+      `${width}-panorama-filter-panel`,
+    );
+    for (const [name, r] of Object.entries(panels)) {
+      results[`AC-UI-7 ${width} ${name} side panel`] = r;
+      if (width >= 1200) {
+        expect.soft(r, `${width} ${name} panel`).toEqual({
+          mask: 0,
+          pageHidden: false,
+          inPageFlow: true,
+          width: 360,
+          right: expect.any(Number),
+          focusInPanel: true,
+          triggerHitTestable: true,
+          pageInteractive: true,
+          escOutsideKeepsOpen: true,
+          axe: [],
+          escInsideCloses: true,
+          focusBack: true,
+        });
+      } else {
+        expect.soft(r, `${width} ${name} panel`).toMatchObject({
+          mask: 1,
+          pageHidden: true,
+          focusInPanel: true,
+          escInsideCloses: true,
+          focusBack: true,
+        });
+      }
+    }
   }
 });

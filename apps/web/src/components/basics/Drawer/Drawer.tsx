@@ -1,5 +1,5 @@
 import { Dialog } from "radix-ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { FiX } from "react-icons/fi";
 import { cx } from "../../../lib/cx.ts";
 import { useReturnFocus } from "../../../lib/useReturnFocus.ts";
@@ -22,7 +22,8 @@ export type DrawerProps = {
   /**
    * `false` (side-panel only): the desktop right column of wireframe D1/D2. Rendered in
    * place in the page flow, no mask; the page beside it stays interactive. Focus still
-   * moves in on open and back to the trigger on close; Esc and ✕ close it.
+   * moves in on open and back to the trigger on close; ✕ closes it, and so does Esc — but
+   * only when focus is inside the panel (Esc in the page beside it keeps its own meaning).
    */
   modal?: boolean;
   className?: string;
@@ -43,7 +44,7 @@ const VARIANTS: Record<DrawerVariant, string> = {
  * Surface for work done in place: bottom sheet on mobile, right panel from tablet up.
  * Modal (default): focus is trapped inside, Esc / mask / ✕ close it, focus returns to the
  * trigger. `modal={false}` with `side-panel` is the desktop right column: same panel,
- * rendered in place, page left interactive.
+ * rendered in place, page left interactive, Esc closes it only from inside.
  */
 export function Drawer({
   open,
@@ -59,11 +60,23 @@ export function Drawer({
 }: DrawerProps) {
   const onCloseAutoFocus = useReturnFocus(open);
   const inline = !modal && variant === "side-panel";
-  const content = (
+  const contentRef = useRef<HTMLDivElement>(null);
+  const panel = (
     <Dialog.Content
+      ref={contentRef}
       onCloseAutoFocus={onCloseAutoFocus}
-      // Inline: clicking or tabbing into the page beside the panel keeps it open.
+      // Inline: clicking or tabbing into the page beside the panel keeps it open, and Esc
+      // only closes it when pressed from inside (Radix listens on the whole document).
       onInteractOutside={inline ? (e) => e.preventDefault() : undefined}
+      onEscapeKeyDown={
+        inline
+          ? (e) => {
+              if (!(e.target instanceof Node && contentRef.current?.contains(e.target))) {
+                e.preventDefault();
+              }
+            }
+          : undefined
+      }
       className={cx(
         "flex flex-col bg-neutral-bg-container outline-none",
         inline ? INLINE : cx("fixed z-50", VARIANTS[variant]),
@@ -104,7 +117,7 @@ export function Drawer({
   if (inline) {
     return (
       <Dialog.Root open={open} onOpenChange={onOpenChange} modal={false}>
-        {content}
+        {panel}
       </Dialog.Root>
     );
   }
@@ -115,7 +128,7 @@ export function Drawer({
           data-drawer-mask=""
           className="fixed inset-[0] z-40 bg-mask data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in"
         />
-        {content}
+        {panel}
       </Dialog.Portal>
     </Dialog.Root>
   );
