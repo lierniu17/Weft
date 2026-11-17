@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { draftCardOf, pinClock, registerUser, shot, submitRecord } from "./support/bot.ts";
+import { LLM_WAIT } from "./support/env.ts";
 
 const TEXT = "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。";
 
 /** BOT-2 〔AC-6, AC-9, AC-10, AC-11, AC-21, AC-25〕 record → review → confirm → profile. */
-test("BOT-2 写记录、改草稿、确认、看画像与出处", async ({ page }) => {
+test("BOT-2 写记录、改草稿、确认、看画像与出处", { tag: "@llm" }, async ({ page }) => {
   await pinClock(page);
   await registerUser(page);
   await page.goto("/");
@@ -15,7 +16,7 @@ test("BOT-2 写记录、改草稿、确认、看画像与出处", async ({ page 
 
   // 2. 等待草稿进入待确认。
   await expect(card.getByRole("status")).toHaveText(/草稿 · \d+ 个人物 · 3 条信息/, {
-    timeout: 60_000,
+    timeout: LLM_WAIT,
   });
   await expect(page.locator("[data-draft-card]")).toHaveCount(1); // in place, not appended
   await card.getByRole("button", { name: "查看并确认" }).click();
@@ -54,7 +55,7 @@ test("BOT-2 写记录、改草稿、确认、看画像与出处", async ({ page 
   await expect(likes).toContainText("钓鱼");
   await expect(likes).toContainText("不喝酒");
   await expect(page.getByText("女儿明年高考")).toHaveCount(0);
-  await expect(page.locator("[data-summary]")).toContainText("生成", { timeout: 30_000 });
+  await expect(page.locator("[data-summary]")).toContainText("生成", { timeout: LLM_WAIT });
   await likes.getByRole("button", { name: "钓鱼" }).click();
   const citation = page.getByRole("dialog", { name: /出处/ });
   await expect(citation).toContainText(TEXT);

@@ -34,6 +34,10 @@ const graphNames = (page: Page) =>
 /** BOT-9 〔AC-33, AC-34, AC-35〕 local graph 1 → 2 hops, tap a person, filter the panorama. */
 test("BOT-9 局部图、点击跳转、全景图筛选、375px 无横向滚动", async ({ page }) => {
   await pinClock(page);
+  // Built images (stage) expose the Cytoscape instance only when the test opts in.
+  await page.addInitScript(() => {
+    (window as unknown as { __weftE2E: boolean }).__weftE2E = true;
+  });
   const user = await registerUser(page);
   seedGraph(user.username);
   const laozhang = await personId(page, "老张");
