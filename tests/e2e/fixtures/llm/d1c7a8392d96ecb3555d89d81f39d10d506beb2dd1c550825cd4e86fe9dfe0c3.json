@@ -1,0 +1,50 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你负责判断一条记录里提到的人是不是图谱里已有的某个人物。\n输入给出记录原文、提到的叫法（mention）和若干候选人物（名字、别名、和我的关系备注）。\n只输出 JSON 对象：\n{\"decision\": \"matched\" | \"ambiguous\" | \"new\", \"candidate_indices\": [候选编号]}\n- matched：记录里的身份、场合或关系描述能明确对应到某一个候选人，candidate_indices 只放这一个编号；\n- ambiguous：可能是其中几个，记录里没有足够线索区分，candidate_indices 列出所有可能的编号；\n- new：记录表明这是另一个人（例如说明是新认识的、只是同名），candidate_indices 为空。"
+        },
+        {
+          "role": "user",
+          "content": "{\"task\": \"match_person\", \"entry\": \"张强是我家邻居。\", \"mention\": \"张强\", \"candidates\": [{\"index\": 1, \"name\": \"张伟\", \"aliases\": [], \"note\": \"同事\"}]}"
+        }
+      ],
+      "stream": false,
+      "temperature": 0.0,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-e2e",
+      "object": "chat.completion",
+      "created": 1763258400,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"decision\": \"new\", \"candidate_indices\": []}"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      }
+    }
+  }
+}

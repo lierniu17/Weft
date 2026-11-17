@@ -1,0 +1,9 @@
+/* Stories assert on settled state: collapse animations so play() never races one. */
+*,
+*::before,
+*::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+}

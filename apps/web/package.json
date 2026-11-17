@@ -1,0 +1,53 @@
+{
+  "name": "@weft/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "tokens": "tsx scripts/design-tokens.ts --write",
+    "tokens:check": "tsx scripts/design-tokens.ts --check",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "test:unit": "vitest run --project=unit",
+    "test:stories": "vitest run --project=storybook",
+    "contracts": "tsx scripts/contracts.ts --write",
+    "contracts:check": "tsx scripts/contracts.ts --check",
+    "openapi": "tsx scripts/openapi.ts --write",
+    "openapi:check": "tsx scripts/openapi.ts --check"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.107.1",
+    "cytoscape": "^3.35.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-icons": "^5.7.0",
+    "react-router": "^7.18.5"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "^10.5.7",
+    "@storybook/addon-docs": "^10.5.7",
+    "@storybook/addon-vitest": "^10.5.7",
+    "@storybook/react-vite": "^10.5.7",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/browser": "^4.1.10",
+    "@vitest/browser-playwright": "^4.1.10",
+    "json-schema-to-typescript": "^16.0.0",
+    "openapi-typescript": "^7.13.0",
+    "playwright": "~1.64.1",
+    "storybook": "^10.5.7",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10",
+    "yaml": "^2.8.1"
+  }
+}

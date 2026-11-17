@@ -7,3 +7,12 @@ node_modules/
 .env
 .env.*
 !.env.example
+dist/
+storybook-static/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# e2e:bot run state and Playwright output
+tests/e2e/.state/
+tests/e2e/.results/

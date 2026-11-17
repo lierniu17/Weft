@@ -1,0 +1,52 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是 Weft 的信息整理助手。用户（“我”）写了一条和人有关的记录，\n系统已经从中初步抽取出人物（persons）和候选事实（candidate_facts）。\n请把它们整理成结构化的 JSON，只输出 JSON 对象，字段如下：\n\n- persons：记录里提到的全部人物的叫法（不含“我”），按下方“人物叫法”的规则命名，\n  和其他条目里用的叫法完全一致；包括只作为转述来源、没有其他条目的人物。\n\n- facts：关于某个人物的事实。\n  subject 是人物叫法（写记录的人用“我”）；predicate 取自 predicates 的键；\n  object 是对象（组织、学校、城市、性格、爱好、事件、注意事项，或另一个人物的叫法）；\n  confidence 是可信度（见下方“可信度”）；\n  valid_at / valid_to 是事实发生或开始、结束的时间，格式 YYYY、YYYY-MM 或 YYYY-MM-DD。\n  相对时间（“上周末”“去年”“上个月”）必须以 entry.occurred 为参照换算成具体日期；\n  换算结果的精度不得超过 entry.precision（发生日期只到年时，只写年份）。\n  index 是对应的候选事实编号，候选事实里没有的事实 index 为 null；\n  不成立或与人无关的候选事实直接丢弃。\n- relationships：两个人物之间的关系。pair 是两个人物的叫法；\n  types 中每一项的 category 和 subtype 必须取自 relationship_types\n  （放不下时用该大类的“其他”），original 保留记录中的原话；\n  met_at 认识时间，origin 认识途径，introduced_by 介绍人叫法，\n  status 取 active / distant / tense / estranged，confidence 见下方“可信度”。\n- feelings：一个人物对另一个人物的感受，有方向（from 对 to）。\n  dimension 取 closeness / affinity / trust，level 取 feeling_levels 中对应维度的键。\n  每一项都必须带 confidence。\n- profile：人物的身份信息，每一项都必须带 person（人物叫法）、field、value、confidence；\n  field 取 name / gender / birthday / hometown。\n\n人物叫法：\n- 输入里的 persons 是初步结果，可能漏人或叫法不合规则；输出时以下面的规则为准，\n  同一个人在所有条目里只用一个叫法。\n- 有名字或固定称呼的人，用记录里的名字或称呼，不要把前面修饰的关系词拼进去\n  （“堂弟小军”叫“小军”，“我同事阿芳”叫“阿芳”）。\n- 没有名字、但指的是某个具体的人（某人的家人、伴侣、上司、合伙人、朋友等）也是人物，\n  称为“称谓人物”，叫法写成“<被参照人物的叫法>的<称谓>”，如“老陈的儿子”“阿芳的上司”；\n  被参照人物是我时直接用称谓（“外公”“我爸”）。每个称谓人物都要在 relationships 里\n  给出他和被参照人物的关系。\n- 转述的来源（“X 说”“听 X 说”“X 告诉我”）如果是具体的人，也是人物。\n- 不是人物：泛指或一群人（大家、同事们、几个朋友）、不具体的来源（“听人说”“听同事说”）、\n  只出现一次的服务或职能角色（医生、店员、司机）。\n\n关系：\n- 亲属类有方向的类型（父母、子女、祖孙）读作“pair[0] 是 pair[1] 的 X”：\n  “老陈的儿子”写成 pair [\"老陈\", \"老陈的儿子\"]、类型 父母（老陈是他儿子的父母）；\n  我和我爸写成 pair [\"我爸\", \"我\"]、类型 父母。\n- 记录里交代了某人和我的关系（称呼前的“我同事”“我表哥”“邻居”“前领导”，或认识经过），\n  就输出我和此人的关系，即使这句话主要在讲别人之间的事。一句话里有多个人时，\n  逐对检查：我和每个人、以及他们彼此之间。\n- 一段关系可以同时有多个类型，记录里每一层关系都要写上\n  （例如两人合伙开店后翻脸：合伙人 + 矛盾；同学后来成了夫妻：同学 + 配偶）。\n- 在同一所学校读书期间认识的人（同班、同级、同社团、同宿舍）属于 同学（同宿舍再加 室友）。\n- 吵架、闹翻、闹掰、有过节属于 矛盾；只有明确不再来往时才用 绝交。\n\n可信度（confidence）——按“我是怎么知道的”判断，先看有没有转述来源：\n- witnessed：我亲眼所见、亲身经历、直接观察到的。记录直接陈述、没有交代消息来源的事，\n  按我亲身所知处理，也是 witnessed；我和别人之间的关系、我自己的感受一律是 witnessed；\n  我亲眼看到的两人之间的关系（如看到他们在一起）也是 witnessed。\n- self_told：当事人亲口告诉我他自己的事。说话人讲的是他自己和别人的关系或他自己的家人时\n  （例：表弟说他女朋友在读研 → 表弟和他女朋友的关系是 self_told），也是 self_told。\n- hearsay：别人转述的第三方的事（“听说”“听 X 说”“X 说 Y 怎样”，Y 不是说话人自己），\n  或者来源不明的传闻。\n- inferred：我的猜测或推断，或者从迹象推断出来的结论；内容本身带“估计”“好像”“可能”\n  “感觉”“看样子”等不确定语气的也是 inferred。只是我对转述的真假表示怀疑\n  （“不知道是不是真的”）时，仍按来源判断（hearsay）。\n\n没有的内容输出空数组。不要编造记录中没有的信息。"
+        },
+        {
+          "role": "user",
+          "content": "{\"task\": \"enrich\", \"entry\": {\"text\": \"今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。\", \"occurred\": \"2026-11-16\", \"precision\": \"day\"}, \"writer\": \"我\", \"persons\": [\"老张\"], \"candidate_facts\": [{\"index\": 0, \"source\": \"老张\", \"relation\": \"EXPERIENCED\", \"target\": \"女儿高考\", \"fact\": \"老张的女儿明年参加高考\"}, {\"index\": 1, \"source\": \"老张\", \"relation\": \"LIKES\", \"target\": \"钓鱼\", \"fact\": \"老张最近迷上了钓鱼\"}, {\"index\": 2, \"source\": \"老张\", \"relation\": \"DISLIKES\", \"target\": \"喝酒\", \"fact\": \"老张不喝酒\"}], \"predicates\": {\"WORKS_AT\": \"在…工作\", \"STUDIED_AT\": \"在…上学\", \"LIVES_IN\": \"住在\", \"HAS_TRAIT\": \"性格\", \"LIKES\": \"喜欢\", \"DISLIKES\": \"不喜欢\", \"EXPERIENCED\": \"经历\", \"HAS_ETIQUETTE\": \"相处之道\", \"OPINION\": \"评价\"}, \"relationship_types\": {\"kin\": [\"父母\", \"子女\", \"配偶\", \"兄弟姐妹\", \"祖孙\", \"亲戚\", \"姻亲\", \"其他\"], \"romantic\": [\"恋人\", \"前任\", \"暗恋\", \"暧昧\", \"其他\"], \"social\": [\"朋友\", \"同事\", \"上下级\", \"同学\", \"室友\", \"校友\", \"师生\", \"邻居\", \"老乡\", \"战友\", \"网友\", \"其他\"], \"interest\": [\"合伙人\", \"客户\", \"供应商\", \"投资\", \"债权债务\", \"租赁\", \"中介\", \"其他\"], \"hostile\": [\"竞争\", \"矛盾\", \"绝交\", \"纠纷\", \"情敌\", \"其他\"]}, \"feeling_levels\": {\"closeness\": {\"label\": \"亲密度\", \"levels\": {\"intimate\": \"至交\", \"close\": \"亲近\", \"familiar\": \"熟悉\", \"casual\": \"一般\", \"distant\": \"疏远\"}}, \"affinity\": {\"label\": \"好恶\", \"levels\": {\"like\": \"喜欢\", \"neutral\": \"中性\", \"dislike\": \"反感\"}}, \"trust\": {\"label\": \"信任\", \"levels\": {\"high\": \"高\", \"medium\": \"中\", \"low\": \"低\"}}}, \"profile_fields\": [\"name\", \"gender\", \"birthday\", \"hometown\"]}"
+        }
+      ],
+      "stream": false,
+      "temperature": 0.0,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-fixture",
+      "object": "chat.completion",
+      "created": 1763251200,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"facts\": [{\"index\": 0, \"subject\": \"老张\", \"predicate\": \"EXPERIENCED\", \"object\": \"女儿高考\", \"confidence\": \"self_told\", \"valid_at\": \"2027\", \"valid_to\": null}, {\"index\": 1, \"subject\": \"老张\", \"predicate\": \"LIKES\", \"object\": \"钓鱼\", \"confidence\": \"self_told\", \"valid_at\": null, \"valid_to\": null}, {\"index\": 2, \"subject\": \"老张\", \"predicate\": \"DISLIKES\", \"object\": \"喝酒\", \"confidence\": \"self_told\", \"valid_at\": null, \"valid_to\": null}], \"relationships\": [], \"feelings\": [], \"profile\": []}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 812,
+        "completion_tokens": 164,
+        "total_tokens": 976
+      },
+      "system_fingerprint": "fp_weft_fixture"
+    }
+  }
+}

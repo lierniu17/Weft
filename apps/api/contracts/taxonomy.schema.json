@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://weft.local/contracts/taxonomy.schema.json",
+  "$defs": {
+    "Category": {
+      "enum": [
+        "kin",
+        "romantic",
+        "social",
+        "interest",
+        "hostile"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "TaxonomyCategory": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/Category"
+        },
+        "subtypes": {
+          "items": {
+            "$ref": "#/$defs/TaxonomySubtype"
+          },
+          "title": "Subtypes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "category",
+        "subtypes"
+      ],
+      "title": "TaxonomyCategory",
+      "type": "object"
+    },
+    "TaxonomySubtype": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "custom": {
+          "default": false,
+          "description": "User-defined (自定义小类): visible only to this user",
+          "title": "Custom",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "TaxonomySubtype",
+      "type": "object"
+    }
+  },
+  "description": "The whole vocabulary visible to one user.",
+  "items": {
+    "$ref": "#/$defs/TaxonomyCategory"
+  },
+  "title": "Taxonomy",
+  "type": "array"
+}
