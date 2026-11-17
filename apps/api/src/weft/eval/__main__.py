@@ -1,6 +1,7 @@
 """Quality evals with the real models (not in CI; spec 「测试决策 → 质量评测」).
 
-    uv run python -m weft.eval extraction [--samples PATH] [--limit N] [--out DIR] [--record DIR]
+    uv run python -m weft.eval extraction [--samples PATH] [--split dev|heldout] [--limit N]
+                                          [--out DIR] [--record DIR]
     uv run python -m weft.eval qa         [--questions PATH] [--out DIR] [--record DIR]
 
 * ``extraction`` (AC-42): the real pipeline over ``eval/extraction/samples.jsonl``, scored
@@ -53,6 +54,9 @@ def _parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="which", required=True)
     ext = sub.add_parser("extraction", help="extraction quality (AC-42)")
     ext.add_argument("--samples", type=Path, default=extraction.SAMPLES_PATH)
+    ext.add_argument(
+        "--split", choices=("dev", "heldout"), default=None, help="only that split's samples"
+    )
     ext.add_argument("--limit", type=int, default=None, help="only the first N samples")
     qa_cmd = sub.add_parser("qa", help="Q&A quality (AC-36, AC-38)")
     qa_cmd.add_argument("--questions", type=Path, default=QUESTIONS_PATH)
@@ -90,7 +94,8 @@ async def _run(args: argparse.Namespace, settings: Settings) -> int:
         await ensure_graph_schema(infra.neo4j)
         if args.which == "extraction":
             lines = args.samples.read_text(encoding="utf-8").splitlines()
-            samples = [json.loads(line) for line in lines if line.strip()][: args.limit]
+            samples = [json.loads(line) for line in lines if line.strip()]
+            samples = extraction.load_scorer().select(samples, args.split)[: args.limit]
             predictions, report = await extraction.run(infra, samples)
             report["predictions"] = predictions
             passed = bool(report["passed"]) and not report["errors"]

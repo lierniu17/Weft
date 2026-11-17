@@ -48,7 +48,9 @@ async def test_the_extraction_eval_predicts_a_draft_per_sample_and_scores_it(
     assert row["id"] == "oral-01"
     assert [(p.mention, p.match.value) for p in draft.persons] == [("老张", "new")]
     assert report["samples"] == 1 and report["missing_predictions"] == []
-    assert report["person_f1"] == 1.0
+    # the script finds 老张 but not the descriptor person 老张的女儿 the gold also has
+    assert (report["person_precision"], report["person_recall"]) == (1.0, 0.5)
+    assert set(report["splits"]) == {"dev"}  # oral-01 is a dev sample
     assert 0 < report["confidence_coverage"] <= 1
 
 

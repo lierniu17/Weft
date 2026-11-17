@@ -141,8 +141,10 @@ def _user_text(body: dict[str, Any]) -> str:
 
 
 def _weft_task(body: dict[str, Any]) -> dict[str, Any] | None:
+    """The JSON task payload of one of Weft's own calls (its first user message)."""
+    first = next((m for m in body.get("messages", []) if m.get("role") == "user"), None)
     try:
-        payload = json.loads(_user_text(body))
+        payload = json.loads((first or {}).get("content") or "")
     except ValueError:
         return None
     return payload if isinstance(payload, dict) and "task" in payload else None
@@ -230,6 +232,24 @@ class LLMScript:
             return task is not None and task["task"] == "enrich" and task["entry"]["text"] == text
 
         self.rules.append(Rule(f"enrich-raw[{text[:12]}]", matches, chat_completion(content)))
+        return self
+
+    def enrichment_retry(self, text: str, content: str, *, feedback: str = "") -> LLMScript:
+        """The answer to the enrichment call sent back with validation errors (the request
+        carries the first answer as an assistant turn, and ``feedback`` in the errors)."""
+
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            messages = body.get("messages", [])
+            return (
+                task is not None
+                and task["task"] == "enrich"
+                and task["entry"]["text"] == text
+                and any(m.get("role") == "assistant" for m in messages)
+                and feedback in (messages[-1].get("content") or "")
+            )
+
+        self.rules.append(Rule(f"enrich-retry[{text[:12]}]", matches, chat_completion(content)))
         return self
 
     def enrichment_timeout(self, text: str) -> LLMScript:

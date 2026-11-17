@@ -4,10 +4,12 @@ Graphiti's fuzzy dedup only handles Latin letters and digits, so Chinese names a
 here (spec 「中文检索」):
 
 1. 我 is Self.
-2. Exactly one person whose name or alias equals the mention -> matched; several -> 需选择.
-3. Otherwise persons sharing a character with the mention (ignoring 老 / 小 / 阿 ... ) are
+2. Exactly one person whose name or alias equals the mention -> matched (AC-12, AC-13).
+3. Several such persons -> they are the candidates, and the LLM decides from the Entry's
+   context (「这客户」 picks the client among two 王芳); without a clue it answers 需选择.
+4. Otherwise persons sharing a character with the mention (ignoring 老 / 小 / 阿 ... ) are
    candidates; none -> new person, without asking the LLM.
-4. Candidates exist -> the LLM decides matched / ambiguous / new.
+5. Candidates exist -> the LLM decides matched / ambiguous / new.
 """
 
 from __future__ import annotations
@@ -67,9 +69,9 @@ async def match_person(
     if len(exact) == 1:
         return MatchResult(MatchDecision.MATCHED, person=exact[0])
     if len(exact) > 1:
-        return MatchResult(MatchDecision.AMBIGUOUS, candidates=tuple(exact))
-
-    candidates = [p for p in others if _shares_a_character(mention, p)][:MAX_CANDIDATES]
+        candidates = exact[:MAX_CANDIDATES]
+    else:
+        candidates = [p for p in others if _shares_a_character(mention, p)][:MAX_CANDIDATES]
     if not candidates:
         return MatchResult(MatchDecision.NEW)
 

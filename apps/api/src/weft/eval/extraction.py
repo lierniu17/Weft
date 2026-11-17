@@ -3,8 +3,9 @@
 For each sample: seed its ``graph_context`` (persons with aliases and notes, facts) into a
 throwaway tenant, run exactly the extraction a Draft gets (``drafts.draft_for``) with the
 sample's occurred date, and collect ``{"id", "draft"}``. Then ``eval/extraction/score.py``
-scores the predictions against the gold Drafts. A sample whose extraction fails is left out
-(reported under ``missing_predictions`` and ``errors``).
+scores the predictions against the gold Drafts, overall and per dev / held-out split
+(``eval/extraction/split.json``; AC-42 is decided on the held-out split). A sample whose
+extraction fails is left out (reported under ``missing_predictions`` and ``errors``).
 """
 
 from __future__ import annotations
@@ -134,7 +135,9 @@ async def run(infra: Infra, samples: list[Sample]) -> tuple[list[dict[str, Any]]
             logger.warning("extraction eval: sample %s failed: %r", sample["id"], exc)
             errors[sample["id"]] = f"{type(exc).__name__}: {str(exc)[:200]}"
     scorer = load_scorer()
-    report: dict[str, Any] = scorer.score(samples, {p["id"]: p["draft"] for p in predictions})
+    by_id = {p["id"]: p["draft"] for p in predictions}
+    report: dict[str, Any] = scorer.score(samples, by_id)
+    report["splits"] = scorer.score_by_split(samples, by_id)
     report["errors"] = errors
     return predictions, report
 

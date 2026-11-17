@@ -6,6 +6,7 @@ AC-6, AC-8, AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17, AC-18, AC-19
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -27,9 +28,11 @@ from tests.support.users import new_user
 from weft.domain.confidence import Confidence, ConflictAction
 from weft.domain.dates import PartialDate
 from weft.domain.draft import Draft, DraftStatus, PersonMatch
+from weft.domain.graph_write import AliasAdd, EpisodeWrite, GraphWrite
 from weft.domain.taxonomy import Category
 from weft.domain.tenancy import tenant_scope
 from weft.infra import Infra
+from weft.repositories.graph import GraphRepository
 from weft.services import drafts, entries
 from weft.services.results import Err, Ok
 
@@ -179,6 +182,33 @@ async def test_two_zhangs_make_laozhang_ambiguous_and_block_confirmation(
         still = await drafts.get_draft(infra, draft.id)
     assert isinstance(still, Ok) and still.value.status is DraftStatus.PENDING
     assert sorted(p.name for p in await persons_of(infra, user)) == sorted(["小明", "张伟", "张强"])
+
+
+async def test_when_two_persons_share_the_alias_the_entry_context_decides(
+    infra: Infra, llm: LLMScript
+) -> None:
+    sc.laozhang_promoted(llm)
+    llm.person_match("老张", decision="matched", candidates=[2])
+    user = await new_user(infra)
+    ids = await seed(infra, user, Seed(persons=["张伟", "张强"]))
+    with tenant_scope(user.tenant):
+        await GraphRepository(infra.neo4j, user.tenant).apply(
+            GraphWrite(
+                episode=EpisodeWrite(
+                    entry_id=str(uuid.uuid4()),
+                    content="(aliases)",
+                    occurred=PartialDate(2026, 1, 1),
+                    kind="manual_edit",
+                    created_at=infra.clock(),
+                ),
+                aliases=[AliasAdd(ids["张伟"], "老张"), AliasAdd(ids["张强"], "老张")],
+            )
+        )
+    draft = await sc.extracted(infra, user, sc.PROMOTED)
+
+    assert draft.content is not None
+    [person] = draft.content.persons
+    assert (person.match, person.person_id) == (PersonMatch.MATCHED, ids["张强"])
 
 
 async def test_choosing_zhangwei_for_laozhang_learns_the_alias_for_next_time(
@@ -374,6 +404,59 @@ async def test_unparseable_llm_output_fails_the_draft_and_keeps_the_text(
         [(entry, _)] = await entries.list_entries(infra)
     assert entry.text == sc.GARBLED
     assert await count_group_nodes(infra, user) == 1
+
+
+HIKING = "周末和老周去爬山了"
+TEA = "晚上和老周喝了茶"
+_FRIEND = {
+    "pair": ["我", "老周"],
+    "types": [{"category": "social", "subtype": "朋友", "original": "朋友"}],
+    "confidence": "witnessed",
+}
+# profile item without its person, feeling without its confidence
+_INVALID_ENRICHMENT = {
+    "facts": [],
+    "relationships": [_FRIEND],
+    "feelings": [{"from": "我", "to": "老周", "dimension": "closeness", "level": "close"}],
+    "profile": [{"field": "gender", "value": "男", "confidence": "witnessed"}],
+}
+
+
+async def test_invalid_enrichment_is_sent_back_once_with_its_validation_errors(
+    infra: Infra, llm: LLMScript
+) -> None:
+    sc.graphiti_only(llm, HIKING)
+    llm.enrichment_raw(HIKING, json.dumps(_INVALID_ENRICHMENT, ensure_ascii=False))
+    fixed = {
+        **_INVALID_ENRICHMENT,
+        "feelings": [{**_INVALID_ENRICHMENT["feelings"][0], "confidence": "witnessed"}],
+        "profile": [{**_INVALID_ENRICHMENT["profile"][0], "person": "老周"}],
+    }
+    llm.enrichment_retry(HIKING, json.dumps(fixed, ensure_ascii=False), feedback="profile.0.person")
+    user = await new_user(infra)
+    draft = await sc.extracted(infra, user, HIKING)
+
+    assert draft.status is DraftStatus.PENDING and draft.content is not None
+    assert [(f.from_, f.to, f.confidence) for f in draft.content.feelings] == [
+        ("我", "老周", Confidence.WITNESSED)
+    ]
+    assert [(p.person, p.value) for p in draft.content.profile] == [("老周", "男")]
+
+
+async def test_still_invalid_enrichment_drops_only_the_invalid_items(
+    infra: Infra, llm: LLMScript
+) -> None:
+    sc.graphiti_only(llm, TEA)
+    invalid = json.dumps(_INVALID_ENRICHMENT, ensure_ascii=False)
+    llm.enrichment_raw(TEA, invalid)
+    llm.enrichment_retry(TEA, invalid, feedback="feelings.0.confidence")
+    user = await new_user(infra)
+    draft = await sc.extracted(infra, user, TEA)
+
+    assert draft.status is DraftStatus.PENDING and draft.content is not None
+    assert [r.pair for r in draft.content.relationships] == [("我", "老周")]
+    assert draft.content.feelings == [] and draft.content.profile == []
+    assert sorted(p.mention for p in draft.content.persons) == ["我", "老周"]
 
 
 async def test_after_a_timeout_a_retry_reaches_pending(infra: Infra, llm: LLMScript) -> None:

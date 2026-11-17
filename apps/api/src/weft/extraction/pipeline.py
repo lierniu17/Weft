@@ -38,7 +38,7 @@ from weft.domain.draft import (
 from weft.domain.graph_write import PREDICATE_LABELS, PREDICATE_TARGETS
 from weft.domain.taxonomy import Category, RelationshipType, Taxonomy
 from weft.extraction.llm import ExtractionLLM
-from weft.llm import ChatMessage, ChatRequest
+from weft.llm import ChatMessage, ChatRequest, LLMResponseError
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ SELF_MENTION = "我"
 
 
 class Person(BaseModel):
-    """人物：记录里提到的一个具体的人，用记录中的叫法作为名字（如“老张”“小李”“张伟”）。不包括写记录的“我”。"""
+    """人物：记录里提到的一个具体的人，用记录中的叫法作为名字（如“老张”“小李”“张伟”）。没有名字但指某个具体的人时（如某人的女儿、上司、伴侣），名字写成“<被参照人物>的<称谓>”（如“老陈的儿子”）。不包括写记录的“我”，也不包括泛指的一群人。"""
 
 
 class Organization(BaseModel):
@@ -193,6 +193,7 @@ class EnrichedProfile(_Out):
 
 
 class Enrichment(_Out):
+    persons: list[str] = Field(default_factory=list)
     facts: list[EnrichedFact] = Field(default_factory=list)
     relationships: list[EnrichedRelationship] = Field(default_factory=list)
     feelings: list[EnrichedFeeling] = Field(default_factory=list)
@@ -263,11 +264,13 @@ ENRICH_SYSTEM = """你是 Weft 的信息整理助手。用户（“我”）写�
 系统已经从中初步抽取出人物（persons）和候选事实（candidate_facts）。
 请把它们整理成结构化的 JSON，只输出 JSON 对象，字段如下：
 
+- persons：记录里提到的全部人物的叫法（不含“我”），按下方“人物叫法”的规则命名，
+  和其他条目里用的叫法完全一致；包括只作为转述来源、没有其他条目的人物。
+
 - facts：关于某个人物的事实。
   subject 是人物叫法（写记录的人用“我”）；predicate 取自 predicates 的键；
   object 是对象（组织、学校、城市、性格、爱好、事件、注意事项，或另一个人物的叫法）；
-  confidence 是可信度：witnessed（我亲眼所见、亲身经历）、self_told（当事人亲口说的）、
-  hearsay（别人转述的）、inferred（我的猜测或推断）；
+  confidence 是可信度（见下方“可信度”）；
   valid_at / valid_to 是事实发生或开始、结束的时间，格式 YYYY、YYYY-MM 或 YYYY-MM-DD。
   相对时间（“上周末”“去年”“上个月”）必须以 entry.occurred 为参照换算成具体日期；
   换算结果的精度不得超过 entry.precision（发生日期只到年时，只写年份）。
@@ -277,19 +280,59 @@ ENRICH_SYSTEM = """你是 Weft 的信息整理助手。用户（“我”）写�
   types 中每一项的 category 和 subtype 必须取自 relationship_types
   （放不下时用该大类的“其他”），original 保留记录中的原话；
   met_at 认识时间，origin 认识途径，introduced_by 介绍人叫法，
-  status 取 active / distant / tense / estranged，confidence 同上。
+  status 取 active / distant / tense / estranged，confidence 见下方“可信度”。
 - feelings：一个人物对另一个人物的感受，有方向（from 对 to）。
   dimension 取 closeness / affinity / trust，level 取 feeling_levels 中对应维度的键。
-- profile：人物的身份信息，field 取 name / gender / birthday / hometown。
+  每一项都必须带 confidence。
+- profile：人物的身份信息，每一项都必须带 person（人物叫法）、field、value、confidence；
+  field 取 name / gender / birthday / hometown。
+
+人物叫法：
+- 输入里的 persons 是初步结果，可能漏人或叫法不合规则；输出时以下面的规则为准，
+  同一个人在所有条目里只用一个叫法。
+- 有名字或固定称呼的人，用记录里的名字或称呼，不要把前面修饰的关系词拼进去
+  （“堂弟小军”叫“小军”，“我同事阿芳”叫“阿芳”）。
+- 没有名字、但指的是某个具体的人（某人的家人、伴侣、上司、合伙人、朋友等）也是人物，
+  称为“称谓人物”，叫法写成“<被参照人物的叫法>的<称谓>”，如“老陈的儿子”“阿芳的上司”；
+  被参照人物是我时直接用称谓（“外公”“我爸”）。每个称谓人物都要在 relationships 里
+  给出他和被参照人物的关系。
+- 转述的来源（“X 说”“听 X 说”“X 告诉我”）如果是具体的人，也是人物。
+- 不是人物：泛指或一群人（大家、同事们、几个朋友）、不具体的来源（“听人说”“听同事说”）、
+  只出现一次的服务或职能角色（医生、店员、司机）。
+
+关系：
+- 亲属类有方向的类型（父母、子女、祖孙）读作“pair[0] 是 pair[1] 的 X”：
+  “老陈的儿子”写成 pair ["老陈", "老陈的儿子"]、类型 父母（老陈是他儿子的父母）；
+  我和我爸写成 pair ["我爸", "我"]、类型 父母。
+- 记录里交代了某人和我的关系（称呼前的“我同事”“我表哥”“邻居”“前领导”，或认识经过），
+  就输出我和此人的关系，即使这句话主要在讲别人之间的事。一句话里有多个人时，
+  逐对检查：我和每个人、以及他们彼此之间。
+- 一段关系可以同时有多个类型，记录里每一层关系都要写上
+  （例如两人合伙开店后翻脸：合伙人 + 矛盾；同学后来成了夫妻：同学 + 配偶）。
+- 在同一所学校读书期间认识的人（同班、同级、同社团、同宿舍）属于 同学（同宿舍再加 室友）。
+- 吵架、闹翻、闹掰、有过节属于 矛盾；只有明确不再来往时才用 绝交。
+
+可信度（confidence）——按“我是怎么知道的”判断，先看有没有转述来源：
+- witnessed：我亲眼所见、亲身经历、直接观察到的。记录直接陈述、没有交代消息来源的事，
+  按我亲身所知处理，也是 witnessed；我和别人之间的关系、我自己的感受一律是 witnessed；
+  我亲眼看到的两人之间的关系（如看到他们在一起）也是 witnessed。
+- self_told：当事人亲口告诉我他自己的事。说话人讲的是他自己和别人的关系或他自己的家人时
+  （例：表弟说他女朋友在读研 → 表弟和他女朋友的关系是 self_told），也是 self_told。
+- hearsay：别人转述的第三方的事（“听说”“听 X 说”“X 说 Y 怎样”，Y 不是说话人自己），
+  或者来源不明的传闻。
+- inferred：我的猜测或推断，或者从迹象推断出来的结论；内容本身带“估计”“好像”“可能”
+  “感觉”“看样子”等不确定语气的也是 inferred。只是我对转述的真假表示怀疑
+  （“不知道是不是真的”）时，仍按来源判断（hearsay）。
 
 没有的内容输出空数组。不要编造记录中没有的信息。"""
 
 MATCH_SYSTEM = """你负责判断一条记录里提到的人是不是图谱里已有的某个人物。
-输入给出记录原文、提到的叫法（mention）和若干候选人物。只输出 JSON 对象：
+输入给出记录原文、提到的叫法（mention）和若干候选人物（名字、别名、和我的关系备注）。
+只输出 JSON 对象：
 {"decision": "matched" | "ambiguous" | "new", "candidate_indices": [候选编号]}
-- matched：能确定是某一个候选人，candidate_indices 只放这一个编号；
-- ambiguous：可能是其中几个，拿不准，candidate_indices 列出所有可能的编号；
-- new：不是任何候选人，candidate_indices 为空。"""
+- matched：记录里的身份、场合或关系描述能明确对应到某一个候选人，candidate_indices 只放这一个编号；
+- ambiguous：可能是其中几个，记录里没有足够线索区分，candidate_indices 列出所有可能的编号；
+- new：记录表明这是另一个人（例如说明是新认识的、只是同名），candidate_indices 为空。"""
 
 
 def _episode(inp: ExtractionInput) -> EpisodicNode:
@@ -339,16 +382,89 @@ def _enrich_payload(
     }
 
 
+ENRICH_RETRY = """上面的输出没有通过校验，问题如下：
+{errors}
+请改正这些问题，重新输出完整的 JSON 对象（所有条目都要带齐必填字段）。"""
+MAX_REPORTED_ERRORS = 20
+
+_SECTIONS: dict[str, type[BaseModel]] = {
+    "facts": EnrichedFact,
+    "relationships": EnrichedRelationship,
+    "feelings": EnrichedFeeling,
+    "profile": EnrichedProfile,
+}
+
+
+def _validation_errors(content: str) -> str | None:
+    """Why ``content`` is not a valid ``Enrichment`` (``None`` if it is), for the model."""
+    try:
+        Enrichment.model_validate_json(content)
+    except ValidationError as exc:
+        lines = [
+            f"- {'.'.join(str(part) for part in err['loc']) or '(根)'}: {err['msg']}"
+            for err in exc.errors()[:MAX_REPORTED_ERRORS]
+        ]
+        return "\n".join(lines)
+    return None
+
+
+def _valid_items(content: str) -> Enrichment | None:
+    """The valid items of a JSON object that failed validation as a whole; ``None`` if
+    ``content`` is not a JSON object at all."""
+    try:
+        data = json.loads(content)
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    sections: dict[str, list[Any]] = {}
+    for name, model in _SECTIONS.items():
+        items = data.get(name)
+        kept: list[Any] = []
+        for item in items if isinstance(items, list) else []:
+            try:
+                kept.append(model.model_validate(item))
+            except ValidationError:
+                continue
+        sections[name] = kept
+    names = data.get("persons")
+    persons = [n for n in names if isinstance(n, str)] if isinstance(names, list) else []
+    return Enrichment.model_validate({"persons": persons, **sections})
+
+
 async def _enrich(llm: ExtractionLLM, payload: dict[str, Any]) -> Enrichment:
-    request = ChatRequest(
-        model=llm.model,
-        temperature=0.0,
-        messages=[
-            ChatMessage(role="system", content=ENRICH_SYSTEM),
-            ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
-        ],
+    """The enrichment call. Output that fails validation is sent back once with the
+    validation errors; if the second answer still fails, only its invalid items are
+    dropped (falling back to the first answer if the second is not JSON at all)."""
+    messages = [
+        ChatMessage(role="system", content=ENRICH_SYSTEM),
+        ChatMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
+    ]
+    request = ChatRequest(model=llm.model, temperature=0.0, messages=messages, json_output=True)
+    first = (await llm.chat.chat(request)).content or ""
+    errors = _validation_errors(first)
+    if errors is None:
+        return Enrichment.model_validate_json(first)
+    logger.info("enrichment output invalid, asking again: %s", errors)
+    retry = request.model_copy(
+        update={
+            "messages": [
+                *messages,
+                ChatMessage(role="assistant", content=first),
+                ChatMessage(role="user", content=ENRICH_RETRY.format(errors=errors)),
+            ]
+        }
     )
-    return await llm.chat.chat_json(request, Enrichment)
+    second = (await llm.chat.chat(retry)).content or ""
+    errors = _validation_errors(second)
+    if errors is None:
+        return Enrichment.model_validate_json(second)
+    for answer in (second, first):
+        kept = _valid_items(answer)
+        if kept is not None:
+            logger.warning("enrichment output still invalid, dropping invalid items: %s", errors)
+            return kept
+    raise LLMResponseError(f"enrichment output is not a JSON object: {errors}")
 
 
 def _feeling_ok(dimension: str, level: str) -> bool:
@@ -386,10 +502,7 @@ async def extract(llm: ExtractionLLM, inp: ExtractionInput) -> RawExtraction:
             }
             for i, e in enumerate(edges)
         ]
-    try:
-        enriched = await _enrich(llm, _enrich_payload(inp, person_names, candidates))
-    except ValidationError as exc:  # pragma: no cover - chat_json wraps this already
-        raise ValueError(f"enrichment output invalid: {exc}") from exc
+    enriched = await _enrich(llm, _enrich_payload(inp, person_names, candidates))
     return _assemble(inp, person_names, enriched)
 
 
@@ -406,9 +519,10 @@ def _assemble(inp: ExtractionInput, person_names: list[str], e: Enrichment) -> R
             mentions.append(name)
         return name
 
-    for name in person_names:
-        mention(name)
-    known_persons = set(person_names) | {SELF_MENTION}
+    for name in e.persons or person_names:
+        if name.strip() != SELF_MENTION:
+            mention(name)
+    known_persons = set(mentions) | {SELF_MENTION}
 
     facts: list[RawFact] = []
     for f in e.facts:

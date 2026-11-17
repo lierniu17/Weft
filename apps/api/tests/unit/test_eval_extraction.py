@@ -197,8 +197,78 @@ def test_person_f1_ignores_self_and_counts_wrong_match_as_fp_and_fn() -> None:
     assert report["passed"] is False
 
 
+def _persons_only(gold: list[dict[str, Any]], pred: list[dict[str, Any]]) -> float:
+    sample = {"id": "t", "gold": {"persons": gold}}
+    result: float = score.score([sample], {"t": {"persons": pred}})["person_f1"]
+    return result
+
+
+def test_a_matched_person_is_judged_by_person_id_not_mention_text() -> None:
+    gold = [{"mention": "小王", "match": "matched", "person_id": "p-xw1"}]
+    assert (
+        _persons_only(gold, [{"mention": "小王教练", "match": "matched", "person_id": "p-xw1"}])
+        == 1.0
+    )
+    assert (
+        _persons_only(gold, [{"mention": "小王", "match": "matched", "person_id": "p-xw2"}]) == 0.0
+    )
+
+
+def test_two_mentions_of_the_same_person_count_once() -> None:
+    gold = [{"mention": "小王", "match": "matched", "person_id": "p-xw1"}]
+    pred = [
+        {"mention": "小王", "match": "matched", "person_id": "p-xw1"},
+        {"mention": "小王教练", "match": "matched", "person_id": "p-xw1"},
+    ]
+    assert _persons_only(gold, pred) == 1.0
+
+
+def test_a_new_descriptor_person_matches_up_to_its_reference_and_de() -> None:
+    gold = [
+        {"mention": "周姐", "match": "new"},
+        {"mention": "周姐的老公", "match": "new"},
+    ]
+    assert (
+        _persons_only(
+            gold, [{"mention": "周姐", "match": "new"}, {"mention": "老公", "match": "new"}]
+        )
+        == 1.0
+    )
+    assert (
+        _persons_only(
+            gold, [{"mention": "周姐", "match": "new"}, {"mention": "周姐老公", "match": "new"}]
+        )
+        == 1.0
+    )
+    # a different new person is a miss, and one gold person is only matched once
+    assert (
+        _persons_only(
+            gold, [{"mention": "周姐", "match": "new"}, {"mention": "前夫", "match": "new"}]
+        )
+        == 0.5
+    )
+    one_gold = [{"mention": "老公", "match": "new"}]
+    pred = [{"mention": "周姐的老公", "match": "new"}, {"mention": "老公", "match": "new"}]
+    assert _persons_only(one_gold, pred) == pytest.approx(2 / 3)
+
+
+def test_an_ambiguous_person_is_judged_by_its_candidate_set() -> None:
+    def amb(*ids: str) -> dict[str, Any]:
+        return {
+            "mention": "老张",
+            "match": "ambiguous",
+            "candidates": [{"person_id": i, "name": i} for i in ids],
+        }
+
+    assert _persons_only([amb("p-zw", "p-zq")], [amb("p-zq", "p-zw")]) == 1.0
+    assert _persons_only([amb("p-zw", "p-zq")], [amb("p-zw")]) == 0.0
+    matched = {"mention": "老张", "match": "matched", "person_id": "p-zw"}
+    assert _persons_only([amb("p-zw", "p-zq")], [matched]) == 0.0
+
+
 def test_relationship_type_accuracy_is_per_gold_type_and_pair_is_unordered() -> None:
     pred = {
+        "persons": GOLD["gold"]["persons"],
         "relationships": [
             {
                 "pair": ["小李", "老张"],
@@ -208,13 +278,81 @@ def test_relationship_type_accuracy_is_per_gold_type_and_pair_is_unordered() -> 
                 ],
                 "confidence": "hearsay",
             }
-        ]
+        ],
     }
     assert score.score([GOLD], {"t-1": pred})["relationship_type_accuracy"] == pytest.approx(0.5)
 
 
+def _kin(pair: list[str], subtype: str) -> dict[str, Any]:
+    return {
+        "pair": pair,
+        "types": [{"category": "kin", "subtype": subtype, "original": "女儿"}],
+        "confidence": "self_told",
+    }
+
+
+def test_parent_child_types_are_directional_and_inverse_of_each_other() -> None:
+    persons = [
+        {"mention": "老张", "match": "new"},
+        {"mention": "老张的女儿", "match": "new"},
+    ]
+    sample = {
+        "id": "t",
+        "gold": {"persons": persons, "relationships": [_kin(["老张", "老张的女儿"], "父母")]},
+    }
+
+    def accuracy(rel: dict[str, Any], mentions: tuple[str, str] = ("老张", "老张的女儿")) -> float:
+        pred = {
+            "persons": [{"mention": m, "match": "new"} for m in mentions],
+            "relationships": [rel],
+        }
+        result: float = score.score([sample], {"t": pred})["relationship_type_accuracy"]
+        return result
+
+    assert accuracy(_kin(["老张", "老张的女儿"], "父母")) == 1.0
+    assert accuracy(_kin(["老张的女儿", "老张"], "子女")) == 1.0  # the same, said the other way
+    assert accuracy(_kin(["老张的女儿", "老张"], "父母")) == 0.0  # reversed
+    assert accuracy(_kin(["老张", "老张的女儿"], "子女")) == 0.0
+    # the descriptor person resolves whatever its wording
+    assert accuracy(_kin(["老张", "女儿"], "父母"), ("老张", "女儿")) == 1.0
+
+
+def test_items_refer_to_persons_through_their_resolution() -> None:
+    sample = {
+        "id": "t",
+        "gold": {
+            "persons": [{"mention": "小王", "match": "matched", "person_id": "p-xw1"}],
+            "facts": [
+                {
+                    "subject": "小王",
+                    "predicate": "LIKES",
+                    "object": "健身",
+                    "confidence": "witnessed",
+                }
+            ],
+        },
+    }
+    pred = {
+        "persons": [{"mention": "小王教练", "match": "matched", "person_id": "p-xw1"}],
+        "facts": [
+            {
+                "subject": "小王教练",
+                "predicate": "LIKES",
+                "object": "健身",
+                "confidence": "witnessed",
+            }
+        ],
+    }
+    report = score.score([sample], {"t": pred})
+    assert report["confidence_coverage"] == 1.0
+    assert report["confidence_accuracy"] == 1.0
+    wrong = {**pred, "persons": [{"mention": "小王教练", "match": "new"}]}
+    assert score.score([sample], {"t": wrong})["confidence_coverage"] == 0.0
+
+
 def test_confidence_accuracy_over_matched_items_with_coverage() -> None:
     pred = {
+        "persons": GOLD["gold"]["persons"],
         "facts": [
             # matches gold 钓鱼 fact (object substring), confidence wrong
             {
@@ -260,3 +398,37 @@ def test_cli_reads_jsonl_and_exits_nonzero_below_threshold(tmp_path: Path) -> No
     assert score.main([str(preds), "--samples", str(samples)]) == 0
     preds.write_text(json.dumps({"id": "t-1", "draft": {}}) + "\n", encoding="utf-8")
     assert score.main([str(preds), "--samples", str(samples)]) == 1
+
+
+# --- the dev / held-out split ------------------------------------------------
+
+
+def test_the_committed_split_is_the_seeded_stratified_split_of_the_samples() -> None:
+    samples = _samples()
+    committed = json.loads((EVAL_DIR / "split.json").read_text(encoding="utf-8"))
+    assert committed == score.make_split(samples)
+    dev, heldout = set(committed["dev"]), set(committed["heldout"])
+    assert (len(dev), len(heldout)) == (30, 20)
+    assert dev.isdisjoint(heldout) and dev | heldout == {s["id"] for s in samples}
+    category = {s["id"]: s["category"] for s in samples}
+    assert Counter(category[i] for i in heldout) == {c: 4 for c in set(category.values())}
+
+
+def test_select_and_score_by_split(tmp_path: Path) -> None:
+    split = tmp_path / "split.json"
+    split.write_text(json.dumps({"dev": ["t-1"], "heldout": ["t-2"]}), encoding="utf-8")
+    other = {**GOLD, "id": "t-2"}
+    assert [s["id"] for s in score.select([GOLD, other], "heldout", split)] == ["t-2"]
+    assert score.select([GOLD, other], None, split) == [GOLD, other]
+    by_split = score.score_by_split([GOLD, other], {"t-1": GOLD["gold"]}, split)
+    assert by_split["dev"]["person_f1"] == 1.0
+    assert by_split["heldout"]["missing_predictions"] == ["t-2"]
+
+
+def test_self_is_never_a_person_even_when_only_the_prediction_lists_it() -> None:
+    gold = [{"mention": "老张", "match": "matched", "person_id": "p-zw"}]
+    pred = [
+        {"mention": "老张", "match": "matched", "person_id": "p-zw"},
+        {"mention": "我", "match": "matched", "person_id": "self"},
+    ]
+    assert _persons_only(gold, pred) == 1.0
