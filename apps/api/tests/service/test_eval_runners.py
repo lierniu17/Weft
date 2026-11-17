@@ -46,10 +46,13 @@ async def test_the_extraction_eval_predicts_a_draft_per_sample_and_scores_it(
     [row] = predictions
     draft = Draft.model_validate(row["draft"])
     assert row["id"] == "oral-01"
-    assert [(p.mention, p.match.value) for p in draft.persons] == [("老张", "new")]
+    assert [(p.mention, p.match.value) for p in draft.persons] == [
+        ("老张", "new"),
+        ("老张的女儿", "new"),
+    ]
     assert report["samples"] == 1 and report["missing_predictions"] == []
-    # the script finds 老张 but not the descriptor person 老张的女儿 the gold also has
-    assert (report["person_precision"], report["person_recall"]) == (1.0, 0.5)
+    # the script finds 老张 and the descriptor person 老张的女儿, as the gold has
+    assert (report["person_precision"], report["person_recall"]) == (1.0, 1.0)
     assert set(report["splits"]) == {"dev"}  # oral-01 is a dev sample
     assert 0 < report["confidence_coverage"] <= 1
 

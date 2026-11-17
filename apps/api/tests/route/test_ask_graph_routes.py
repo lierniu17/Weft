@@ -219,11 +219,14 @@ async def test_a_confirmed_draft_gets_its_summary_with_the_generation_time(
 ) -> None:
     sc.dinner_with_laozhang(llm)
     llm.person_summary("老张", "老张最近迷上了钓鱼，不喝酒。")
+    llm.person_summary("老张的女儿", "老张的女儿明年高考。")
+    llm.relationship_summary("老张", "老张的女儿", "老张是她的父亲。")
     api = await register()
     submitted = (await api.client.post("/api/entries", json={"text": sc.DINNER})).json()
     confirmed = await api.client.post(f"/api/drafts/{submitted['draft']['id']}/confirm")
     assert confirmed.status_code == 200
-    [laozhang] = (await api.client.get("/api/persons", params={"q": "老张"})).json()
+    found = (await api.client.get("/api/persons", params={"q": "老张"})).json()
+    [laozhang] = [p for p in found if p["name"] == "老张"]
     profile = (await api.client.get(f"/api/persons/{laozhang['id']}")).json()
     assert profile["summary"]["text"] == "老张最近迷上了钓鱼，不喝酒。"
     assert profile["summary"]["generated_at"].startswith("2026-11-16T04:00")

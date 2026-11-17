@@ -34,8 +34,9 @@ def feel(src: str, dst: str, dimension: str, level: str, confidence: str) -> dic
     return {"from": src, "to": dst, "dimension": dimension, "level": level, "confidence": confidence}
 
 
-def enrichment(**sections: list[dict[str, Any]]) -> dict[str, Any]:
+def enrichment(persons: list[str] | None = None, **sections: list[dict[str, Any]]) -> dict:
     return {
+        **({"persons": persons} if persons else {}),
         "facts": sections.get("facts", []),
         "relationships": sections.get("relationships", []),
         "feelings": sections.get("feelings", []),
@@ -44,13 +45,16 @@ def enrichment(**sections: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 ENRICH: dict[str, dict[str, Any]] = {
-    # BOT-2
+    # BOT-2: 老张's daughter has no name, so she is the 称谓人物 「老张的女儿」 with her own
+    # fact and a 父母 relationship to 老张 (pair[0] 是 pair[1] 的 父母).
     "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。": enrichment(
+        persons=["老张", "老张的女儿"],
         facts=[
-            fact("老张", "EXPERIENCED", "女儿明年高考", "self_told", valid_at="2027"),
             fact("老张", "LIKES", "钓鱼", "self_told"),
             fact("老张", "DISLIKES", "喝酒", "self_told"),
+            fact("老张的女儿", "EXPERIENCED", "明年高考", "self_told", valid_at="2027"),
         ],
+        relationships=[rel("老张", "老张的女儿", [("kin", "父母", "女儿")], "self_told")],
     ),
     # BOT-3 (preconditions, then the two Entries)
     "张伟是我的同事。": enrichment(

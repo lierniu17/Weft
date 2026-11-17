@@ -45,7 +45,9 @@ def _enriched(
 DINNER = "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。"
 
 
-def dinner_with_laozhang(llm: LLMScript, text: str = DINNER) -> None:
+def laozhang_likes_fishing(llm: LLMScript, text: str) -> None:
+    """老张 likes fishing and does not drink (the shape of an earlier BOT-2 answer), for
+    another tenant's 老张 in isolation tests."""
     llm.graphiti_entities(
         text,
         [("老张", "Person"), ("女儿高考", "LifeEvent"), ("钓鱼", "Interest"), ("喝酒", "Interest")],
@@ -91,6 +93,68 @@ def dinner_with_laozhang(llm: LLMScript, text: str = DINNER) -> None:
                 },
             ],
         ),
+    )
+
+
+def dinner_with_laozhang(llm: LLMScript) -> None:
+    """BOT-2 as the spec reads it now: 老张's daughter is a 称谓人物 (Descriptor Person)
+    with her own fact and a 父母 relationship to 老张."""
+    llm.graphiti_entities(
+        DINNER,
+        [
+            ("老张", "Person"),
+            ("老张的女儿", "Person"),
+            ("高考", "LifeEvent"),
+            ("钓鱼", "Interest"),
+            ("喝酒", "Interest"),
+        ],
+    )
+    llm.graphiti_facts(
+        DINNER,
+        [
+            _fact("老张的女儿", "EXPERIENCED", "高考", "老张的女儿明年参加高考"),
+            _fact("老张", "LIKES", "钓鱼", "老张最近迷上了钓鱼"),
+            _fact("老张", "DISLIKES", "喝酒", "老张不喝酒"),
+        ],
+    )
+    llm.enrichment(
+        DINNER,
+        {
+            "persons": ["老张", "老张的女儿"],
+            **_enriched(
+                facts=[
+                    {
+                        "index": 0,
+                        "subject": "老张的女儿",
+                        "predicate": "EXPERIENCED",
+                        "object": "明年高考",
+                        "confidence": "self_told",
+                        "valid_at": "2027",
+                    },
+                    {
+                        "index": 1,
+                        "subject": "老张",
+                        "predicate": "LIKES",
+                        "object": "钓鱼",
+                        "confidence": "self_told",
+                    },
+                    {
+                        "index": 2,
+                        "subject": "老张",
+                        "predicate": "DISLIKES",
+                        "object": "喝酒",
+                        "confidence": "self_told",
+                    },
+                ],
+                relationships=[
+                    {
+                        "pair": ["老张", "老张的女儿"],
+                        "types": [{"category": "kin", "subtype": "父母", "original": "女儿"}],
+                        "confidence": "self_told",
+                    }
+                ],
+            ),
+        },
     )
 
 
@@ -490,3 +554,20 @@ def roommates(llm: LLMScript) -> None:
             ],
         ),
     )
+
+
+async def dinner_confirmed_as_in_bot2(infra: Infra, user: TestUser) -> DraftRecord:
+    """BOT-2's review of ``DINNER``: 老张的女儿's fact and her relationship are deleted,
+    the rest confirmed — so only 老张 (喜欢钓鱼, 不喝酒) reaches the graph."""
+    draft = await extracted(infra, user, DINNER)
+    assert draft.content is not None
+    content = draft.content.model_copy(
+        update={
+            "facts": [f for f in draft.content.facts if f.subject != "老张的女儿"],
+            "relationships": [],
+        }
+    )
+    with tenant_scope(user.tenant):
+        updated = await drafts.update_draft(infra, draft.id, content)
+    assert isinstance(updated, Ok), updated
+    return await confirmed(infra, user, draft.id)

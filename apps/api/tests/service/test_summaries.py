@@ -25,7 +25,7 @@ async def test_confirming_a_draft_regenerates_the_summary_with_its_time(
     sc.dinner_with_laozhang(llm)
     llm.person_summary("老张", LAOZHANG_SUMMARY)
     user = await new_user(infra)
-    await sc.confirmed(infra, user, (await sc.extracted(infra, user, sc.DINNER)).id)
+    await sc.dinner_confirmed_as_in_bot2(infra, user)
     clock.advance(minutes=1)
 
     with tenant_scope(user.tenant):
@@ -43,7 +43,7 @@ async def test_a_manual_edit_makes_the_summary_stale_again(
     sc.dinner_with_laozhang(llm)
     llm.person_summary("老张", LAOZHANG_SUMMARY)
     user = await new_user(infra)
-    await sc.confirmed(infra, user, (await sc.extracted(infra, user, sc.DINNER)).id)
+    await sc.dinner_confirmed_as_in_bot2(infra, user)
     with tenant_scope(user.tenant):
         await summaries.refresh_stale(infra)
         laozhang = await person_named(infra, user, "老张")
@@ -106,7 +106,7 @@ async def test_a_failed_generation_stays_stale_for_the_next_refresh(
     sc.dinner_with_laozhang(llm)
     llm.person_summary_timeout("老张")
     user = await new_user(infra)
-    await sc.confirmed(infra, user, (await sc.extracted(infra, user, sc.DINNER)).id)
+    await sc.dinner_confirmed_as_in_bot2(infra, user)
     with tenant_scope(user.tenant):
         failed = await summaries.refresh_stale(infra)
         llm.person_summary("老张", LAOZHANG_SUMMARY)

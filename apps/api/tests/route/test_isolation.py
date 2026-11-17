@@ -80,7 +80,7 @@ def b_asks_about_laozhang(llm: LLMScript) -> None:
 @pytest.fixture
 async def world(register: Register, llm: LLMScript) -> World:
     sc.dinner_with_laozhang(llm)
-    sc.dinner_with_laozhang(llm, "我和老张去吃了火锅")  # B's own 老张
+    sc.laozhang_likes_fishing(llm, "我和老张去吃了火锅")  # B's own 老张
     sc.graphiti_only(llm, sc.FLAKY)
     sc.flaky_ok(llm)
     sc.graphiti_only(llm, sc.GARBLED)
@@ -94,7 +94,8 @@ async def world(register: Register, llm: LLMScript) -> World:
     pending = (await a.client.post("/api/entries", json={"text": sc.FLAKY})).json()
     failed = (await a.client.post("/api/entries", json={"text": sc.GARBLED})).json()
     await a.client.post("/api/taxonomy/subtypes", json={"category": "social", "name": "饭搭子"})
-    [a_person] = (await a.client.get("/api/persons", params={"q": "老张"})).json()
+    found = (await a.client.get("/api/persons", params={"q": "老张"})).json()
+    [a_person] = [p for p in found if p["name"] == "老张"]  # not 老张的女儿
     profile = (await a.client.get(f"/api/persons/{a_person['id']}")).json()
     [a_fact] = [f for f in profile["facts"] if f["object"] == "钓鱼"]
 
