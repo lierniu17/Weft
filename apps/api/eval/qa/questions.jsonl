@@ -1,0 +1,43 @@
+{"id": "profile-01", "kind": "profile", "question": "老张是个什么样的人？", "gold": {"persons": ["张伟"], "text": ["急性子", "靠谱"]}}
+{"id": "profile-02", "kind": "profile", "question": "小李现在在哪工作？", "gold": {"text": ["阿里"]}}
+{"id": "profile-03", "kind": "profile", "question": "陈静住在哪里？", "gold": {"text": ["杭州"]}}
+{"id": "profile-04", "kind": "profile", "question": "唐亮退伍后在做什么？", "gold": {"text": ["火锅"]}}
+{"id": "profile-05", "kind": "profile", "question": "宋佳有什么特点？", "gold": {"text": ["做饭"]}}
+{"id": "profile-06", "kind": "profile", "question": "郑凯以前在哪工作？", "gold": {"text": ["百度"]}}
+{"id": "relationship-01", "kind": "relationship", "question": "老张和小李是什么关系？", "gold": {"text": ["室友", "借钱"]}}
+{"id": "relationship-02", "kind": "relationship", "question": "我和郑凯是什么关系？", "gold": {"text": ["合伙"]}}
+{"id": "relationship-03", "kind": "relationship", "question": "刘婷和杜鹃是什么关系？", "gold": {"text": ["闺蜜|朋友"]}}
+{"id": "relationship-04", "kind": "relationship", "question": "我和马超是什么关系？", "gold": {"text": ["竞争|对手"]}}
+{"id": "relationship-05", "kind": "relationship", "question": "老张和黄丽是什么关系？", "gold": {"text": ["老婆|妻子|配偶|夫妻"]}}
+{"id": "path-01", "kind": "path", "question": "我是怎么认识小王的？", "gold": {"path": ["我", "张伟", "王浩"]}}
+{"id": "path-02", "kind": "path", "question": "通过谁能认识赵磊？", "gold": {"path": ["我", "周涛", "赵磊"]}}
+{"id": "path-03", "kind": "path", "question": "我是怎么认识杜鹃的？", "gold": {"path": ["我", "刘婷", "杜鹃"]}}
+{"id": "path-04", "kind": "path", "question": "老张通过谁能认识刘洋？", "gold": {"path": ["张伟", "王浩", "刘洋"]}}
+{"id": "path-05", "kind": "path", "question": "我想认识宋佳，可以找谁介绍？", "gold": {"path": ["我", "李明", "宋佳"]}}
+{"id": "filter-01", "kind": "filter", "question": "谁喜欢露营？", "gold": {"persons": ["刘洋", "孙悦", "林芳", "王浩", "陈静"], "persons_exact": true}}
+{"id": "filter-02", "kind": "filter", "question": "我的大学同学有谁？", "gold": {"persons": ["李明", "陈静", "周涛"], "persons_exact": true}}
+{"id": "filter-03", "kind": "filter", "question": "谁在阿里巴巴工作？", "gold": {"persons": ["李明", "陈静", "宋佳"], "persons_exact": true}}
+{"id": "filter-04", "kind": "filter", "question": "我的同事有哪些？", "gold": {"persons": ["张伟", "吴昊", "郭佳", "钱多多"], "persons_exact": true}}
+{"id": "filter-05", "kind": "filter", "question": "我认识的人里谁在腾讯工作？", "gold": {"persons": ["王浩", "刘洋"], "persons_exact": true}}
+{"id": "filter-06", "kind": "filter", "question": "我的家人有谁？", "gold": {"persons": ["陈建国", "王秀英", "陈晓", "刘婷"], "persons_exact": true}}
+{"id": "time-01", "kind": "time", "question": "最近半年我认识了谁？", "gold": {"persons": ["何伟", "孙悦", "林芳"]}}
+{"id": "time-02", "kind": "time", "question": "老张和小李什么时候闹掰的？", "gold": {"text": ["9 月|9月|九月|2026-09"]}}
+{"id": "time-03", "kind": "time", "question": "小李什么时候跳槽去阿里巴巴的？", "gold": {"text": ["9 月|9月|九月|2026-09"]}}
+{"id": "time-04", "kind": "time", "question": "今年谁升职了？", "gold": {"persons": ["郭佳"]}}
+{"id": "time-05", "kind": "time", "question": "我和刘婷是哪年认识的？", "gold": {"text": ["2019"]}}
+{"id": "time-06", "kind": "time", "question": "2015 年我认识了谁？", "gold": {"persons": ["李明", "陈静", "周涛", "罗建华"]}}
+{"id": "count-01", "kind": "count", "question": "我认识的人里有几个在字节跳动上班？", "gold": {"count": 4, "persons": ["吴昊", "张伟", "郭佳", "钱多多"]}}
+{"id": "count-02", "kind": "count", "question": "有几个人喜欢露营？", "gold": {"count": 5}}
+{"id": "count-03", "kind": "count", "question": "我有几个大学同学？", "gold": {"count": 3}}
+{"id": "count-04", "kind": "count", "question": "我有几个客户？", "gold": {"count": 1, "persons": ["何伟"]}}
+{"id": "count-05", "kind": "count", "question": "我认识的人里有几个住在杭州？", "gold": {"count": 1, "persons": ["陈静"]}}
+{"id": "none-01", "kind": "no_answer", "question": "老王喜欢什么？", "gold": {"no_answer": true}}
+{"id": "none-02", "kind": "no_answer", "question": "小李的生日是哪天？", "gold": {"no_answer": true}}
+{"id": "none-03", "kind": "no_answer", "question": "老张的女儿在哪上大学？", "gold": {"no_answer": true}}
+{"id": "none-04", "kind": "no_answer", "question": "我和诸葛亮是什么关系？", "gold": {"no_answer": true}}
+{"id": "none-05", "kind": "no_answer", "question": "陈静的老公是谁？", "gold": {"no_answer": true}}
+{"id": "none-06", "kind": "no_answer", "question": "谁喜欢滑雪？", "gold": {"no_answer": true}}
+{"id": "none-07", "kind": "no_answer", "question": "我认识的人里谁在微软工作？", "gold": {"no_answer": true}}
+{"id": "none-08", "kind": "no_answer", "question": "孙悦是哪里人？", "gold": {"no_answer": true}}
+{"id": "none-09", "kind": "no_answer", "question": "赵磊结婚了吗？", "gold": {"no_answer": true}}
+{"id": "none-10", "kind": "no_answer", "question": "我是怎么认识马云的？", "gold": {"no_answer": true}}

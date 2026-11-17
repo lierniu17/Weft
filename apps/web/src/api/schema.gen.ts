@@ -1,0 +1,2188 @@
+/* GENERATED from the API's OpenAPI document by scripts/openapi.ts — do not edit; run `pnpm openapi`. */
+export interface paths {
+    "/api/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Account */
+        delete: operations["delete_account_api_account_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask */
+        post: operations["ask_api_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register */
+        post: operations["register_api_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Draft */
+        get: operations["get_draft_api_drafts__draft_id__get"];
+        /** Update Draft */
+        put: operations["update_draft_api_drafts__draft_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drafts/{draft_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Draft */
+        post: operations["confirm_draft_api_drafts__draft_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drafts/{draft_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard Draft */
+        post: operations["discard_draft_api_drafts__draft_id__discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/drafts/{draft_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Draft */
+        post: operations["retry_draft_api_drafts__draft_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Entries */
+        get: operations["list_entries_api_entries_get"];
+        put?: never;
+        /** Submit Entry */
+        post: operations["submit_entry_api_entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entry */
+        get: operations["get_entry_api_entries__entry_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Panorama */
+        get: operations["panorama_api_graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Health */
+        get: operations["get_health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/persons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Persons */
+        get: operations["list_persons_api_persons_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/persons/{person_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Profile */
+        get: operations["get_profile_api_persons__person_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Person */
+        delete: operations["delete_person_api_persons__person_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/persons/{person_id}/deletion-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deletion Impact */
+        get: operations["deletion_impact_api_persons__person_id__deletion_impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/persons/{person_id}/graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Local Graph */
+        get: operations["local_graph_api_persons__person_id__graph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/persons/{person_id}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Profile */
+        patch: operations["edit_profile_api_persons__person_id__profile_patch"];
+        trace?: never;
+    };
+    "/api/persons/{person_id}/relationships/{other_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pair */
+        get: operations["get_pair_api_persons__person_id__relationships__other_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Pair */
+        patch: operations["edit_pair_api_persons__person_id__relationships__other_id__patch"];
+        trace?: never;
+    };
+    "/api/taxonomy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Taxonomy */
+        get: operations["get_taxonomy_api_taxonomy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/taxonomy/subtypes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Subtype */
+        post: operations["add_subtype_api_taxonomy_subtypes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Usage */
+        get: operations["get_usage_api_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
+export type webhooks = Record<string, never>;
+export interface components {
+    schemas: {
+        /** AddFactOp */
+        AddFactOp: {
+            /** Object */
+            object: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "add_fact";
+            /** Predicate */
+            predicate: string;
+            /** Valid At */
+            valid_at?: string | null;
+        };
+        /** AddSubtypeRequest */
+        AddSubtypeRequest: {
+            category: components["schemas"]["Category"];
+            /** Name */
+            name: string;
+        };
+        /** AffinityFeeling */
+        AffinityFeeling: {
+            confidence: components["schemas"]["Confidence"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            dimension: "affinity";
+            /**
+             * From
+             * @description Person mention who feels
+             */
+            from: string;
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            level: components["schemas"]["AffinityLevel"];
+            /**
+             * To
+             * @description Person mention the feeling is about
+             */
+            to: string;
+        };
+        /**
+         * AffinityLevel
+         * @enum {string}
+         */
+        AffinityLevel: "like" | "neutral" | "dislike";
+        /** Answer */
+        Answer: {
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+            /**
+             * Follow Ups
+             * @description 追问建议, e.g. 「他俩什么时候认识的？」
+             */
+            follow_ups: string[];
+            /**
+             * Items
+             * @description kind = list
+             */
+            items?: components["schemas"]["AnswerListItem"][] | null;
+            kind: components["schemas"]["AnswerKind"];
+            /**
+             * Path
+             * @description kind = path: ordered chain from the first person to the last
+             */
+            path?: components["schemas"]["PersonRef"][] | null;
+            /**
+             * Persons
+             * @description Related persons, shown as chips
+             */
+            persons: components["schemas"]["PersonRef"][];
+            /** Segments */
+            segments: components["schemas"]["AnswerSegment"][];
+            /** @description kind = stat */
+            stat?: components["schemas"]["AnswerStat"] | null;
+        };
+        /**
+         * AnswerKind
+         * @enum {string}
+         */
+        AnswerKind: "text" | "path" | "list" | "stat" | "no_answer";
+        /** AnswerListItem */
+        AnswerListItem: {
+            /** Citations */
+            citations: number[];
+            /**
+             * Is Self
+             * @description 本人: rendered as 「我」
+             * @default false
+             */
+            is_self: boolean;
+            /** Name */
+            name: string;
+            /** Person Id */
+            person_id: string;
+            /**
+             * Subtitle
+             * @description e.g. 同学 / 客户
+             */
+            subtitle?: string | null;
+        };
+        /** AnswerSegment */
+        AnswerSegment: {
+            /**
+             * Citations
+             * @description Indices of the citations backing this piece of text
+             * @default []
+             */
+            citations: number[];
+            /** Text */
+            text: string;
+        };
+        /** AnswerStat */
+        AnswerStat: {
+            /** Count */
+            count: number;
+            /** Persons */
+            persons: components["schemas"]["PersonRef"][];
+        };
+        /** AskRequest */
+        AskRequest: {
+            /** Question */
+            question: string;
+        };
+        /** Candidate */
+        Candidate: {
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @description Disambiguating hint, e.g. 同事 / 邻居
+             */
+            note?: string | null;
+            /** Person Id */
+            person_id: string;
+        };
+        /**
+         * Category
+         * @enum {string}
+         */
+        Category: "kin" | "romantic" | "social" | "interest" | "hostile";
+        /** Citation */
+        Citation: {
+            confidence: components["schemas"]["Confidence"];
+            /**
+             * Entry Excerpt
+             * @description Quote of the source Entry (记录原文)
+             */
+            entry_excerpt: string;
+            /** Entry Id */
+            entry_id: string;
+            /** Index */
+            index: number;
+            /**
+             * Is Opinion
+             * @description Quotes 我的评价 (AC-23: 「你的评价」)
+             * @default false
+             */
+            is_opinion: boolean;
+            /**
+             * Occurred On
+             * @description The Entry's 发生日期, with precision
+             * @example 2015
+             * @example 2015-06
+             * @example 2026-11-16
+             */
+            occurred_on: string;
+            /**
+             * Pair
+             * @description The relationship this claim is about, for 「查看…的关系」
+             */
+            pair?: [
+                components["schemas"]["PersonRef"],
+                components["schemas"]["PersonRef"]
+            ] | null;
+            /**
+             * Told By
+             * @description Who said it, for 转述 (「据老张说」)
+             */
+            told_by?: string | null;
+        };
+        /**
+         * CitationOut
+         * @description 出处 (AC-25): one source Entry of an item, with the item's Confidence.
+         */
+        CitationOut: {
+            confidence: components["schemas"]["Confidence"];
+            /**
+             * Entry Excerpt
+             * @description 记录原文
+             */
+            entry_excerpt: string;
+            /** Entry Id */
+            entry_id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "user" | "manual_edit";
+            /**
+             * Occurred On
+             * @description The Entry's 发生日期, with precision
+             * @example 2015
+             * @example 2015-06
+             * @example 2026-11-16
+             */
+            occurred_on: string;
+        };
+        /** ClosenessFeeling */
+        ClosenessFeeling: {
+            confidence: components["schemas"]["Confidence"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            dimension: "closeness";
+            /**
+             * From
+             * @description Person mention who feels
+             */
+            from: string;
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            level: components["schemas"]["ClosenessLevel"];
+            /**
+             * To
+             * @description Person mention the feeling is about
+             */
+            to: string;
+        };
+        /**
+         * ClosenessLevel
+         * @enum {string}
+         */
+        ClosenessLevel: "intimate" | "close" | "familiar" | "casual" | "distant";
+        /**
+         * Confidence
+         * @enum {string}
+         */
+        Confidence: "witnessed" | "self_told" | "hearsay" | "inferred";
+        /**
+         * ConflictAction
+         * @enum {string}
+         */
+        ConflictAction: "update" | "unverified";
+        /** DeleteAccountRequest */
+        DeleteAccountRequest: {
+            /** Password */
+            password: string;
+        };
+        /** DeleteFactOp */
+        DeleteFactOp: {
+            /** Fact Id */
+            fact_id: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "delete_fact";
+        };
+        /** DeletionImpactOut */
+        DeletionImpactOut: {
+            /** Can Delete */
+            can_delete: boolean;
+            /** Entry Count */
+            entry_count: number;
+        };
+        /** DimensionOut */
+        DimensionOut: {
+            current: components["schemas"]["FeelingOut"];
+            /**
+             * History
+             * @description Oldest first
+             */
+            history: components["schemas"]["FeelingOut"][];
+        };
+        /**
+         * DirectionOut
+         * @description One direction's recorded dimensions; unrecorded dimensions are absent (AC-30).
+         */
+        DirectionOut: {
+            /** Dimensions */
+            dimensions: {
+                [key: string]: components["schemas"]["DimensionOut"];
+            };
+            /** From Id */
+            from_id: string;
+            /** To Id */
+            to_id: string;
+        };
+        /** Draft */
+        Draft: {
+            /** Facts */
+            facts?: components["schemas"]["DraftFact"][];
+            /** Feelings */
+            feelings?: (components["schemas"]["ClosenessFeeling"] | components["schemas"]["AffinityFeeling"] | components["schemas"]["TrustFeeling"])[];
+            /** Persons */
+            persons?: components["schemas"]["DraftPerson"][];
+            /** Profile */
+            profile?: components["schemas"]["DraftProfileItem"][];
+            /** Relationships */
+            relationships?: components["schemas"]["DraftRelationship"][];
+        };
+        /** DraftFact */
+        DraftFact: {
+            confidence: components["schemas"]["Confidence"];
+            conflict?: components["schemas"]["FactConflict"] | null;
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            /** Object */
+            object: string;
+            /**
+             * Predicate
+             * @description e.g. WORKS_AT, LIKES, HAS_TRAIT, EXPERIENCED
+             */
+            predicate: string;
+            /**
+             * Subject
+             * @description Person mention
+             */
+            subject: string;
+            /** Valid At */
+            valid_at?: string | null;
+            /**
+             * Valid To
+             * @description End of a time span such as 上周末; not before valid_at
+             */
+            valid_to?: string | null;
+        };
+        /** DraftOut */
+        DraftOut: {
+            content: components["schemas"]["Draft"] | null;
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["DraftStatus"];
+        };
+        /** DraftPerson */
+        DraftPerson: {
+            /** Candidates */
+            candidates?: components["schemas"]["Candidate"][] | null;
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            match: components["schemas"]["PersonMatch"];
+            /**
+             * Mention
+             * @description How the Entry refers to the person, e.g. 老张
+             */
+            mention: string;
+            /**
+             * Name
+             * @description Display name of the matched person, e.g. 张伟
+             */
+            name?: string | null;
+            /**
+             * Note
+             * @description Short hint about the matched person, e.g. 同事
+             */
+            note?: string | null;
+            /** Person Id */
+            person_id?: string | null;
+        };
+        /** DraftProfileItem */
+        DraftProfileItem: {
+            confidence: components["schemas"]["Confidence"];
+            field: components["schemas"]["ProfileField"];
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            /**
+             * Person
+             * @description Person mention
+             */
+            person: string;
+            /** Value */
+            value: string;
+        };
+        /** DraftRef */
+        DraftRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["DraftStatus"];
+        };
+        /** DraftRelationship */
+        DraftRelationship: {
+            confidence: components["schemas"]["Confidence"];
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            /**
+             * Introduced By
+             * @description Person mention of the introducer
+             */
+            introduced_by?: string | null;
+            /** Met At */
+            met_at?: string | null;
+            /**
+             * Origin
+             * @description How they met (认识途径)
+             */
+            origin?: string | null;
+            /**
+             * Pair
+             * @description Two person mentions; directional kin types read as pair[0] 是 pair[1] 的 X
+             */
+            pair: [
+                string,
+                string
+            ];
+            status?: components["schemas"]["RelationshipStatus"] | null;
+            /** Types */
+            types?: components["schemas"]["DraftRelationshipType"][];
+        };
+        /** DraftRelationshipType */
+        DraftRelationshipType: {
+            category: components["schemas"]["Category"];
+            /**
+             * Original
+             * @description The Entry's own wording, e.g. 铁哥们
+             */
+            original: string;
+            /** Subtype */
+            subtype: string;
+        };
+        /**
+         * DraftStatus
+         * @enum {string}
+         */
+        DraftStatus: "extracting" | "pending" | "failed" | "confirmed" | "discarded";
+        /** EntryDetailOut */
+        EntryDetailOut: {
+            draft: components["schemas"]["DraftOut"] | null;
+            entry: components["schemas"]["EntryOut"];
+            /**
+             * Facts
+             * @description Facts the Entry backs
+             */
+            facts: components["schemas"]["FactOut"][];
+            /**
+             * Learned Aliases
+             * @description Aliases this Entry's confirmation added (AC-13); empty if none were new
+             */
+            learned_aliases: components["schemas"]["LearnedAliasOut"][];
+            /**
+             * Persons
+             * @description Persons the confirmed Entry mentions
+             */
+            persons: components["schemas"]["PersonOut"][];
+        };
+        /** EntryOut */
+        EntryOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            draft: components["schemas"]["DraftRef"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "user" | "manual_edit";
+            /**
+             * Occurred On
+             * @description Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).
+             * @example 2015
+             * @example 2015-06
+             * @example 2026-11-16
+             */
+            occurred_on: string;
+            precision: components["schemas"]["Precision"];
+            /** Text */
+            text: string;
+        };
+        /** EntrySubmitted */
+        EntrySubmitted: {
+            draft: components["schemas"]["DraftOut"];
+            entry: components["schemas"]["EntryOut"];
+        };
+        /** FactConflict */
+        FactConflict: {
+            action: components["schemas"]["ConflictAction"];
+            /**
+             * Old
+             * @description The current value this fact conflicts with
+             */
+            old: string;
+        };
+        /** FactOut */
+        FactOut: {
+            /**
+             * Citations
+             * @description Every source Entry (AC-25)
+             */
+            citations: components["schemas"]["CitationOut"][];
+            confidence: components["schemas"]["Confidence"];
+            /** Current */
+            current: boolean;
+            /** Fact */
+            fact: string;
+            /** Id */
+            id: string;
+            /** Invalid At */
+            invalid_at: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "fact" | "opinion";
+            /** Object */
+            object: string;
+            /** Predicate */
+            predicate: string;
+            /**
+             * Sources
+             * @description Ids of the Entries backing this fact
+             */
+            sources: string[];
+            /** Subject Id */
+            subject_id: string;
+            /** Unverified */
+            unverified: boolean;
+            /** Valid At */
+            valid_at: string | null;
+        };
+        /** FeelingEditIn */
+        FeelingEditIn: {
+            /**
+             * Dimension
+             * @enum {string}
+             */
+            dimension: "closeness" | "affinity" | "trust";
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "a_to_b" | "b_to_a";
+            /** Level */
+            level: string;
+        };
+        /** FeelingOut */
+        FeelingOut: {
+            /** Citations */
+            citations: components["schemas"]["CitationOut"][];
+            confidence: components["schemas"]["Confidence"];
+            /** Id */
+            id: string;
+            /** Level */
+            level: string;
+            /**
+             * Occurred At
+             * @description Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).
+             * @example 2015
+             * @example 2015-06
+             * @example 2026-11-16
+             */
+            occurred_at: string;
+            /** Source */
+            source: string;
+        };
+        /** GraphEdgeOut */
+        GraphEdgeOut: {
+            /** @description The closer direction's current level */
+            closeness: components["schemas"]["ClosenessLevel"] | null;
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            status: components["schemas"]["RelationshipStatus"] | null;
+            /** Target */
+            target: string;
+            /** Types */
+            types: components["schemas"]["RelationshipTypeOut"][];
+        };
+        /** GraphNodeOut */
+        GraphNodeOut: {
+            /** Id */
+            id: string;
+            /** Is Self */
+            is_self: boolean;
+            /** Name */
+            name: string;
+        };
+        /** GraphOut */
+        GraphOut: {
+            /** Center Id */
+            center_id: string;
+            /** Edges */
+            edges: components["schemas"]["GraphEdgeOut"][];
+            /** Nodes */
+            nodes: components["schemas"]["GraphNodeOut"][];
+            /**
+             * Omitted
+             * @description Persons left out by the 50-node cap (AC-33)
+             */
+            omitted: number;
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HealthReport */
+        HealthReport: {
+            /** Status */
+            status: string;
+            /** Version */
+            version: string;
+        };
+        /** IdentityOut */
+        IdentityOut: {
+            /** Citations */
+            citations: components["schemas"]["CitationOut"][];
+            confidence: components["schemas"]["Confidence"];
+            /** Sources */
+            sources: string[];
+            /** Value */
+            value: string;
+        };
+        /** LearnedAliasOut */
+        LearnedAliasOut: {
+            /** Alias */
+            alias: string;
+            /**
+             * Name
+             * @description The person's current name
+             */
+            name: string;
+            /** Person Id */
+            person_id: string;
+        };
+        /** LoginRequest */
+        LoginRequest: {
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /** MeResponse */
+        MeResponse: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Self Person Id */
+            self_person_id: string;
+            /** Username */
+            username: string;
+        };
+        /** PairEdited */
+        PairEdited: {
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            pair: components["schemas"]["PairOut"];
+        };
+        /** PairOut */
+        PairOut: {
+            a: components["schemas"]["PersonOut"];
+            a_to_b: components["schemas"]["DirectionOut"];
+            b: components["schemas"]["PersonOut"];
+            b_to_a: components["schemas"]["DirectionOut"];
+            /** Facts */
+            facts: components["schemas"]["FactOut"][];
+            relationship: components["schemas"]["RelationshipOut"] | null;
+        };
+        /**
+         * PersonMatch
+         * @enum {string}
+         */
+        PersonMatch: "matched" | "ambiguous" | "new";
+        /** PersonOut */
+        PersonOut: {
+            /** Aliases */
+            aliases: string[];
+            /** Id */
+            id: string;
+            /** Is Self */
+            is_self: boolean;
+            /** Name */
+            name: string;
+            /** Note */
+            note?: string | null;
+        };
+        /** PersonRef */
+        PersonRef: {
+            /**
+             * Is Self
+             * @description 本人: rendered as 「我」
+             * @default false
+             */
+            is_self: boolean;
+            /** Name */
+            name: string;
+            /** Person Id */
+            person_id: string;
+        };
+        /**
+         * Precision
+         * @enum {string}
+         */
+        Precision: "year" | "month" | "day";
+        /** ProfileEdited */
+        ProfileEdited: {
+            /**
+             * Entry Id
+             * Format: uuid
+             * @description The 手动编辑记录 now backing the change
+             */
+            entry_id: string;
+            profile: components["schemas"]["ProfileOut"];
+        };
+        /**
+         * ProfileField
+         * @enum {string}
+         */
+        ProfileField: "name" | "gender" | "birthday" | "hometown";
+        /** ProfileOut */
+        ProfileOut: {
+            /** Facts */
+            facts: components["schemas"]["FactOut"][];
+            /** Identity */
+            identity: {
+                [key: string]: components["schemas"]["IdentityOut"];
+            };
+            person: components["schemas"]["PersonOut"];
+            summary: components["schemas"]["SummaryOut"] | null;
+        };
+        /** QuotaOut */
+        QuotaOut: {
+            /** Limit */
+            limit: number;
+            /** Remaining */
+            remaining: number;
+            /** Used */
+            used: number;
+        };
+        /** RegisterRequest */
+        RegisterRequest: {
+            /** Display Name */
+            display_name: string;
+            /** Invite Code */
+            invite_code: string;
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /** RelationshipEditRequest */
+        RelationshipEditRequest: {
+            /** Feelings */
+            feelings?: components["schemas"]["FeelingEditIn"][];
+            /** Met At */
+            met_at?: string | null;
+            /** Origin */
+            origin?: string | null;
+            status?: components["schemas"]["RelationshipStatus"] | null;
+            /** Summary */
+            summary?: string | null;
+            /** Types */
+            types?: components["schemas"]["RelationshipTypeIn"][] | null;
+        };
+        /** RelationshipOut */
+        RelationshipOut: {
+            /** Citations */
+            citations: components["schemas"]["CitationOut"][];
+            confidence: components["schemas"]["Confidence"];
+            /** Id */
+            id: string;
+            introduced_by: components["schemas"]["PersonOut"] | null;
+            /** Met At */
+            met_at: string | null;
+            /** Origin */
+            origin: string | null;
+            /** Person A */
+            person_a: string;
+            /** Person B */
+            person_b: string;
+            /** Sources */
+            sources: string[];
+            status: components["schemas"]["RelationshipStatus"] | null;
+            /** Summary */
+            summary: string | null;
+            /**
+             * Summary Generated At
+             * @description None: written by the user
+             */
+            summary_generated_at: string | null;
+            /** Types */
+            types: components["schemas"]["RelationshipTypeOut"][];
+        };
+        /**
+         * RelationshipStatus
+         * @enum {string}
+         */
+        RelationshipStatus: "active" | "distant" | "tense" | "estranged";
+        /** RelationshipTypeIn */
+        RelationshipTypeIn: {
+            category: components["schemas"]["Category"];
+            /** Original */
+            original: string;
+            /** Subtype */
+            subtype: string;
+        };
+        /** RelationshipTypeOut */
+        RelationshipTypeOut: {
+            category: components["schemas"]["Category"];
+            /** Original */
+            original: string;
+            /** Subtype */
+            subtype: string;
+        };
+        /** SetIdentityOp */
+        SetIdentityOp: {
+            field: components["schemas"]["ProfileField"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_identity";
+            /** Value */
+            value: string;
+        };
+        /** SubmitEntryRequest */
+        SubmitEntryRequest: {
+            /**
+             * Occurred On
+             * @description Defaults to today (Beijing); YYYY, YYYY-MM or YYYY-MM-DD
+             */
+            occurred_on?: string | null;
+            /** Text */
+            text: string;
+        };
+        /**
+         * SummaryOut
+         * @description 综合描述 (AC-24): generated from the profile; regenerated after every change.
+         */
+        SummaryOut: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Text */
+            text: string;
+        };
+        /** TaxonomyCategory */
+        TaxonomyCategory: {
+            category: components["schemas"]["Category"];
+            /** Subtypes */
+            subtypes: components["schemas"]["TaxonomySubtype"][];
+        };
+        /**
+         * Taxonomy
+         * @description The whole vocabulary visible to one user.
+         */
+        TaxonomyResponse: components["schemas"]["TaxonomyCategory"][];
+        /** TaxonomySubtype */
+        TaxonomySubtype: {
+            /**
+             * Custom
+             * @description User-defined (自定义小类): visible only to this user
+             * @default false
+             */
+            custom: boolean;
+            /** Name */
+            name: string;
+        };
+        /** TrustFeeling */
+        TrustFeeling: {
+            confidence: components["schemas"]["Confidence"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            dimension: "trust";
+            /**
+             * From
+             * @description Person mention who feels
+             */
+            from: string;
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            level: components["schemas"]["TrustLevel"];
+            /**
+             * To
+             * @description Person mention the feeling is about
+             */
+            to: string;
+        };
+        /**
+         * TrustLevel
+         * @enum {string}
+         */
+        TrustLevel: "high" | "medium" | "low";
+        /** UpdateDraftRequest */
+        UpdateDraftRequest: {
+            content: components["schemas"]["Draft"];
+        };
+        /** UpdateFactOp */
+        UpdateFactOp: {
+            /** Fact Id */
+            fact_id: string;
+            /** Object */
+            object: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "update_fact";
+        };
+        /** UsageOut */
+        UsageOut: {
+            ask: components["schemas"]["QuotaOut"];
+            entry: components["schemas"]["QuotaOut"];
+            /**
+             * Resets At
+             * Format: date-time
+             * @description Next 00:00 Beijing time
+             */
+            resets_at: string;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
+}
+export type $defs = Record<string, never>;
+export interface operations {
+    delete_account_api_account_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_api_ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Answer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    me_api_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    register_api_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_draft_api_drafts__draft_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_draft_api_drafts__draft_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_draft_api_drafts__draft_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_draft_api_drafts__draft_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_draft_api_drafts__draft_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_entries_api_entries_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOut"][];
+                };
+            };
+        };
+    };
+    submit_entry_api_entries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntrySubmitted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entry_api_entries__entry_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    panorama_api_graph_get: {
+        parameters: {
+            query?: {
+                /** @description 关系大类，逗号分隔，如 social,kin */
+                category?: string | null;
+                /** @description 关系小类，逗号分隔，如 同学,室友 */
+                subtype?: string | null;
+                /** @description 亲密度至少到这一档 */
+                closeness?: components["schemas"]["ClosenessLevel"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GraphOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_health_api_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthReport"];
+                };
+            };
+        };
+    };
+    list_persons_api_persons_get: {
+        parameters: {
+            query?: {
+                /** @description 姓名或别名 */
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_profile_api_persons__person_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_person_api_persons__person_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deletion_impact_api_persons__person_id__deletion_impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionImpactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    local_graph_api_persons__person_id__graph_get: {
+        parameters: {
+            query?: {
+                /** @description 1 层或 2 层 */
+                hops?: number;
+            };
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GraphOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_profile_api_persons__person_id__profile_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetIdentityOp"] | components["schemas"]["AddFactOp"] | components["schemas"]["UpdateFactOp"] | components["schemas"]["DeleteFactOp"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileEdited"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pair_api_persons__person_id__relationships__other_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+                other_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_pair_api_persons__person_id__relationships__other_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: string;
+                other_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelationshipEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairEdited"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_taxonomy_api_taxonomy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxonomyResponse"];
+                };
+            };
+        };
+    };
+    add_subtype_api_taxonomy_subtypes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSubtypeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxonomyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_usage_api_usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
+                };
+            };
+        };
+    };
+}

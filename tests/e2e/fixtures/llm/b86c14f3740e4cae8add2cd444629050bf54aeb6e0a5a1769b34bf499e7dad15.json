@@ -1,0 +1,28 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/compatible-mode/v1/embeddings",
+    "body": {
+      "model": "text-embedding-v4",
+      "input": [
+        "唐亮",
+        "唐亮住在成都",
+        "唐亮经历了开火锅店",
+        "成都",
+        "开火锅店"
+      ],
+      "dimensions": 1024,
+      "encoding_format": "float"
+    }
+  },
+  "response": {
+    "status_code": 503,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "error": {
+        "message": "embeddings are not available in e2e"
+      }
+    }
+  }
+}

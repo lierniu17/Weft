@@ -1,0 +1,50 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你为 Weft 的人物画像写一段综合描述（80 字以内的中文）。\n只能使用输入里给出的信息，不得补充、推测或编造任何内容；没有提到的方面不要写。\n可信度为“转述”的信息写成“据说……”，“推测”的写成“可能……”；\nopinions 是用户（“你”）自己的评价，写成“你觉得……”，不要当成事实；\nstatus 为 history 的是过去的情况（如以前的工作），unverified 的是待核实的说法。\n只输出 JSON 对象：{\"summary\": \"……\"}"
+        },
+        {
+          "role": "user",
+          "content": "{\"task\": \"summarize_person\", \"person\": {\"name\": \"老张\", \"aliases\": []}, \"identity\": [], \"facts\": [{\"label\": \"不喜欢\", \"object\": \"喝酒\", \"text\": \"老张不喜欢喝酒\", \"status\": \"current\", \"confidence\": \"本人说\"}, {\"label\": \"喜欢\", \"object\": \"钓鱼\", \"text\": \"老张喜欢钓鱼\", \"status\": \"current\", \"confidence\": \"亲历\"}], \"opinions\": []}"
+        }
+      ],
+      "stream": false,
+      "temperature": 0.0,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-e2e",
+      "object": "chat.completion",
+      "created": 1763258400,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"summary\": \"老张：不喜欢喝酒；喜欢钓鱼。\"}"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      }
+    }
+  }
+}

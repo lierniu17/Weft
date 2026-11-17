@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/compatible-mode/v1/embeddings",
+    "body": {
+      "model": "text-embedding-v4",
+      "input": [
+        "宋佳",
+        "李明在阿里巴巴工作",
+        "宋佳在阿里巴巴工作",
+        "宋佳的性格：很会做饭",
+        "阿里巴巴",
+        "很会做饭"
+      ],
+      "dimensions": 1024,
+      "encoding_format": "float"
+    }
+  },
+  "response": {
+    "status_code": 503,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "error": {
+        "message": "embeddings are not available in e2e"
+      }
+    }
+  }
+}

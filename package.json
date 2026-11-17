@@ -1,0 +1,47 @@
+{
+  "name": "weft",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @weft/web dev",
+    "storybook": "pnpm --filter @weft/web storybook",
+    "typecheck": "pnpm --filter @weft/web typecheck && tsc -p tests/e2e",
+    "lint": "biome check apps/web tests/e2e playwright.config.ts",
+    "lint:fix": "biome check --write apps/web tests/e2e playwright.config.ts",
+    "tokens": "pnpm --filter @weft/web tokens",
+    "tokens:check": "pnpm --filter @weft/web tokens:check",
+    "test:unit": "pnpm --filter @weft/web test:unit",
+    "test:stories": "pnpm --filter @weft/web test:stories",
+    "test:web": "pnpm test:unit && pnpm test:stories",
+    "e2e:bot": "playwright test",
+    "e2e:fixtures": "node tests/e2e/run.mjs --author",
+    "test:all": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:stories",
+    "e2e:walkthrough": "node tests/e2e/run.mjs --walkthrough --author",
+    "e2e:bot:remote": "node tests/e2e/run.mjs --remote",
+    "deploy:base-images": "node deploy/weft.mjs base-images",
+    "deploy:stage": "node deploy/weft.mjs stage deploy",
+    "deploy:production": "node deploy/weft.mjs production deploy",
+    "versions:stage": "node deploy/weft.mjs stage versions",
+    "versions:production": "node deploy/weft.mjs production versions",
+    "logs:stage": "node deploy/weft.mjs stage logs",
+    "logs:production": "node deploy/weft.mjs production logs",
+    "db:migrate:stage": "node deploy/weft.mjs stage migrate",
+    "db:migrate:production": "node deploy/weft.mjs production migrate",
+    "invites:stage": "node deploy/weft.mjs stage invites",
+    "invites:production": "node deploy/weft.mjs production invites",
+    "down:stage": "node deploy/weft.mjs stage down",
+    "down:production": "node deploy/weft.mjs production down"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.8",
+    "@playwright/test": "1.64.1",
+    "@types/node": "^22.20.5",
+    "axe-core": "4.14.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,244 @@
+{
+  "AC-UI-4 primary button": {
+    "rest": "rgb(79, 70, 229)",
+    "radius": "6px",
+    "transition": "0.2s, 0.2s, 0.2s, 0.2s",
+    "hover": "rgb(99, 102, 241)",
+    "active": "rgb(67, 56, 202)",
+    "input": {
+      "border-top-left-radius": "6px",
+      "height": "40px"
+    }
+  },
+  "AC-UI-3 first-use examples": 3,
+  "AC-UI-3 people empty": true,
+  "AC-UI-3 not-found": true,
+  "AC-UI-10 one draft card per entry": 1,
+  "AC-UI-9 draft status is a live region": "polite",
+  "AC-UI-1 composer: record|ask + date chip (record)": {
+    "modes": [
+      "记录",
+      "提问"
+    ],
+    "dateChipInRecord": true
+  },
+  "AC-UI-1 date chip hidden in ask": true,
+  "AC-UI-1 记录 entry top-right": true,
+  "AC-UI-1 bottom tabs": [
+    "对话",
+    "人物",
+    "我的"
+  ],
+  "AC-UI-6 primary buttons on chat (375)": 1,
+  "AC-UI-9 axe chat (375)": [],
+  "AC-UI-9 focus trapped in sheet": true,
+  "AC-UI-1 draft review is a bottom sheet": {
+    "bottom": 0,
+    "radiusTop": "16px"
+  },
+  "AC-UI-10 sheet animation": "sheet-in",
+  "AC-UI-6 primary buttons in draft sheet": 1,
+  "AC-UI-9 Esc closes sheet": true,
+  "AC-UI-6 discard modal buttons": [
+    {
+      "text": "取消",
+      "width": 132,
+      "bg": "rgb(255, 255, 255)",
+      "border": "rgb(221, 225, 232)",
+      "color": "rgb(29, 36, 51)"
+    },
+    {
+      "text": "放弃",
+      "width": 132,
+      "bg": "rgb(255, 255, 255)",
+      "border": "rgb(200, 30, 30)",
+      "color": "rgb(200, 30, 30)"
+    }
+  ],
+  "AC-UI-1 back to 记录 after asking": true,
+  "AC-UI-4 computed tokens": {
+    "body": {
+      "background-color": "rgb(245, 246, 248)",
+      "color": "rgb(29, 36, 51)",
+      "font-family": "\"PingFang SC\", Inter, \"Noto Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "font-size": "15px",
+      "line-height": "22px"
+    },
+    "card": {
+      "background-color": "rgb(255, 255, 255)",
+      "border-top-left-radius": "10px"
+    },
+    "bubble": {
+      "background-color": "rgb(238, 242, 255)",
+      "border-top-left-radius": "16px",
+      "border-bottom-right-radius": "6px"
+    },
+    "chip": {
+      "border-top-left-radius": "9999px"
+    },
+    "input": {
+      "border-top-left-radius": "10px"
+    },
+    "secondaryText": {
+      "color": "rgb(91, 100, 117)"
+    }
+  },
+  "AC-UI-4 spacing values used": [
+    "16px",
+    "24px",
+    "2px",
+    "4px",
+    "8px"
+  ],
+  "AC-UI-6 primary buttons on people": 0,
+  "AC-UI-9 axe people": [],
+  "AC-UI-7 375 overflow people": 0,
+  "AC-UI-6 primary buttons on person": 0,
+  "AC-UI-9 axe person": [],
+  "AC-UI-7 375 overflow person": 0,
+  "AC-UI-6 primary buttons on relationship": 0,
+  "AC-UI-9 axe relationship": [],
+  "AC-UI-7 375 overflow relationship": 0,
+  "AC-UI-6 primary buttons on panorama": 0,
+  "AC-UI-9 axe panorama": [],
+  "AC-UI-7 375 overflow panorama": 0,
+  "AC-UI-6 primary buttons on me": 0,
+  "AC-UI-9 axe me": [],
+  "AC-UI-7 375 overflow me": 0,
+  "AC-UI-6 primary buttons on taxonomy": 0,
+  "AC-UI-9 axe taxonomy": [],
+  "AC-UI-7 375 overflow taxonomy": 0,
+  "AC-UI-6 primary buttons on entries": 0,
+  "AC-UI-9 axe entries": [],
+  "AC-UI-7 375 overflow entries": 0,
+  "AC-UI-6 primary buttons on delete-account": 0,
+  "AC-UI-9 axe delete-account": [],
+  "AC-UI-7 375 overflow delete-account": 0,
+  "AC-UI-6 delete-account buttons": [
+    {
+      "text": "取消",
+      "width": 168,
+      "bg": "rgb(255, 255, 255)",
+      "border": "rgb(221, 225, 232)"
+    },
+    {
+      "text": "注销",
+      "width": 168,
+      "bg": "rgb(255, 255, 255)",
+      "border": "rgb(200, 30, 30)"
+    }
+  ],
+  "AC-UI-6 delete-person modal buttons": [
+    {
+      "text": "取消",
+      "width": 132,
+      "bg": "rgb(255, 255, 255)"
+    },
+    {
+      "text": "删除",
+      "width": 132,
+      "bg": "rgb(255, 255, 255)"
+    }
+  ],
+  "AC-UI-8 list title truncates": "ellipsis",
+  "AC-UI-10 list row hover transition": "0.2s, 0.2s, 0.2s, 0.2s",
+  "AC-UI-7 1024 layout": {
+    "sideNavWidth": 64,
+    "sideNavItems": [
+      "对话",
+      "人物",
+      "全景图",
+      "我的"
+    ],
+    "recentHeading": false,
+    "rightPanelWidth": 0,
+    "tabBar": 1,
+    "contentBox": {
+      "left": 0,
+      "width": 1024
+    },
+    "overflow": 0
+  },
+  "AC-UI-9 axe chat (1024)": [],
+  "AC-UI-1 1024 draft in right panel": {
+    "width": 360,
+    "right": 0,
+    "height": 900
+  },
+  "AC-UI-1 1024 panel behaviour": {
+    "mask": 1,
+    "focusInPanel": true,
+    "chatInteractive": false,
+    "focusBack": true
+  },
+  "AC-UI-7 1440 layout": {
+    "sideNavWidth": 220,
+    "sideNavItems": [
+      "对话",
+      "人物",
+      "全景图",
+      "我的",
+      "张伟（老张）",
+      "张小雨",
+      "黄丽",
+      "宋佳",
+      "李明（小李）",
+      "林芳"
+    ],
+    "recentHeading": true,
+    "rightPanelWidth": 360,
+    "tabBar": 1,
+    "contentBox": {
+      "left": 0,
+      "width": 1440
+    },
+    "overflow": 0
+  },
+  "AC-UI-9 axe chat (1440)": [],
+  "AC-UI-1 1440 draft in right panel": {
+    "width": 360,
+    "right": 0,
+    "height": 900
+  },
+  "AC-UI-9 axe chat with draft panel (1440)": [],
+  "AC-UI-1 1440 panel behaviour": {
+    "mask": 0,
+    "focusInPanel": true,
+    "chatInteractive": true,
+    "focusBack": true
+  },
+  "AC-UI-7 1680 layout": {
+    "sideNavWidth": 220,
+    "sideNavItems": [
+      "对话",
+      "人物",
+      "全景图",
+      "我的",
+      "张伟（老张）",
+      "张小雨",
+      "黄丽",
+      "宋佳",
+      "李明（小李）",
+      "林芳"
+    ],
+    "recentHeading": true,
+    "rightPanelWidth": 360,
+    "tabBar": 1,
+    "contentBox": {
+      "left": 120,
+      "width": 1440
+    },
+    "overflow": 0
+  },
+  "AC-UI-1 1680 draft in right panel": {
+    "width": 360,
+    "right": 120,
+    "height": 900
+  },
+  "AC-UI-1 1680 panel behaviour": {
+    "mask": 0,
+    "focusInPanel": true,
+    "chatInteractive": true,
+    "focusBack": true
+  }
+}

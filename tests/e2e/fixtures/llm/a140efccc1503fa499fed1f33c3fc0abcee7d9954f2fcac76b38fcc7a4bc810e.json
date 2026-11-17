@@ -1,0 +1,50 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你为 Weft 里两个人物之间的关系写一段总结（80 字以内的中文）。\n只能使用输入里给出的信息（关系类型、认识时间与途径、介绍人、现状、事实时间线、感受），\n不得补充、推测或编造；可信度为“转述”的信息写成“据说……”。\n只输出 JSON 对象：{\"summary\": \"……\"}"
+        },
+        {
+          "role": "user",
+          "content": "{\"task\": \"summarize_relationship\", \"pair\": [\"小明\", \"苏珊\"], \"types\": [{\"subtype\": \"前任\", \"original\": \"前女友\"}], \"met_at\": \"2014\", \"origin\": null, \"introduced_by\": null, \"status\": \"断联\", \"confidence\": \"亲历\", \"timeline\": [], \"feelings\": [{\"from\": \"小明\", \"to\": \"苏珊\", \"dimension\": \"亲密度\", \"level\": \"疏远\", \"date\": \"2017-06\"}]}"
+        }
+      ],
+      "stream": false,
+      "temperature": 0.0,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-e2e",
+      "object": "chat.completion",
+      "created": 1763258400,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"summary\": \"小明和苏珊是前任，目前断联。\"}"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      }
+    }
+  }
+}
