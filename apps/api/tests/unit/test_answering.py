@@ -204,3 +204,48 @@ def test_list_items_and_stat_counts_come_from_known_persons() -> None:
     )
     assert stat.stat is not None
     assert (stat.stat.count, stat.stat.persons) == (2, [ZHANG, LI])
+
+
+# --- the question's subject must be the one answered about (AC-38) -------------------------
+
+ABOUT_ZHANG = Evidence("E4", Confidence.WITNESSED, (HIRED,), about=frozenset({ZHANG.person_id}))
+ABOUT_WANG = Evidence("E5", Confidence.SELF_TOLD, (HIRED,), about=frozenset({WANG.person_id}))
+NEAR_NAMES = {**EVIDENCE, "E4": ABOUT_ZHANG, "E5": ABOUT_WANG}
+NEAR_NAME_ANSWER = final(
+    segments=[
+        {"text": "图谱里没有老王。老张性格急性子。", "evidence": ["E4"]},
+        {"text": "小王喜欢露营。", "evidence": ["E5"]},
+    ],
+    persons=["P2", "P4"],
+)
+
+
+def test_a_subject_nobody_in_the_graph_answers_to_means_no_answer() -> None:
+    answer = build_answer(NEAR_NAME_ANSWER, NEAR_NAMES, PERSONS, subjects={"老王": ()})
+    assert answer.kind is AnswerKind.NO_ANSWER
+    assert [s.text for s in answer.segments] == [NO_ANSWER_TEXT] and answer.persons == []
+
+
+def test_an_answer_about_someone_other_than_the_subject_becomes_no_answer() -> None:
+    answer = build_answer(
+        final(segments=[{"text": "小王喜欢露营。", "evidence": ["E5"]}], persons=["P4"]),
+        NEAR_NAMES,
+        PERSONS,
+        subjects={"老张": (ZHANG,)},
+    )
+    assert answer.kind is AnswerKind.NO_ANSWER
+
+
+def test_an_answer_citing_the_resolved_subject_is_kept() -> None:
+    answer = build_answer(NEAR_NAME_ANSWER, NEAR_NAMES, PERSONS, subjects={"老张": (ZHANG,)})
+    assert answer.kind is AnswerKind.TEXT and len(answer.citations) == 2
+
+
+def test_self_as_the_subject_does_not_require_evidence_about_me() -> None:
+    answer = build_answer(
+        final(segments=[{"text": "老张在字节跳动工作。", "evidence": ["E4"]}]),
+        NEAR_NAMES,
+        PERSONS,
+        subjects={"我": (ME,)},
+    )
+    assert answer.kind is AnswerKind.TEXT

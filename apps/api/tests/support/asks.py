@@ -37,10 +37,19 @@ UNKNOWN = "老王喜欢什么？"
 
 
 def unknown_person(llm: LLMScript) -> None:
+    """老王 is nobody; the model says so, then answers about the near names 老张 and 小王 —
+    what DeepSeek really did in the Q&A eval. The answer must still be no_answer."""
     llm.ask(
         UNKNOWN,
         [("find_person", {"name": "老王"})],
-        final("no_answer", ("图谱里没有老王这个人。", [])),
+        [("find_person", {"name": "老张"}), ("find_person", {"name": "王浩"})],
+        [("read_profile", {"person": "P1"}), ("read_profile", {"person": "P2"})],
+        final(
+            "text",
+            ("图谱里没有叫“老王”的人。最接近的是老张（张伟），他是个急性子。", ["E1"]),
+            ("如果你问的是小王（王浩）：他特别喜欢露营。", ["E5"]),
+            persons=["P1", "P2"],
+        ),
     )
 
 

@@ -6,7 +6,9 @@
    session's tenant; the model never sees ids and cannot pass a tenant (AC-39).
 3. Build the ``Answer`` from the final answer and the tools' evidence: every claim cites
    the Entries behind it, 转述 / 推测 / 评价 are said in the text, and no evidence means
-   「图谱里没有相关信息」(AC-37, AC-38).
+   「图谱里没有相关信息」(AC-37, AC-38). So is a question about someone the graph does not
+   have: the persons it names must resolve, and the answer must be about them — never
+   「没有老王，但老张……」 (``AskSession.subjects``, ``build_answer``).
 """
 
 from __future__ import annotations
@@ -38,14 +40,17 @@ ASK_SYSTEM = """你是 Weft 的问答助手。用户（“我”）在 Weft 里�
 规则：
 1. 只能依据工具返回的内容回答，不得凭常识补充或编造。工具都没有查到相关内容时，
    调用 final_answer 提交 kind = no_answer。
-2. 先调用查询工具，最后必须调用 final_answer 提交回答。segments 是回答文字，每段的
+2. 问题点名问某个人时，先用 find_person 查这个称呼。查不到就是图谱里没有这个人，直接
+   提交 kind = no_answer；不要改查、也不要回答名字相近的人（问“老王”时不要去查“老张”
+   “小王”）。final_answer 的 subjects 照原话填问题点名问到的人物。
+3. 先调用查询工具，最后必须调用 final_answer 提交回答。segments 是回答文字，每段的
    evidence 填支撑这段话的 E 句柄（只能用工具结果里出现过的）；人物只能用 P 句柄。
-3. 可信度为转述（hearsay）的信息，文字里要说明“据某某说”或“据转述”；推测（inferred）
+4. 可信度为转述（hearsay）的信息，文字里要说明“据某某说”或“据转述”；推测（inferred）
    要说明是推测；引用评价（kind = opinion）要说明“这是你的评价”。
-4. kind：text 一般回答；path 人脉路径（path 依次填从起点到终点的 P 句柄）；list 条件筛选
+5. kind：text 一般回答；path 人脉路径（path 依次填从起点到终点的 P 句柄）；list 条件筛选
    （items 每人一项，subtitle 写一句说明）；stat 聚合统计（stat_persons 填被计入的每个人）；
    no_answer 图谱里没有相关信息。
-5. 用简洁的中文回答；follow_ups 给出最多 3 个可以继续问的问题。"""
+6. 用简洁的中文回答；follow_ups 给出最多 3 个可以继续问的问题。"""
 
 NUDGE = "请调用 final_answer 工具提交回答；没有查到相关信息时提交 kind = no_answer。"
 
@@ -85,7 +90,8 @@ async def ask(infra: Infra, question: str) -> Result[Asked]:
     except LLMError as exc:
         logger.warning("ask failed: %r", exc)
         return Err("ask_failed", "问答暂时不可用，请稍后再试")
-    answer = build_answer(final, tools.evidence, tools.person_refs())
+    subjects = await tools.subjects(text, final.subjects) if final else {}
+    answer = build_answer(final, tools.evidence, tools.person_refs(), subjects)
     return Ok(Asked(answer=answer, tool_calls=[name for name, _ in tools.calls]))
 
 

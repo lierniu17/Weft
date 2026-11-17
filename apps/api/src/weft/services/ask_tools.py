@@ -8,19 +8,22 @@
 * arguments are validated against fixed schemas; a tenant argument (``group_id`` …) is
   refused outright, whatever the model sends;
 * every fact / relationship / feeling it shows is registered as ``Evidence`` with the
-  Entries behind it, which ``weft.domain.answering`` turns into Citations.
+  Entries behind it and the persons it concerns, which ``weft.domain.answering`` turns
+  into Citations;
+* every name it looks up is remembered, so the question's subjects can be checked: a
+  name from the question that resolves to nobody makes the answer no_answer (AC-38).
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from weft.domain.answer import PersonRef
-from weft.domain.answering import Evidence, FinalAnswer, Source
+from weft.domain.answering import Evidence, FinalAnswer, Source, Subjects
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
 from weft.domain.draft import FEELING_DIMENSION_LABELS, FEELING_LEVEL_LABELS
@@ -162,6 +165,7 @@ class AskSession:
         self._evidence_keys: dict[tuple[str, str], str] = {}
         self._episodes: dict[str, EpisodeRecord] = {}
         self.calls: list[tuple[str, dict[str, Any]]] = []  # every tool call, in order
+        self.lookups: dict[str, list[PersonRecord]] = {}  # name looked up -> who it found
         self._tools: dict[str, tuple[type[_Args], Callable[[Any], Awaitable[dict[str, Any]]]]] = {
             "find_person": (FindPersonArgs, self._find_person),
             "read_profile": (ReadProfileArgs, self._read_profile),
@@ -218,11 +222,38 @@ class AskSession:
             out["note"] = p.note
         return out
 
+    async def _lookup(self, name: str) -> list[PersonRecord]:
+        found = await qt.find_person(self._infra, name)
+        self.lookups[name] = found
+        return found
+
+    async def subjects(self, question: str, declared: Iterable[str]) -> Subjects:
+        """Who the question asks about: each name -> the persons it resolves to.
+
+        The names the model declared in ``final_answer.subjects``, plus every name it
+        looked up in vain that the question itself contains (「老王」 in 「老王喜欢什么？」) —
+        so a model that forgets to declare 老王 and answers about 老张 is still caught.
+        """
+        names = [n.strip() for n in declared if n.strip()]
+        names += [n for n, found in self.lookups.items() if not found and n in question]
+        out: dict[str, tuple[PersonRef, ...]] = {}
+        for name in dict.fromkeys(names):
+            if name in self.persons:
+                found = [self.persons[name]]
+            elif name in self.lookups:
+                found = self.lookups[name]
+            else:
+                found = await self._lookup(name)
+            out[name] = tuple(
+                PersonRef(person_id=p.id, name=p.name, is_self=p.is_self) for p in found
+            )
+        return out
+
     async def _resolve(self, ref: str) -> PersonRecord:
         text = ref.strip()
         if text in self.persons:
             return self.persons[text]
-        found = await qt.find_person(self._infra, text)
+        found = await self._lookup(text)
         if not found:
             raise ToolInputError(f"图谱里没有叫“{text}”的人物")
         if len(found) > 1:
@@ -244,6 +275,7 @@ class AskSession:
         *,
         is_opinion: bool = False,
         pair: tuple[PersonRecord, PersonRecord] | None = None,
+        about: Iterable[str] = (),
     ) -> str:
         key = (kind, record_id)
         if key in self._evidence_keys:
@@ -262,6 +294,7 @@ class AskSession:
             ),
             is_opinion=is_opinion,
             pair=None if pair is None else (refs[self.ref(pair[0])], refs[self.ref(pair[1])]),
+            about=frozenset(about) | (frozenset() if pair is None else {pair[0].id, pair[1].id}),
         )
         self._evidence_keys[key] = handle
         return handle
@@ -282,7 +315,12 @@ class AskSession:
         subject = people.get(f.subject_id)
         out: dict[str, Any] = {
             "evidence": self._evidence(
-                "fact", f.id, f.confidence, f.sources, is_opinion=f.kind == "opinion"
+                "fact",
+                f.id,
+                f.confidence,
+                f.sources,
+                is_opinion=f.kind == "opinion",
+                about=(f.subject_id, f.object_id),
             ),
         }
         if subject is not None:
@@ -320,7 +358,14 @@ class AskSession:
     ) -> dict[str, Any]:
         a, b = people[r.person_a], people[r.person_b]
         out: dict[str, Any] = {
-            "evidence": self._evidence("relationship", r.id, r.confidence, r.sources, pair=(a, b)),
+            "evidence": self._evidence(
+                "relationship",
+                r.id,
+                r.confidence,
+                r.sources,
+                pair=(a, b),
+                about=() if r.introduced_by is None else (r.introduced_by.id,),
+            ),
             "between": [self.ref(a), self.ref(b)],
             "types": [
                 {
@@ -348,7 +393,9 @@ class AskSession:
 
     def _closeness(self, f: FeelingRecord) -> dict[str, Any]:
         return {
-            "evidence": self._evidence("feeling", f.id, f.confidence, (f.source,)),
+            "evidence": self._evidence(
+                "feeling", f.id, f.confidence, (f.source,), about=(f.from_id, f.to_id)
+            ),
             "level": FEELING_LEVEL_LABELS["closeness"].get(f.level, f.level),
             "since": f.occurred_at.isoformat(),
             "confidence": f.confidence.value,
@@ -356,7 +403,9 @@ class AskSession:
 
     def _identity(self, field: str, v: IdentityValue, person: PersonRecord) -> dict[str, Any]:
         return {
-            "evidence": self._evidence("identity", f"{person.id}:{field}", v.confidence, v.sources),
+            "evidence": self._evidence(
+                "identity", f"{person.id}:{field}", v.confidence, v.sources, about=(person.id,)
+            ),
             "field": IDENTITY_LABELS.get(field, field),
             "value": v.value,
             "confidence": v.confidence.value,
@@ -369,7 +418,8 @@ class AskSession:
     # --- tools ---------------------------------------------------------------------
 
     async def _find_person(self, args: FindPersonArgs) -> dict[str, Any]:
-        found = await qt.find_person(self._infra, args.name) if args.name.strip() else []
+        name = args.name.strip()
+        found = await self._lookup(name) if name else []
         return {"found": bool(found), "persons": [self._person(p) for p in found]}
 
     async def _read_profile(self, args: ReadProfileArgs) -> dict[str, Any]:
@@ -402,7 +452,11 @@ class AskSession:
             feelings[label] = [
                 {
                     "evidence": self._evidence(
-                        "feeling", v.current.id, v.current.confidence, (v.current.source,)
+                        "feeling",
+                        v.current.id,
+                        v.current.confidence,
+                        (v.current.source,),
+                        about=(v.current.from_id, v.current.to_id),
                     ),
                     "dimension": FEELING_DIMENSION_LABELS[d],
                     "current": FEELING_LEVEL_LABELS[d].get(v.current.level, v.current.level),

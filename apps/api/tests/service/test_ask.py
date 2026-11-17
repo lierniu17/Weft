@@ -268,10 +268,67 @@ async def test_an_outdated_fact_is_answered_as_history(
 async def test_an_unknown_person_gets_no_answer(
     infra: Infra, llm: LLMScript, s: SeededUser
 ) -> None:
-    asks.unknown_person(llm)
-    answer = (await asked(infra, UNKNOWN)).answer
+    asks.unknown_person(llm)  # the model goes on to describe 老张 and 小王 instead
+    result = await asked(infra, UNKNOWN)
+    answer = result.answer
+    assert result.tool_calls[0] == "find_person" and "read_profile" in result.tool_calls
     assert answer.kind is AnswerKind.NO_ANSWER
     assert text_of(answer) == NO_ANSWER_TEXT and answer.citations == []
+    assert answer.persons == []
+
+
+NOBODY = "小赵喜欢什么？"
+
+
+async def test_a_declared_subject_nobody_answers_to_gets_no_answer(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    llm.ask(
+        NOBODY,
+        [("semantic_search", {"query": "小赵 喜好"})],
+        final("text", ("小赵喜欢露营。", ["E1"]), subjects=["小赵"]),
+    )
+    answer = (await asked(infra, NOBODY)).answer
+    assert answer.kind is AnswerKind.NO_ANSWER and answer.citations == []
+
+
+LAOZHANG_LIKES = "老张有什么爱好？"
+
+
+async def test_a_question_about_a_near_name_that_exists_is_still_answered(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    llm.ask(
+        LAOZHANG_LIKES,
+        [("find_person", {"name": "老张"})],
+        [("read_profile", {"person": "P1"})],
+        final(
+            "text",
+            ("图谱里没有记录老张的喜好；他是个急性子，在字节跳动工作。", ["E1", "E2"]),
+            subjects=["老张"],
+            persons=["P1"],
+        ),
+    )
+    answer = (await asked(infra, LAOZHANG_LIKES)).answer
+    assert answer.kind is AnswerKind.TEXT and every_claim_is_cited(answer)
+    assert [p.name for p in answer.persons] == ["张伟"]
+    assert {c.entry_id for c in answer.citations} <= set(s.entries)
+
+
+LAOZHANG_HOBBY = "老张平时爱干什么？"
+
+
+async def test_an_answer_about_someone_other_than_the_subject_gets_no_answer(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    llm.ask(
+        LAOZHANG_HOBBY,
+        [("find_person", {"name": "老张"}), ("find_person", {"name": "王浩"})],
+        [("read_profile", {"person": "P2"})],
+        final("text", ("小王特别喜欢露营。", ["E1"]), subjects=["老张"], persons=["P2"]),
+    )
+    answer = (await asked(infra, LAOZHANG_HOBBY)).answer
+    assert answer.kind is AnswerKind.NO_ANSWER and answer.persons == []
 
 
 BIRTHDAY = "小李的生日是哪天？"
