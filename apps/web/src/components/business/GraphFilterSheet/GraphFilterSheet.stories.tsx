@@ -141,3 +141,65 @@ export const Reset: Story = {
     await expect(current(canvasElement)).toEqual(EMPTY_FILTER);
   },
 };
+
+/**
+ * Desktop ≥1200 (D3): the filter is the non-modal right column beside the panorama, so the
+ * graph refilters live while it stays usable. Esc only closes it from inside.
+ */
+function Column() {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(EMPTY_FILTER);
+  return (
+    <div className="flex h-[700px] w-[1000px]">
+      <div className="flex flex-1 flex-col items-start gap-sm p-md">
+        <Button variant="ghost" onClick={() => setOpen(true)}>
+          筛选
+        </Button>
+        <output data-filter="">{JSON.stringify(value)}</output>
+        <Button variant="secondary" onClick={() => setValue(EMPTY_FILTER)}>
+          图上的按钮
+        </Button>
+      </div>
+      <GraphFilterSheet
+        open={open}
+        onOpenChange={setOpen}
+        taxonomy={TAXONOMY}
+        value={value}
+        onChange={setValue}
+        variant="side-panel"
+        modal={false}
+      />
+    </div>
+  );
+}
+
+export const DesktopColumn: Story = {
+  name: "Side panel · non-modal (desktop column)",
+  render: () => <Column />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "筛选" });
+    await userEvent.click(trigger);
+    const panel = await canvas.findByRole("dialog", { name: "筛选" });
+    await expect(canvasElement).toContainElement(panel);
+    await expect(panel).not.toHaveAttribute("aria-modal", "true");
+    await expect(panel.getBoundingClientRect().width).toBe(360);
+    await expect(document.querySelector("[data-drawer-mask]")).toBeNull();
+    await waitFor(() => expect(panel).toContainElement(document.activeElement as HTMLElement));
+
+    await userEvent.click(within(panel).getByRole("button", { name: "社会" }));
+    await expect(current(canvasElement).categories).toEqual(["social"]);
+
+    // The page beside it stays interactive; Esc there does not close the panel.
+    await userEvent.click(canvas.getByRole("button", { name: "图上的按钮" }));
+    await expect(canvas.getByRole("button", { name: "图上的按钮" })).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(panel).toBeVisible();
+
+    within(panel).getByRole("button", { name: "完成" }).focus();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(canvas.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
+  },
+};

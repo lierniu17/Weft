@@ -16,6 +16,8 @@ export type GraphFilterSheetProps = {
   /** Fires on every change; the panorama refilters live. */
   onChange: (value: GraphFilter) => void;
   variant?: DrawerVariant;
+  /** `false`: the desktop right column beside the panorama (side-panel in place, page stays interactive). */
+  modal?: boolean;
 };
 
 const CLOSENESS: { value: ClosenessLevel | null; label: string }[] = [
@@ -43,6 +45,7 @@ export function GraphFilterSheet({
   value,
   onChange,
   variant = "bottom-sheet",
+  modal,
 }: GraphFilterSheetProps) {
   const toggleCategory = (c: GraphFilter["categories"][number]) => {
     if (value.categories.includes(c)) {
@@ -81,6 +84,7 @@ export function GraphFilterSheet({
       onOpenChange={onOpenChange}
       title="筛选"
       variant={variant}
+      modal={modal}
       footer={
         <>
           <Button

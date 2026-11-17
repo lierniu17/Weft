@@ -121,6 +121,7 @@ function Inline(props: Omit<DrawerProps, "open" | "onOpenChange">) {
         <Button variant="secondary" onClick={() => setClicks((c) => c + 1)}>
           对话里的按钮 {clicks}
         </Button>
+        <textarea aria-label="对话输入" className="border border-neutral-border" />
       </div>
       <Drawer {...props} open={open} onOpenChange={setOpen} />
     </div>
@@ -161,6 +162,60 @@ export const NonModalSidePanel: Story = {
     await waitFor(() => expect(again).toContainElement(document.activeElement as HTMLElement));
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(canvas.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
+  },
+};
+
+/**
+ * Non-modal: Esc belongs to whatever has focus. Pressed in the page beside the panel (e.g.
+ * the chat composer) it leaves the panel open; pressed inside the panel it closes it.
+ */
+export const NonModalEscOnlyInside: Story = {
+  name: "Side panel · non-modal · Esc only closes from inside",
+  args: { variant: "side-panel", modal: false },
+  render: (args) => <Inline {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "查看并确认" });
+    await userEvent.click(trigger);
+    const panel = await canvas.findByRole("dialog", { name: "确认草稿" });
+    await waitFor(() => expect(panel).toContainElement(document.activeElement as HTMLElement));
+
+    // Esc in the composer beside the panel: the panel stays open, focus and text stay put.
+    const composer = canvas.getByRole("textbox", { name: "对话输入" });
+    await userEvent.click(composer);
+    await userEvent.type(composer, "还在写");
+    await userEvent.keyboard("{Escape}");
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(canvas.getByRole("dialog", { name: "确认草稿" })).toBeVisible();
+    await expect(composer).toHaveFocus();
+    await expect(composer).toHaveValue("还在写");
+
+    // Esc with nothing focused (the page body): still open.
+    composer.blur();
+    await userEvent.keyboard("{Escape}");
+    await new Promise((r) => setTimeout(r, 100));
+    await expect(canvas.getByRole("dialog", { name: "确认草稿" })).toBeVisible();
+
+    // Esc from a control inside the panel closes it.
+    within(panel).getByRole("button", { name: "放弃" }).focus();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(canvas.queryByRole("dialog")).toBeNull());
+  },
+};
+
+/** Modal panels (tablet drawer, mobile sheet) keep closing on Esc. */
+export const ModalSidePanelEsc: Story = {
+  name: "Side panel · modal · Esc closes",
+  args: { variant: "side-panel" },
+  play: async ({ canvasElement }) => {
+    const trigger = within(canvasElement).getByRole("button", { name: "查看并确认" });
+    await userEvent.click(trigger);
+    const panel = await screen.findByRole("dialog", { name: "确认草稿" });
+    await expect(document.querySelector("[data-drawer-mask]")).not.toBeNull();
+    await waitFor(() => expect(panel).toContainElement(document.activeElement as HTMLElement));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(trigger).toHaveFocus());
   },
 };
