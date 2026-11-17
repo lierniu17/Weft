@@ -1,0 +1,74 @@
+[project]
+name = "weft-api"
+version = "0.1.0"
+description = "Weft backend: FastAPI + Graphiti (Neo4j) + Postgres"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "httpx>=0.27",
+    "tzdata>=2024.2",
+    "graphiti-core==0.31.*",
+    "alembic>=1.20.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/weft"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    # graphiti-core 0.31 still uses pydantic v1-style class Config
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20:graphiti_core.*",
+]
+markers = [
+    "unit: pure functions and in-process fakes; no network, no database",
+    "service: service layer against real Neo4j + Postgres (Docker) with replayed LLM calls",
+    "route: HTTP routes and contracts against real Neo4j + Postgres (Docker)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # Chinese full-width punctuation is intentional
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/versions/*" = ["E501", "W291"]  # Alembic autogenerate output
+"src/weft/services/ask_tools.py" = ["E501"]  # Chinese tool descriptions for the model
+"src/weft/services/ask.py" = ["E501"]  # Chinese system prompt
+"tests/service/test_ask.py" = ["E501"]  # Chinese answers in hand-authored transcripts
+"tests/route/test_ask_graph_routes.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["weft"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["graphiti_core.*"]
+ignore_missing_imports = true

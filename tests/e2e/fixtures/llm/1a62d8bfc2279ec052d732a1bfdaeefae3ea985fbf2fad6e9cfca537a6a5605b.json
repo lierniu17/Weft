@@ -1,0 +1,50 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你为 Weft 的人物画像写一段综合描述（80 字以内的中文）。\n只能使用输入里给出的信息，不得补充、推测或编造任何内容；没有提到的方面不要写。\n可信度为“转述”的信息写成“据说……”，“推测”的写成“可能……”；\nopinions 是用户（“你”）自己的评价，写成“你觉得……”，不要当成事实；\nstatus 为 history 的是过去的情况（如以前的工作），unverified 的是待核实的说法。\n只输出 JSON 对象：{\"summary\": \"……\"}"
+        },
+        {
+          "role": "user",
+          "content": "{\"task\": \"summarize_person\", \"person\": {\"name\": \"李明\", \"aliases\": [\"小李\"]}, \"identity\": [], \"facts\": [{\"label\": \"在…上学\", \"object\": \"浙江大学\", \"text\": \"李明在浙江大学上学\", \"status\": \"current\", \"confidence\": \"亲历\", \"from\": \"2015\"}, {\"label\": \"在…工作\", \"object\": \"字节跳动\", \"text\": \"李明在字节跳动工作\", \"status\": \"history\", \"confidence\": \"本人说\", \"from\": \"2023-02\", \"until\": \"2026-09\"}, {\"label\": \"在…工作\", \"object\": \"阿里巴巴\", \"text\": \"李明在阿里巴巴工作\", \"status\": \"current\", \"confidence\": \"本人说\", \"from\": \"2026-09\"}], \"opinions\": []}"
+        }
+      ],
+      "stream": false,
+      "temperature": 0.0,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-e2e",
+      "object": "chat.completion",
+      "created": 1763258400,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"summary\": \"李明：在…上学浙江大学；在…工作字节跳动（以前）；在…工作阿里巴巴。\"}"
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      }
+    }
+  }
+}

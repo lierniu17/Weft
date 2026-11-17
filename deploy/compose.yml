@@ -1,0 +1,93 @@
+# Weft deployment: one stack per environment (stage, production), fully isolated from each
+# other and from the dev docker-compose.yml at the repo root: own compose project
+# (weft-stage / weft-production), own network, own volumes, own image tags, and the
+# databases are not published on the host at all.
+#
+# Don't call `docker compose` on this file by hand; use the root scripts, which pass the
+# project name and both env files (deploy/README.md):
+#   pnpm deploy:stage | versions:stage | logs:stage | invites:stage generate 5 | down:stage
+#
+# Interpolated from deploy/<env>.env (committed, no secrets) and deploy/secrets/<env>.env
+# (untracked: passwords and provider keys).
+
+name: weft-${WEFT_ENV:?run through deploy/weft.mjs}
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: weft
+      POSTGRES_DB: weft
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/secrets/<env>.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weft -d weft"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  neo4j:
+    image: neo4j:5.26
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in deploy/secrets/<env>.env}
+      NEO4J_server_memory_heap_max__size: ${NEO4J_HEAP:-1G}
+      NEO4J_server_memory_pagecache_size: ${NEO4J_PAGECACHE:-512M}
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      # $$ = a literal $ for the container shell: the password never appears in the file.
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_AUTH#neo4j/}\" 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  api:
+    image: weft-api:${WEFT_ENV}
+    build:
+      context: ../apps/api
+      args:
+        GIT_SHA: ${WEFT_GIT_SHA:-unknown}
+        BUILD_TIME: ${WEFT_BUILD_TIME:-unknown}
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    # Provider keys and the session secret; the file is untracked (deploy/secrets/).
+    env_file:
+      - path: ${WEFT_SECRETS_FILE:?run through deploy/weft.mjs}
+        required: true
+    environment:
+      DATABASE_URL: postgresql+asyncpg://weft:${POSTGRES_PASSWORD}@postgres:5432/weft
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      LLM_REPLAY_MODE: "off"
+      DAILY_ENTRY_LIMIT: ${DAILY_ENTRY_LIMIT:-50}
+      DAILY_ASK_LIMIT: ${DAILY_ASK_LIMIT:-100}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-weft_session}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+      GRAPHITI_TELEMETRY_ENABLED: "false"
+
+  web:
+    image: weft-web:${WEFT_ENV}
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        GIT_SHA: ${WEFT_GIT_SHA:-unknown}
+        BUILD_TIME: ${WEFT_BUILD_TIME:-unknown}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "${WEFT_WEB_BIND:-127.0.0.1}:${WEFT_WEB_PORT:?set WEFT_WEB_PORT in deploy/<env>.env}:80"
+
+volumes:
+  postgres-data:
+  neo4j-data:
+  neo4j-logs:
