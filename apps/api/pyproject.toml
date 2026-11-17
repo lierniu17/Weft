@@ -13,6 +13,7 @@ dependencies = [
     "httpx>=0.27",
     "tzdata>=2024.2",
     "graphiti-core==0.31.*",
+    "alembic>=1.20.1",
 ]
 
 [dependency-groups]
@@ -35,6 +36,10 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    # graphiti-core 0.31 still uses pydantic v1-style class Config
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20:graphiti_core.*",
+]
 markers = [
     "unit: pure functions and in-process fakes; no network, no database",
     "service: service layer against real Neo4j + Postgres (Docker) with replayed LLM calls",
@@ -49,6 +54,9 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003"]  # Chinese full-width punctuation is intentional
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/versions/*" = ["E501", "W291"]  # Alembic autogenerate output
 
 [tool.mypy]
 python_version = "3.12"
