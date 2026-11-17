@@ -14,6 +14,8 @@ export type CitationSheetProps = {
   today: Date;
   /** Mobile bottom sheet, desktop right panel. */
   variant?: DrawerVariant;
+  /** `false`: the desktop right column (side-panel in place, page stays interactive). */
+  modal?: boolean;
   onOpenRelationship?: (pair: [PersonRef, PersonRef]) => void;
 };
 
@@ -24,11 +26,12 @@ export function CitationSheet({
   citations,
   today,
   variant = "bottom-sheet",
+  modal,
   onOpenRelationship,
 }: CitationSheetProps) {
   const title = citations.length === 1 ? `出处 [${citations[0].index}]` : "出处";
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} title={title} variant={variant}>
+    <Drawer open={open} onOpenChange={onOpenChange} title={title} variant={variant} modal={modal}>
       <ul className="flex flex-col gap-lg pt-xs">
         {citations.map((c) => (
           <li key={`${c.index}-${c.entry_id}`} className="flex flex-col gap-sm">

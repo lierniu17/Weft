@@ -4,9 +4,11 @@ import {
   type CitationSource,
   closenessGroups,
   dislikeText,
+  draftCardLabels,
   entryStatus,
   isBackfilled,
   knownFor,
+  learnedAliases,
   monthHeading,
   profileView,
   quotaMessages,
@@ -204,5 +206,45 @@ describe("认识时长 and 额度", () => {
     expect(quotaMessages(usage)).toEqual({
       record: "今日已达上限：今天的 50 条记录已用完，北京时间 0 点重置 · 提问还剩 37 次",
     });
+  });
+});
+
+describe("对话里每张草稿卡的可访问名称 (AC-UI-9 landmark-unique)", () => {
+  it("names a card by 发生日期 and the first words of its Entry", () => {
+    const labels = draftCardLabels(
+      [
+        { id: "a", occurred_on: "2026-11-16", text: "今天和老张吃饭，他说女儿明年高考" },
+        { id: "b", occurred_on: "2015", text: "读大学时\n认识了小李" },
+      ],
+      today,
+    );
+    expect(labels.get("a")).toBe("草稿 · 今天 · 今天和老张吃饭，他说女儿…");
+    expect(labels.get("b")).toBe("草稿 · 2015 年 · 读大学时 认识了小李");
+  });
+  it("keeps names unique when two Entries read the same", () => {
+    const labels = draftCardLabels(
+      [
+        { id: "a", occurred_on: "2026-11-16", text: "老张是个急性子。" },
+        { id: "b", occurred_on: "2026-11-16", text: "老张是个急性子。" },
+        { id: "c", occurred_on: "2026-11-16", text: "老张是个急性子。" },
+      ],
+      today,
+    );
+    expect(labels.get("a")).toBe("草稿 · 今天 · 老张是个急性子。");
+    expect(labels.get("b")).toBe("草稿 · 今天 · 老张是个急性子。 · 2");
+    expect(labels.get("c")).toBe("草稿 · 今天 · 老张是个急性子。 · 3");
+    expect(new Set(labels.values()).size).toBe(3);
+  });
+});
+
+describe("学到别名", () => {
+  it("shows only the aliases the server says this Entry's confirmation added", () => {
+    expect(
+      learnedAliases({ learned_aliases: [{ alias: "老张", person_id: "p1", name: "张伟" }] }),
+    ).toEqual([{ alias: "老张", name: "张伟" }]);
+  });
+  it("shows none for a later Entry that mentions a known alias, or before confirmation", () => {
+    expect(learnedAliases({ learned_aliases: [] })).toEqual([]);
+    expect(learnedAliases(undefined)).toEqual([]);
   });
 });

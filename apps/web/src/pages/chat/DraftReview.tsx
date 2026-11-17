@@ -21,9 +21,11 @@ export type DraftReviewProps = {
   occurredOn: string;
   onClose: () => void;
   onError: (message: string) => void;
+  /** `false` on desktop: the review is the chat's right column, not a modal panel. */
+  modal?: boolean;
 };
 
-export function DraftReview({ draftId, occurredOn, onClose, onError }: DraftReviewProps) {
+export function DraftReview({ draftId, occurredOn, onClose, onError, modal }: DraftReviewProps) {
   const draft = useDraft(draftId ?? undefined);
   const taxonomy = useTaxonomy();
   const update = useUpdateDraft();
@@ -63,6 +65,7 @@ export function DraftReview({ draftId, occurredOn, onClose, onError }: DraftRevi
       open
       onOpenChange={(open) => !open && onClose()}
       variant={variant}
+      modal={modal}
       draft={value}
       occurredOn={parsePartialDate(occurredOn)}
       today={today}

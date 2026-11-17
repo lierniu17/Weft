@@ -17,6 +17,7 @@ from weft.routes.schemas import (
     EntryOut,
     EntrySubmitted,
     FactOut,
+    LearnedAliasOut,
     PersonOut,
     SubmitEntryRequest,
     UpdateDraftRequest,
@@ -78,6 +79,10 @@ async def get_entry(entry_id: uuid.UUID, session: SessionDep, infra: InfraDep) -
         draft=None if detail.draft is None else DraftOut.of(detail.draft),
         persons=[PersonOut.of(p) for p in detail.persons],
         facts=[FactOut.of(f) for f in detail.facts],
+        learned_aliases=[
+            LearnedAliasOut(alias=a.alias, person_id=a.person_id, name=a.name)
+            for a in detail.learned_aliases
+        ],
     )
 
 

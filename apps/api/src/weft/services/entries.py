@@ -25,11 +25,19 @@ class Submitted:
 
 
 @dataclass(frozen=True)
+class LearnedAlias:
+    alias: str
+    person_id: str
+    name: str
+
+
+@dataclass(frozen=True)
 class EntryDetail:
     entry: EntryRecord
     draft: DraftRecord | None
     persons: list[PersonRecord]  # what the confirmed Entry put in the graph
     facts: list[FactRecord]
+    learned_aliases: list[LearnedAlias]  # only those this Entry's confirmation added (AC-13)
 
 
 async def submit_entry(
@@ -81,8 +89,15 @@ async def get_entry(infra: Infra, entry_id: uuid.UUID) -> Result[EntryDetail]:
         if entry is None:
             return not_found("entry")
         draft = await DraftRepository(session, scope).get_by_entry(entry_id)
-    persons, facts = await graph(infra).produced_by(str(entry_id))
-    return Ok(EntryDetail(entry=entry, draft=draft, persons=persons, facts=facts))
+    g = graph(infra)
+    persons, facts = await g.produced_by(str(entry_id))
+    learned = [
+        LearnedAlias(alias=alias, person_id=p.id, name=p.name)
+        for alias, p in await g.learned_aliases(str(entry_id))
+    ]
+    return Ok(
+        EntryDetail(entry=entry, draft=draft, persons=persons, facts=facts, learned_aliases=learned)
+    )
 
 
-__all__ = ["EntryDetail", "Submitted", "get_entry", "list_entries", "submit_entry"]
+__all__ = ["EntryDetail", "LearnedAlias", "Submitted", "get_entry", "list_entries", "submit_entry"]

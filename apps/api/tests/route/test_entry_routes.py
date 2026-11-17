@@ -143,6 +143,19 @@ async def test_an_ambiguous_person_blocks_confirmation_until_chosen(
     found = (await user.client.get("/api/persons", params={"q": "老张"})).json()
     assert [(p["name"], p["aliases"]) for p in found] == [("张伟", ["老张"])]
 
+    entry_id = (await user.client.get(f"/api/drafts/{draft_id}")).json()["entry_id"]
+    detail = (await user.client.get(f"/api/entries/{entry_id}")).json()
+    assert detail["learned_aliases"] == [
+        {"alias": "老张", "person_id": ids["张伟"], "name": "张伟"}
+    ]
+
+    sc.laozhang_bubble_tea(llm)
+    llm.rules = [r for r in llm.rules if not r.name.startswith("match[")]
+    later = (await submit(user, sc.BUBBLE_TEA))["draft"]["id"]
+    assert (await user.client.post(f"/api/drafts/{later}/confirm")).status_code == 200
+    later_entry = (await user.client.get(f"/api/drafts/{later}")).json()["entry_id"]
+    assert (await user.client.get(f"/api/entries/{later_entry}")).json()["learned_aliases"] == []
+
 
 async def test_a_draft_naming_an_unknown_person_is_refused(
     register: Register, llm: LLMScript

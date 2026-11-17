@@ -10,6 +10,11 @@ import { ConfidenceBadge } from "../ConfidenceBadge/ConfidenceBadge.tsx";
 
 export type DraftCardProps = {
   status: DraftStatus;
+  /**
+   * The card region's accessible name. Every card in a feed is a region, so each needs its
+   * own name (axe landmark-unique); the chat passes 「草稿 · <发生日期> · <记录开头>」.
+   */
+  label?: string;
   /** pending / confirmed: the draft's content. */
   draft?: Draft;
   /** confirmed: the persons now in the graph, as links to their pages. */
@@ -78,6 +83,7 @@ function title(status: DraftStatus, draft?: Draft): string {
  */
 export function DraftCard({
   status,
+  label = "草稿",
   draft,
   persons = [],
   learnedAliases = [],
@@ -91,7 +97,7 @@ export function DraftCard({
   const more = items.length - PREVIEW;
   return (
     <section
-      aria-label="草稿"
+      aria-label={label}
       aria-busy={status === "extracting" || undefined}
       data-draft-card={status}
       className={cx(

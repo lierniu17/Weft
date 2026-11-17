@@ -13,7 +13,8 @@ Node and edge shapes follow Graphiti's schema so Graphiti's search (batch 2) can
 * Facts: ``(Person)-[:RELATES_TO {uuid, group_id, name: predicate, fact, episodes,
   valid_at, invalid_at, expired_at, confidence, unverified, kind, object}]->(Entity)``;
   OPINION facts go from Self to the person.
-* ``(:Episodic {uuid: entry id, ...})-[:MENTIONS]->(:Person)``.
+* ``(:Episodic {uuid: entry id, ...})-[:MENTIONS]->(:Person)``; ``learned_aliases`` /
+  ``learned_alias_persons`` (parallel lists) are the aliases confirming it added (AC-13).
 * ``(:Relationship)`` nodes linked by ``IN_RELATIONSHIP`` (and ``INTRODUCED_BY``).
 * Feelings: ``(Person)-[:FEELS {dimension, level, confidence, occurred_at, ...}]->(Person)``.
 * Embeddings for Graphiti's hybrid search: ``name_embedding`` on persons and entities,
@@ -34,7 +35,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncTransaction
 
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
-from weft.domain.graph_write import GraphWrite, NewFact
+from weft.domain.graph_write import AliasAdd, GraphWrite, NewFact
 from weft.domain.taxonomy import OTHER
 from weft.domain.tenancy import TenantContext, tenant_scoped
 from weft.repositories.records import (
@@ -462,6 +463,21 @@ class GraphRepository(ScopedCypher):
         )
 
     @tenant_scoped
+    async def learned_aliases(self, entry_id: str) -> list[tuple[str, PersonRecord]]:
+        """The aliases confirming this Entry added, with their (still existing) persons."""
+        rows = await self._read(
+            """
+            MATCH (e:Episodic {group_id: $group_id, uuid: $id})
+            WITH e, coalesce(e.learned_aliases, []) AS aliases
+            UNWIND range(0, size(aliases) - 1) AS i
+            MATCH (p:Person {group_id: $group_id, uuid: e.learned_alias_persons[i]})
+            RETURN aliases[i] AS alias, p {.*, name_embedding: null} AS p ORDER BY i
+            """,
+            id=entry_id,
+        )
+        return [(r["alias"], _person(r["p"])) for r in rows]
+
+    @tenant_scoped
     async def count_entries_mentioning(self, person_id: str) -> int:
         rows = await self._read(
             """
@@ -549,17 +565,32 @@ class GraphRepository(ScopedCypher):
             )
 
         self._step("aliases")
+        learned: list[AliasAdd] = []
         for alias in w.aliases:
-            await self._tx(
+            added = await self._tx(
                 tx,
                 """
                 MATCH (p:Person {group_id: $group_id, uuid: $id})
                 WHERE NOT $alias IN coalesce(p.aliases, []) AND p.name <> $alias
                 SET p.aliases = coalesce(p.aliases, []) + $alias
                 SET p.aliases_text = reduce(t = '', a IN p.aliases | t + ' ' + a)
+                RETURN p.uuid AS id
                 """,
                 id=alias.person_id,
                 alias=alias.alias,
+            )
+            if added:
+                learned.append(alias)
+        if learned:  # what this Entry taught (AC-13), kept with its episode
+            await self._tx(
+                tx,
+                """
+                MATCH (e:Episodic {group_id: $group_id, uuid: $id})
+                SET e.learned_aliases = $aliases, e.learned_alias_persons = $persons
+                """,
+                id=ep.entry_id,
+                aliases=[a.alias for a in learned],
+                persons=[a.person_id for a in learned],
             )
 
         self._step("identity")

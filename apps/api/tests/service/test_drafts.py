@@ -237,6 +237,35 @@ async def test_choosing_zhangwei_for_laozhang_learns_the_alias_for_next_time(
     assert (person.match, person.person_id) == (PersonMatch.MATCHED, ids["张伟"])
 
 
+async def test_only_the_entry_that_learned_an_alias_reports_it(
+    infra: Infra, llm: LLMScript
+) -> None:
+    sc.laozhang_promoted(llm)
+    sc.laozhang_bubble_tea(llm)
+    llm.person_match("老张", decision="ambiguous", candidates=[1, 2])
+    user = await new_user(infra)
+    ids = await seed(infra, user, Seed(persons=["张伟", "张强"]))
+    first = await sc.extracted(infra, user, sc.PROMOTED)
+    assert first.content is not None
+    with tenant_scope(user.tenant):
+        chosen = first.content.choose("老张", person_id=ids["张伟"])
+        assert isinstance(await drafts.update_draft(infra, first.id, chosen), Ok)
+    await sc.confirmed(infra, user, first.id)
+    await sc.confirmed(infra, user, first.id)  # a re-confirmation changes nothing
+    llm.rules = [r for r in llm.rules if not r.name.startswith("match[")]
+    second = await sc.extracted(infra, user, sc.BUBBLE_TEA)
+    await sc.confirmed(infra, user, second.id)
+
+    with tenant_scope(user.tenant):
+        one = await entries.get_entry(infra, first.entry_id)
+        two = await entries.get_entry(infra, second.entry_id)
+    assert isinstance(one, Ok) and isinstance(two, Ok)
+    assert [(a.alias, a.person_id, a.name) for a in one.value.learned_aliases] == [
+        ("老张", ids["张伟"], "张伟")
+    ]
+    assert two.value.learned_aliases == []
+
+
 async def test_marking_an_ambiguous_mention_as_new_creates_a_new_person(
     infra: Infra, llm: LLMScript
 ) -> None:

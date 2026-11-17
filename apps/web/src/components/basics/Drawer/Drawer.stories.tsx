@@ -103,3 +103,64 @@ export const SidePanel: Story = {
     );
   },
 };
+
+/**
+ * Desktop right column (wireframe D1/D2): `modal={false}` renders the panel in the page
+ * flow — no mask, the rest of the page stays interactive. Focus moves in on open, Esc and
+ * ✕ close it, focus returns to the trigger.
+ */
+function Inline(props: Omit<DrawerProps, "open" | "onOpenChange">) {
+  const [open, setOpen] = useState(false);
+  const [clicks, setClicks] = useState(0);
+  return (
+    <div className="flex h-[600px] w-[1000px] border border-neutral-divider">
+      <div className="flex flex-1 flex-col items-start gap-sm p-md">
+        <Button variant="secondary" onClick={() => setOpen(true)}>
+          查看并确认
+        </Button>
+        <Button variant="secondary" onClick={() => setClicks((c) => c + 1)}>
+          对话里的按钮 {clicks}
+        </Button>
+      </div>
+      <Drawer {...props} open={open} onOpenChange={setOpen} />
+    </div>
+  );
+}
+
+export const NonModalSidePanel: Story = {
+  name: "Side panel · non-modal (desktop column)",
+  args: { variant: "side-panel", modal: false },
+  render: (args) => <Inline {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "查看并确认" });
+    await userEvent.click(trigger);
+    const panel = await canvas.findByRole("dialog", { name: "确认草稿" });
+    // In the page flow, not portalled; a dialog that does not block the page.
+    await expect(canvasElement).toContainElement(panel);
+    await expect(panel).not.toHaveAttribute("aria-modal", "true");
+    await expect(panel.getBoundingClientRect().width).toBe(360);
+    await expect(getComputedStyle(panel).borderLeftColor).toBe(rgb("#EBEEF2"));
+    await expect(getComputedStyle(panel).position).not.toBe("fixed");
+    // No mask; focus moved into the panel.
+    await expect(document.querySelector("[data-drawer-mask]")).toBeNull();
+    await waitFor(() => expect(panel).toContainElement(document.activeElement as HTMLElement));
+
+    // The page beside it stays interactive; the panel stays open.
+    await userEvent.click(canvas.getByRole("button", { name: /对话里的按钮/ }));
+    await expect(canvas.getByRole("button", { name: "对话里的按钮 1" })).toBeVisible();
+    await expect(panel).toBeVisible();
+
+    // Esc (from inside the panel) closes it and focus returns to the trigger.
+    await userEvent.click(within(panel).getByRole("button", { name: "关闭" }));
+    await waitFor(() => expect(canvas.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    await userEvent.click(trigger);
+    const again = await canvas.findByRole("dialog", { name: "确认草稿" });
+    await waitFor(() => expect(again).toContainElement(document.activeElement as HTMLElement));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(canvas.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
+  },
+};

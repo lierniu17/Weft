@@ -867,6 +867,11 @@ export interface components {
              */
             facts: components["schemas"]["FactOut"][];
             /**
+             * Learned Aliases
+             * @description Aliases this Entry's confirmation added (AC-13); empty if none were new
+             */
+            learned_aliases: components["schemas"]["LearnedAliasOut"][];
+            /**
              * Persons
              * @description Persons the confirmed Entry mentions
              */
@@ -1046,6 +1051,18 @@ export interface components {
             sources: string[];
             /** Value */
             value: string;
+        };
+        /** LearnedAliasOut */
+        LearnedAliasOut: {
+            /** Alias */
+            alias: string;
+            /**
+             * Name
+             * @description The person's current name
+             */
+            name: string;
+            /** Person Id */
+            person_id: string;
         };
         /** LoginRequest */
         LoginRequest: {

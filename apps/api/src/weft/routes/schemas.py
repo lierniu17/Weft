@@ -451,11 +451,20 @@ class EntrySubmitted(_Out):
     draft: DraftOut
 
 
+class LearnedAliasOut(_Out):
+    alias: str
+    person_id: str
+    name: str = Field(description="The person's current name")
+
+
 class EntryDetailOut(_Out):
     entry: EntryOut
     draft: DraftOut | None
     persons: list[PersonOut] = Field(description="Persons the confirmed Entry mentions")
     facts: list[FactOut] = Field(description="Facts the Entry backs")
+    learned_aliases: list[LearnedAliasOut] = Field(
+        description="Aliases this Entry's confirmation added (AC-13); empty if none were new"
+    )
 
 
 class UpdateDraftRequest(_In):
@@ -553,6 +562,7 @@ __all__ = [
     "ErrorBody",
     "FactOut",
     "GraphOut",
+    "LearnedAliasOut",
     "LoginRequest",
     "MeResponse",
     "PairEdited",

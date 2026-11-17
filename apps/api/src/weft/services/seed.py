@@ -1,7 +1,8 @@
 """Seed graph (种子图谱) for e2e BOT-5 / BOT-9, the Q&A tests and the Q&A quality eval.
 
 About 30 persons around Self with every relationship category, written the way the app
-writes a confirmed Draft: each seed Entry is stored in Postgres (with a confirmed Draft)
+writes a confirmed Draft: each seed Entry is stored in Postgres with the confirmed Draft
+that would have produced it (so its card reads 「已入图谱 · N 条信息」)
 and applied to the graph as one ``GraphWrite`` whose episode is that Entry, so every fact,
 relationship and feeling cites a real Entry.
 
@@ -44,6 +45,7 @@ from weft.infra import Infra
 from weft.repositories.entries import DraftRepository, EntryRepository
 from weft.services import embeddings
 from weft.services._uow import graph, tenant
+from weft.services.drafts import SELF_ID
 from weft.services.results import Err, Ok, Result
 
 SELF = "我"
@@ -432,6 +434,84 @@ class _Builder:
         w.mentions.extend(dict.fromkeys(mentioned))
         return w
 
+    def draft(self, e: SeedEntry) -> Draft:
+        """The confirmed Draft that would have written ``e``: one item per fact,
+        relationship and feeling; persons first named here are new, the rest matched.
+        Call after ``write`` so the Entry's new persons have ids."""
+        new = {self.ids[name] for name, _ in e.persons}
+        refs = [name for name, _ in e.persons]
+        for f in e.facts:
+            refs.append(f.subject)
+            if f.predicate != OPINION and f.predicate not in PREDICATE_TARGETS:
+                refs.append(f.obj)
+        for r in e.relationships:
+            refs += [r.a, r.b] + ([r.introduced_by] if r.introduced_by else [])
+        for fe in e.feelings:
+            refs += [fe.src, fe.dst]
+        # One mention per person: the first way this Entry refers to them.
+        mention: dict[str, str] = {}
+        for ref in refs:
+            mention.setdefault(self.person(ref), ref)
+
+        def m(ref: str) -> str:
+            return mention[self.person(ref)]
+
+        def person(pid: str, text: str) -> dict[str, object]:
+            if pid in new:
+                return {"mention": text, "match": "new"}
+            if pid == self.ids[SELF]:
+                return {"mention": text, "match": "matched", "person_id": SELF_ID, "name": SELF}
+            return {"mention": text, "match": "matched", "person_id": pid, "name": self.names[pid]}
+
+        return Draft.model_validate(
+            {
+                "persons": [
+                    {"id": f"p{i}", **person(pid, text)}
+                    for i, (pid, text) in enumerate(mention.items(), start=1)
+                ],
+                "facts": [
+                    {
+                        "id": f"f{i}",
+                        "subject": m(f.subject),
+                        "predicate": f.predicate,
+                        "object": m(f.obj)
+                        if f.predicate != OPINION and f.predicate not in PREDICATE_TARGETS
+                        else f.obj,
+                        "valid_at": f.valid_at,
+                        "valid_to": f.until,
+                        "confidence": f.confidence,
+                    }
+                    for i, f in enumerate(e.facts, start=1)
+                ],
+                "relationships": [
+                    {
+                        "id": f"r{i}",
+                        "pair": [m(r.a), m(r.b)],
+                        "types": [
+                            {"category": r.category, "subtype": r.subtype, "original": r.original}
+                        ],
+                        "met_at": r.met_at,
+                        "origin": r.origin,
+                        "introduced_by": m(r.introduced_by) if r.introduced_by else None,
+                        "status": r.status,
+                        "confidence": r.confidence,
+                    }
+                    for i, r in enumerate(e.relationships, start=1)
+                ],
+                "feelings": [
+                    {
+                        "id": f"e{i}",
+                        "from": m(fe.src),
+                        "to": m(fe.dst),
+                        "dimension": fe.dimension,
+                        "level": fe.level,
+                        "confidence": fe.confidence,
+                    }
+                    for i, fe in enumerate(e.feelings, start=1)
+                ],
+            }
+        )
+
     def _fact(self, f: F) -> NewFact:
         subject = self.person(f.subject)
         name = self.names[subject]
@@ -495,9 +575,6 @@ async def seed_graph(infra: Infra, entries: tuple[SeedEntry, ...] = ENTRIES) -> 
         return Err("graph_not_empty", "种子图谱只能写入只有本人的图谱")
     builder = _Builder(me.id)
     seeded = Seeded()
-    empty = Draft.model_validate(
-        {"persons": [], "facts": [], "relationships": [], "feelings": [], "profile": []}
-    )
     # All or nothing: the Entries commit only after the whole graph is written.
     async with infra.sql() as session, session.begin():
         writes: list[GraphWrite] = []
@@ -506,12 +583,13 @@ async def seed_graph(infra: Infra, entries: tuple[SeedEntry, ...] = ENTRIES) -> 
                 text=e.text, occurred=PartialDate.parse(e.occurred), kind="user"
             )
             drafts = DraftRepository(session, scope)
+            writes.append(builder.write(str(entry.id), e, infra.clock()))
             draft = await drafts.create_extracting(entry.id)
             await drafts.transition(
                 draft.id,
                 from_statuses=[DraftStatus.EXTRACTING],
                 to=DraftStatus.PENDING,
-                content=empty,
+                content=builder.draft(e),
             )
             await drafts.transition(
                 draft.id,
@@ -519,7 +597,6 @@ async def seed_graph(infra: Infra, entries: tuple[SeedEntry, ...] = ENTRIES) -> 
                 to=DraftStatus.CONFIRMED,
                 now=infra.clock(),
             )
-            writes.append(builder.write(str(entry.id), e, infra.clock()))
             seeded.entries.append(str(entry.id))
         await g.apply_all([await embeddings.attach(infra, w) for w in writes])
     seeded.persons = dict(builder.ids)

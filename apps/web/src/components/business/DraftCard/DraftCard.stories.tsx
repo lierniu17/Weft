@@ -152,3 +152,32 @@ export const StatusChangesInPlace: Story = {
     await expect(live).toHaveTextContent("已入图谱");
   },
 };
+
+/**
+ * AC-UI-9 (axe landmark-unique): every card is a region, so each one carries its own
+ * accessible name — the chat passes 「草稿 · <发生日期> · <记录开头>」.
+ */
+export const DistinctNames: Story = {
+  render: (args) => (
+    <div className="flex flex-col gap-sm">
+      <DraftCard {...args} label="草稿 · 今天 · 今天和老张吃饭" />
+      <DraftCard
+        {...args}
+        status="confirmed"
+        persons={CONFIRMED_PERSONS}
+        label="草稿 · 11-02 · 读大学时在社团认识"
+      />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const regions = canvas.getAllByRole("region");
+    await expect(regions).toHaveLength(2);
+    await expect(regions[0]).toHaveAccessibleName("草稿 · 今天 · 今天和老张吃饭");
+    await expect(regions[1]).toHaveAccessibleName("草稿 · 11-02 · 读大学时在社团认识");
+    // The status line inside each card stays the polite live region (AC-UI-10).
+    for (const r of regions) {
+      await expect(within(r).getByRole("status")).toHaveAttribute("aria-live", "polite");
+    }
+  },
+};

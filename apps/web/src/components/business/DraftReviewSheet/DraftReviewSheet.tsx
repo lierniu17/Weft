@@ -22,6 +22,8 @@ export type DraftReviewSheetProps = {
   onOpenChange: (open: boolean) => void;
   /** Mobile bottom sheet, desktop right panel. */
   variant?: DrawerVariant;
+  /** `false`: the desktop right column (side-panel in place, page stays interactive). */
+  modal?: boolean;
   draft: Draft;
   /** The Entry's 发生日期, shown in the sheet's description. */
   occurredOn: OccurredOn;
@@ -62,6 +64,7 @@ export function DraftReviewSheet({
   open,
   onOpenChange,
   variant = "bottom-sheet",
+  modal,
   draft,
   occurredOn,
   today,
@@ -103,6 +106,7 @@ export function DraftReviewSheet({
         open={open}
         onOpenChange={onOpenChange}
         variant={variant}
+        modal={modal}
         title="确认草稿"
         description={`${formatOccurredOn(occurredOn, today)} · 确认后才会写进图谱`}
         className={variant === "bottom-sheet" ? "h-[92vh]" : undefined}

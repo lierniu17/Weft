@@ -30,12 +30,10 @@
     "我的"
   ],
   "AC-UI-6 primary buttons on chat (375)": 1,
-  "AC-UI-9 axe chat (375)": [
-    "landmark-unique: li:nth-child(1) > section[data-draft-card=\"confirmed\"]"
-  ],
+  "AC-UI-9 axe chat (375)": [],
   "AC-UI-9 focus trapped in sheet": true,
   "AC-UI-1 draft review is a bottom sheet": {
-    "bottom": -137,
+    "bottom": 0,
     "radiusTop": "16px"
   },
   "AC-UI-10 sheet animation": "sheet-in",
@@ -161,10 +159,17 @@
     },
     "overflow": 0
   },
+  "AC-UI-9 axe chat (1024)": [],
   "AC-UI-1 1024 draft in right panel": {
     "width": 360,
-    "right": -248,
+    "right": 0,
     "height": 900
+  },
+  "AC-UI-1 1024 panel behaviour": {
+    "mask": 1,
+    "focusInPanel": true,
+    "chatInteractive": false,
+    "focusBack": true
   },
   "AC-UI-7 1440 layout": {
     "sideNavWidth": 220,
@@ -189,10 +194,18 @@
     },
     "overflow": 0
   },
+  "AC-UI-9 axe chat (1440)": [],
   "AC-UI-1 1440 draft in right panel": {
     "width": 360,
-    "right": -248,
+    "right": 0,
     "height": 900
+  },
+  "AC-UI-9 axe chat with draft panel (1440)": [],
+  "AC-UI-1 1440 panel behaviour": {
+    "mask": 0,
+    "focusInPanel": true,
+    "chatInteractive": true,
+    "focusBack": true
   },
   "AC-UI-7 1680 layout": {
     "sideNavWidth": 220,
@@ -219,7 +232,13 @@
   },
   "AC-UI-1 1680 draft in right panel": {
     "width": 360,
-    "right": -337,
+    "right": 120,
     "height": 900
+  },
+  "AC-UI-1 1680 panel behaviour": {
+    "mask": 0,
+    "focusInPanel": true,
+    "chatInteractive": true,
+    "focusBack": true
   }
 }

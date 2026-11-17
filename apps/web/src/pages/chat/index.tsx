@@ -22,7 +22,7 @@ import { EmptyState } from "../../components/composites/EmptyState/EmptyState.ts
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
 import type { Citation } from "../../contracts/answer.ts";
 import { type OccurredOn, todayOccurredOn } from "../../lib/datePrecision.ts";
-import { quotaMessages, toPartialDate } from "../../lib/pageModels.ts";
+import { draftCardLabels, quotaMessages, toPartialDate } from "../../lib/pageModels.ts";
 import { CurrentPersonPanel } from "./CurrentPersonPanel.tsx";
 import { DraftReview } from "./DraftReview.tsx";
 import { EntryThread } from "./EntryThread.tsx";
@@ -83,6 +83,11 @@ export function ChatPage() {
     .filter((e) => e.kind === "user" && !sessionEntryIds.has(e.id))
     .slice(0, HISTORY)
     .reverse();
+  // Every draft card is a region: each gets its own name (AC-UI-9, axe landmark-unique).
+  const labels = draftCardLabels(
+    (entries.data ?? []).filter((e) => e.kind === "user"),
+    today,
+  );
   const firstUse = entries.isSuccess && history.length === 0 && session.items.length === 0;
   const latestConfirmed = (entries.data ?? []).find(
     (e) => e.kind === "user" && e.draft?.status === "confirmed",
@@ -100,8 +105,13 @@ export function ChatPage() {
   }, [count]);
 
   const openPerson = (id: string) => navigate(`/people/${enc(id)}`);
-  const review = (draftId: string, entryOccurredOn: string) =>
+  // Desktop (wireframe D1/D2): review / 出处 open in the right column beside the chat,
+  // non-modal; one at a time. Tablet and mobile keep the modal panel / bottom sheet.
+  const inline = layout === "desktop";
+  const review = (draftId: string, entryOccurredOn: string) => {
+    setCitations(null);
     setReviewing({ draftId, occurredOn: entryOccurredOn });
+  };
 
   const onSubmit = (payload: ComposerSubmit) => {
     if (payload.mode === "record") {
@@ -180,6 +190,7 @@ export function ChatPage() {
                   key={e.id}
                   entry={e}
                   today={today}
+                  label={labels.get(e.id)}
                   onReview={(id) => review(id, e.occurred_on)}
                   onPersonClick={openPerson}
                 />
@@ -192,6 +203,7 @@ export function ChatPage() {
                       key={item.id}
                       entry={e}
                       today={today}
+                      label={labels.get(e.id)}
                       onReview={(id) => review(id, e.occurred_on)}
                       onPersonClick={openPerson}
                     />
@@ -207,7 +219,9 @@ export function ChatPage() {
                         answer={item.answer}
                         onCitationOpen={(i) => {
                           const c = item.answer?.citations.find((x) => x.index === i);
-                          if (c) setCitations([c]);
+                          if (!c) return;
+                          setReviewing(null);
+                          setCitations([c]);
                         }}
                         {...answerHandlers}
                       />
@@ -247,7 +261,7 @@ export function ChatPage() {
           exhausted={quotaMessages(usage.data)}
         />
       </div>
-      {layout === "desktop" && (
+      {inline && !reviewing && citations === null && (
         <aside
           aria-label="右栏"
           className="flex w-[360px] shrink-0 flex-col overflow-y-auto border-l border-neutral-divider bg-neutral-bg-container"
@@ -262,6 +276,7 @@ export function ChatPage() {
           occurredOn={reviewing.occurredOn}
           onClose={() => setReviewing(null)}
           onError={setToast}
+          modal={!inline}
         />
       )}
       <CitationSheet
@@ -270,6 +285,7 @@ export function ChatPage() {
         citations={citations ?? []}
         today={today}
         variant={sheetVariant}
+        modal={!inline}
         onOpenRelationship={([a, b]) =>
           navigate(`/people/${enc(a.person_id)}/relationships/${enc(b.person_id)}`)
         }

@@ -9,7 +9,7 @@ import type { ProfileItem } from "../components/business/ProfileSection/ProfileS
 import type { Citation } from "../contracts/answer.ts";
 import type { Confidence } from "../contracts/draft.ts";
 import type { OccurredOn } from "./datePrecision.ts";
-import { parsePartialDate } from "./datePrecision.ts";
+import { formatPartialDate, parsePartialDate } from "./datePrecision.ts";
 import { FEELING_LEVELS, profileFieldLabel } from "./labels.ts";
 
 type S = components["schemas"];
@@ -45,6 +45,41 @@ export function isBackfilled(entry: S["EntryOut"]): boolean {
 export function monthHeading(occurredOn: string): string {
   const d = parsePartialDate(occurredOn);
   return d.precision === "year" ? `${d.year} 年` : `${d.year} 年 ${d.month} 月`;
+}
+
+/** How many characters of an Entry name its draft card. */
+const LABEL_CHARS = 12;
+
+/**
+ * Accessible names for the draft cards in the chat feed, by Entry id:
+ * 「草稿 · <发生日期> · <记录开头>」. Every card is a region, so names must be unique
+ * (axe landmark-unique); identical openings get 「 · 2」「 · 3」.
+ */
+export function draftCardLabels(
+  entries: { id: string; occurred_on: string; text: string }[],
+  today: Date,
+): Map<string, string> {
+  const labels = new Map<string, string>();
+  const used = new Map<string, number>();
+  for (const e of entries) {
+    const flat = e.text.replace(/\s+/g, " ").trim();
+    const opening = flat.length > LABEL_CHARS ? `${flat.slice(0, LABEL_CHARS)}…` : flat;
+    const base = `草稿 · ${formatPartialDate(e.occurred_on, today)} · ${opening}`;
+    const n = (used.get(base) ?? 0) + 1;
+    used.set(base, n);
+    labels.set(e.id, n === 1 ? base : `${base} · ${n}`);
+  }
+  return labels;
+}
+
+/**
+ * 「学到别名」 on a confirmed draft card: exactly the aliases the server recorded for this
+ * Entry's confirmation (AC-13). An alias learned by an earlier Entry is not repeated.
+ */
+export function learnedAliases(
+  detail: Pick<S["EntryDetailOut"], "learned_aliases"> | undefined,
+): { alias: string; name: string }[] {
+  return (detail?.learned_aliases ?? []).map((a) => ({ alias: a.alias, name: a.name }));
 }
 
 // --- 出处 --------------------------------------------------------------------------

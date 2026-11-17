@@ -6,7 +6,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   draftCardOf,
   personId,
@@ -53,6 +53,10 @@ const primaryCount = (page: Page, scope = "body") =>
       }).length,
     scope,
   );
+
+/** Waits for an element's running animations (e.g. a panel's slide-in) to finish. */
+const settled = (el: Locator) =>
+  el.evaluate((e) => Promise.all(e.getAnimations().map((a) => a.finished)).then(() => true));
 
 async function axe(page: Page) {
   await page.addScriptTag({ path: resolve(ROOT, "node_modules/axe-core/axe.min.js") });
@@ -165,6 +169,7 @@ test("AC-UI walkthrough", async ({ page }) => {
   await page.keyboard.press("Enter");
   const sheet = page.getByRole("dialog", { name: "确认草稿" });
   await expect(sheet).toBeVisible();
+  await settled(sheet);
   for (let i = 0; i < 12; i++) await page.keyboard.press("Tab");
   results["AC-UI-9 focus trapped in sheet"] = await sheet.evaluate((el) =>
     el.contains(document.activeElement),
@@ -337,10 +342,14 @@ test("AC-UI walkthrough", async ({ page }) => {
       ),
     };
     await snap(page, `${width}-chat`);
+    if (width !== 1680) results[`AC-UI-9 axe chat (${width})`] = await axe(page);
     const card2 = page.locator("[data-draft-card=pending]").first();
     if (await card2.count()) {
-      await card2.getByRole("button", { name: "查看并确认" }).click();
+      const trigger = card2.getByRole("button", { name: "查看并确认" });
+      await trigger.click();
       const s = page.getByRole("dialog", { name: "确认草稿" });
+      await expect(s).toBeVisible();
+      await settled(s);
       results[`AC-UI-1 ${width} draft in right panel`] = await s.evaluate((el) => {
         const r = el.getBoundingClientRect();
         return {
@@ -349,8 +358,36 @@ test("AC-UI walkthrough", async ({ page }) => {
           height: Math.round(r.height),
         };
       });
+      // Desktop (D1): a non-modal column beside the chat; tablet keeps the modal panel.
+      const panel = {
+        mask: await page.locator("[data-drawer-mask]").count(),
+        focusInPanel: await s.evaluate((el) => el.contains(document.activeElement)),
+        chatInteractive: false,
+        focusBack: false,
+      };
+      if (width >= 1200) {
+        const box = page.getByRole("textbox", { name: "记录内容" });
+        await box.click();
+        await box.fill("面板开着也能写");
+        panel.chatInteractive =
+          (await box.inputValue()) === "面板开着也能写" && (await s.isVisible());
+        await box.fill("");
+        await s.getByRole("button", { name: "关闭" }).focus();
+      }
       await snap(page, `${width}-draft-panel`);
+      if (width === 1440) results["AC-UI-9 axe chat with draft panel (1440)"] = await axe(page);
       await page.keyboard.press("Escape");
+      await expect(s).toBeHidden();
+      panel.focusBack = await trigger.evaluate((el) => el === document.activeElement);
+      results[`AC-UI-1 ${width} panel behaviour`] = panel;
+      if (width >= 1200) {
+        expect.soft(panel).toEqual({
+          mask: 0,
+          focusInPanel: true,
+          chatInteractive: true,
+          focusBack: true,
+        });
+      }
     }
     await page.goto(`/people/${laozhang}`);
     await page.waitForLoadState("networkidle");
