@@ -1,9 +1,14 @@
-/* Stories assert on settled state: collapse animations so play() never races one. */
-*,
-*::before,
-*::after {
+/*
+ * Stories assert on settled state: collapse animations so play() never races one.
+ * A story that asserts on motion itself opts out with `parameters: { motion: true }`
+ * (preview.tsx sets <html data-motion="on"> for it).
+ */
+:root:not([data-motion="on"]) *,
+:root:not([data-motion="on"]) *::before,
+:root:not([data-motion="on"]) *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
+  animation-delay: 0ms !important;
   transition-duration: 0.01ms !important;
   transition-delay: 0ms !important;
 }

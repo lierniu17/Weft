@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Timeline } from "./Timeline.tsx";
 
 const meta = {
@@ -36,19 +36,23 @@ export const ThreeStates: Story = {
     await expect(within(list).getAllByRole("listitem")).toHaveLength(3);
 
     await expect(getComputedStyle(dot(item(canvasElement, "current"))).backgroundColor).toBe(
-      rgb("#4F46E5"),
+      token("primary-6"),
     );
 
     const invalid = item(canvasElement, "invalidated");
-    await expect(getComputedStyle(dot(invalid)).backgroundColor).toBe(rgb("#9AA3B2"));
+    await expect(getComputedStyle(dot(invalid)).backgroundColor).toBe(
+      token("neutral-text-disabled"),
+    );
     const struck = within(invalid).getByText("在字节跳动工作");
     await expect(getComputedStyle(struck).textDecorationLine).toBe("line-through");
-    await expect(getComputedStyle(struck).color).toBe(rgb("#5B6475"));
+    await expect(getComputedStyle(struck).color).toBe(token("neutral-text-secondary"));
     // Not colour alone: the state is written out.
     await expect(invalid).toHaveTextContent("已失效");
 
     const unverified = item(canvasElement, "unverified");
-    await expect(getComputedStyle(dot(unverified)).backgroundColor).toBe(rgb("#B45309"));
+    await expect(getComputedStyle(dot(unverified)).backgroundColor).toBe(
+      token("status-warning-graphic"),
+    );
     await expect(unverified).toHaveTextContent("待核实");
   },
 };

@@ -51,7 +51,7 @@ export function SegmentedControl({
       {...aria}
       aria-disabled={disabled || undefined}
       className={cx(
-        "inline-flex items-stretch rounded-full bg-neutral-bg-layout p-xs",
+        "inline-flex shrink-0 items-stretch whitespace-nowrap rounded-full bg-neutral-bg-muted p-xs",
         size === "sm" ? "h-[28px]" : "h-[32px]",
         className,
       )}
@@ -76,8 +76,8 @@ export function SegmentedControl({
               "motion-colors focus-ring flex cursor-pointer items-center rounded-full px-md",
               size === "sm" ? "text-caption" : "text-body-sm",
               checked
-                ? "bg-neutral-bg-container font-semibold text-primary-6 shadow-card"
-                : "text-neutral-text-secondary",
+                ? "bg-neutral-bg-container font-semibold text-neutral-text-primary shadow-sm"
+                : "text-neutral-text-secondary hover:text-neutral-text-primary",
               "disabled:cursor-not-allowed disabled:text-neutral-text-disabled",
             )}
           >

@@ -8,6 +8,7 @@ import { Tooltip } from "../../basics/Tooltip/Tooltip.tsx";
 export type NavBarVariant = "root" | "pushed";
 
 export type NavBarProps = {
+  /** "" when the page carries its own h1 (the person page's name): no heading here. */
   title: string;
   subtitle?: ReactNode;
   /** root: no left button; pushed: IconButton.plain 「返回」. */
@@ -18,7 +19,10 @@ export type NavBarProps = {
   className?: string;
 };
 
-/** Mobile top bar, 48px: title + optional subtitle, back on pushed screens, actions on the right. */
+/**
+ * Mobile top bar, 52px, on the white page with no rule under it (structure is felt, not
+ * drawn): title + optional subtitle, back on pushed screens, actions on the right.
+ */
 export function NavBar({
   title,
   subtitle,
@@ -40,7 +44,7 @@ export function NavBar({
   return (
     <header
       className={cx(
-        "flex h-[48px] shrink-0 items-center gap-sm border-b border-neutral-divider bg-neutral-bg-container px-md",
+        "flex h-[52px] shrink-0 items-center gap-sm bg-neutral-bg-layout px-md",
         variant === "pushed" && "pl-xs",
         className,
       )}
@@ -49,10 +53,8 @@ export function NavBar({
         <IconButton aria-label="返回" icon={<FiChevronLeft />} size="md" onClick={onBack} />
       )}
       <div className="flex min-w-[0] flex-1 flex-col justify-center">
-        {truncated ? <Tooltip content={title}>{heading}</Tooltip> : heading}
-        {subtitle && (
-          <p className="truncate text-caption text-neutral-text-secondary">{subtitle}</p>
-        )}
+        {!title ? null : truncated ? <Tooltip content={title}>{heading}</Tooltip> : heading}
+        {subtitle && <p className="truncate text-caption text-neutral-text-tertiary">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-xs">{actions}</div>}
     </header>

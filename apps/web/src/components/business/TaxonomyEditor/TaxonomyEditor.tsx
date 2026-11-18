@@ -93,7 +93,7 @@ function Group({
           <span key={s.name}>
             {i > 0 && " · "}
             {s.name}
-            {s.custom && <span className="text-secondary-7">（自定义）</span>}
+            {s.custom && <span className="text-neutral-text-tertiary">（自定义）</span>}
           </span>
         ))}
       </p>

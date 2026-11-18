@@ -40,7 +40,7 @@ test("BOT-7 删除人物", { tag: "@llm" }, async ({ page }) => {
 
   // 6. 尝试在本人的人物页找到删除操作。
   await page.goto(`/people/${me.self_person_id}`);
-  await expect(page.getByRole("heading", { name: "小明", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "小明", level: 1 })).toBeVisible();
   await expect(page.getByRole("button", { name: "更多操作" })).toHaveCount(0);
   await expect(page.getByText("删除人物")).toHaveCount(0);
 });

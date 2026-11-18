@@ -49,7 +49,7 @@ test("BOT-9 局部图、点击跳转、全景图筛选、375px 无横向滚动",
     .getByRole("button", { name: "查看人物页" })
     .click();
   await expect(page).toHaveURL(new RegExp(`/people/${xiaoli}$`));
-  await expect(page.getByRole("heading", { name: "李明", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "李明", level: 1 })).toBeVisible();
   await expectNoHorizontalScroll(page);
 
   // 3. 打开全景图，筛选关系大类“社会”、亲密度“亲近及以上”。

@@ -15,6 +15,7 @@
 import { EdgeProgram, NodeProgram, type ProgramInfo } from "sigma/rendering";
 import type { EdgeDisplayData, NodeDisplayData, RenderParams } from "sigma/types";
 import { floatColor } from "sigma/utils";
+import { tokens } from "../../../tokens.gen.ts";
 
 const { UNSIGNED_BYTE, FLOAT } = WebGLRenderingContext;
 
@@ -165,7 +166,7 @@ export class GraphNodeProgram extends NodeProgram<(typeof NODE_UNIFORMS)[number]
     a[i++] = d.x;
     a[i++] = d.y;
     a[i++] = d.size;
-    a[i++] = floatColor(d.fillColor ?? "#ffffff");
+    a[i++] = floatColor(d.fillColor ?? tokens.color["neutral-bg-container"]);
     a[i++] = floatColor(d.color);
     a[i++] = d.strokeWidth ?? 2;
     a[i++] = d.glow ?? 0;

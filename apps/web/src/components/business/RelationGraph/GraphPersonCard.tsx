@@ -50,7 +50,7 @@ export function GraphPersonCard({
       aria-label={`${summary.name}的卡片`}
       data-graph-card={summary.id}
       className={cx(
-        "flex flex-col gap-sm rounded-md border p-md shadow-card",
+        "flex flex-col gap-sm rounded-md border p-md shadow-md",
         dark
           ? "border-graph-dark-panel-border bg-graph-dark-panel text-graph-dark-text"
           : "border-neutral-divider bg-neutral-bg-container text-neutral-text-primary",

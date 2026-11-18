@@ -70,13 +70,15 @@ const PREDICATE: Record<string, string> = {
   EXPERIENCED: "经历",
   HAS_ETIQUETTE: "相处之道",
   OPINION: "评价",
+  RELATED_EVENT: "两人之间的事",
 };
 
 export const categoryLabel = (c: Category) => CATEGORY[c];
 export const relationshipStatusLabel = (s: RelationshipStatus) => STATUS[s];
 export const feelingDimensionLabel = (d: FeelingDimension) => DIMENSION[d];
 export const profileFieldLabel = (f: ProfileField) => PROFILE_FIELD[f];
-export const predicateLabel = (p: string) => PREDICATE[p] ?? p;
+/** Never the internal name (style refresh AC-9): an unknown predicate is 「信息」. */
+export const predicateLabel = (p: string) => PREDICATE[p] ?? "信息";
 
 export function feelingLevelLabel(dimension: FeelingDimension, level: string): string {
   const levels: readonly (readonly [string, string])[] = FEELING_LEVELS[dimension];

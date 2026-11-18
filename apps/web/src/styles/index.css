@@ -2,29 +2,56 @@
 /* Generated from DESIGN.md — the only source of tokens. Run `pnpm tokens` after editing it. */
 @import "./tokens.css";
 
-/* Animations are not DESIGN.md tokens; their timings reference the motion tokens. */
+/*
+ * Motion system (DESIGN.md §3, `motion` tokens). Every duration / easing / distance below is
+ * a token variable, so the story tests can compare computed styles against the tokens.
+ * `prefers-reduced-motion: reduce` at the bottom turns all of it into direct switches.
+ */
 @theme {
   --animate-spin: spin 1s linear infinite;
-  /* DESIGN.md Skeleton.animation */
-  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
-  --animate-sheet-in: sheet-in var(--motion-sheet);
-  --animate-sheet-out: sheet-out var(--motion-sheet);
-  --animate-panel-in: panel-in var(--motion-sheet);
-  --animate-panel-out: panel-out var(--motion-sheet);
-  --animate-fade-in: fade-in var(--motion-base);
-  --animate-fade-out: fade-out var(--motion-base);
+  /* Skeleton: soft light / dark cycle. */
+  --animate-skeleton: skeleton var(--motion-skeleton) ease-in-out infinite;
+  /* Page switch: fade + rise in, fade out. */
+  --animate-page-enter: rise-in var(--motion-base) var(--motion-easing-decelerate) both;
+  --animate-page-exit: fade-out var(--motion-exit) var(--motion-easing-accelerate) both;
+  /* Drawer (bottom sheet / right panel): decelerate in, accelerate out. */
+  --animate-sheet-in: sheet-in var(--motion-sheet) var(--motion-easing-decelerate);
+  --animate-sheet-out: sheet-out var(--motion-sheet-exit) var(--motion-easing-accelerate);
+  --animate-panel-in: panel-in var(--motion-sheet) var(--motion-easing-decelerate);
+  --animate-panel-out: panel-out var(--motion-sheet-exit) var(--motion-easing-accelerate);
+  /* Scrim behind drawers and modals. */
+  --animate-scrim-in: fade-in var(--motion-sheet) var(--motion-easing-standard);
+  --animate-scrim-out: fade-out var(--motion-sheet-exit) var(--motion-easing-standard);
+  /* Modal: 0.98 → 1 + fade. */
+  --animate-modal-in: modal-in var(--motion-sheet) var(--motion-easing-decelerate);
+  --animate-modal-out: modal-out var(--motion-sheet-exit) var(--motion-easing-accelerate);
+  /* Small surfaces (tooltip, toast). */
+  --animate-fade-in: fade-in var(--motion-base) var(--motion-easing-decelerate);
+  --animate-fade-out: fade-out var(--motion-exit) var(--motion-easing-accelerate);
+  /* Numbers roll in from below (quota, counts). */
+  --animate-number-roll: number-roll var(--motion-emphasis) var(--motion-easing-decelerate);
+  /* A chip that just appeared pops once (0.9 → 1.04 → 1). */
+  --animate-pop: pop var(--motion-base) var(--motion-easing-decelerate);
+  /* SVG check mark drawn by stroke-dashoffset; the resting state is fully drawn. */
+  --animate-check-draw: check-draw var(--motion-emphasis) var(--motion-easing-decelerate) both;
 
   @keyframes spin {
     to {
       transform: rotate(360deg);
     }
   }
-  @keyframes shimmer {
+  @keyframes skeleton {
     0% {
       background-position: 100% 0;
     }
     100% {
       background-position: -100% 0;
+    }
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(var(--motion-rise));
     }
   }
   @keyframes sheet-in {
@@ -47,6 +74,18 @@
       transform: translateX(100%);
     }
   }
+  @keyframes modal-in {
+    from {
+      opacity: 0;
+      transform: scale(var(--motion-press-scale));
+    }
+  }
+  @keyframes modal-out {
+    to {
+      opacity: 0;
+      transform: scale(var(--motion-press-scale));
+    }
+  }
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -57,22 +96,96 @@
       opacity: 0;
     }
   }
+  @keyframes number-roll {
+    from {
+      opacity: 0;
+      transform: translateY(60%);
+    }
+  }
+  @keyframes pop {
+    0% {
+      transform: scale(0.9);
+    }
+    60% {
+      transform: scale(1.04);
+    }
+  }
+  @keyframes check-draw {
+    from {
+      stroke-dashoffset: var(--check-length, 14);
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
 }
 
-/* Hover/active colour changes transition within motion.base (AC-UI-10). */
+/* Hover / colour changes: motion.fast on the standard curve (AC-15). */
 @utility motion-colors {
-  transition:
-    background-color var(--motion-base),
-    border-color var(--motion-base),
-    color var(--motion-base),
-    box-shadow var(--motion-base);
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing-standard);
 }
 
-/* One focus ring for every interactive basic. */
+/* Press feedback: scale to motion.press-scale for motion.fast (AC-15). */
+@utility motion-press {
+  transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-easing-standard);
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    transform: scale(var(--motion-press-scale));
+  }
+}
+
+/* Page enter (AC-12). Key the element on the route so it re-runs per page. */
+@utility motion-page-enter {
+  animation: var(--animate-page-enter);
+}
+
+/*
+ * List stagger (AC-12): direct children rise in one after another, motion.stagger apart;
+ * from the sixth child on (motion.stagger-max) they all share the sixth's delay.
+ */
+@utility motion-stagger {
+  & > * {
+    animation: var(--animate-page-enter);
+  }
+  & > :nth-child(2) {
+    animation-delay: calc(var(--motion-stagger) * 1);
+  }
+  & > :nth-child(3) {
+    animation-delay: calc(var(--motion-stagger) * 2);
+  }
+  & > :nth-child(4) {
+    animation-delay: calc(var(--motion-stagger) * 3);
+  }
+  & > :nth-child(5) {
+    animation-delay: calc(var(--motion-stagger) * 4);
+  }
+  & > :nth-child(n + 6) {
+    animation-delay: calc(var(--motion-stagger) * 5);
+  }
+}
+
+/* Numbers roll in from below (AC-15); re-key the element on every new value. */
+@utility motion-number-roll {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  animation: var(--animate-number-roll);
+}
+
+/*
+ * One focus ring (AC-6): 2px ink + 2px offset, on keyboard focus only. `:focus-visible`
+ * alone still lights up when script moves focus after a click (e.g. a Drawer focusing its
+ * ✕ on open), so the last input modality — set on <html> by lib/inputModality.ts — wins.
+ */
 @utility focus-ring {
   &:focus-visible {
     outline: 2px solid var(--color-primary-6);
     outline-offset: 2px;
+  }
+  :root[data-input-modality="pointer"] &:focus-visible {
+    outline: none;
   }
 }
 
@@ -83,15 +196,25 @@
     background: var(--color-neutral-bg-layout);
     font-size: var(--text-body-md);
     line-height: var(--text-body-md--line-height);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Elements without the utility (links in prose, radix triggers) get the same ring. */
+  :where(:focus-visible) {
+    outline: 2px solid var(--color-primary-6);
+    outline-offset: 2px;
+  }
+  :root[data-input-modality="pointer"] :where(:focus-visible) {
+    outline: none;
   }
 }
 
+/* 「减少动态效果」(AC-16): every transition and animation becomes a direct switch. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
 }

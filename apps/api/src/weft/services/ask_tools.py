@@ -28,7 +28,7 @@ from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
 from weft.domain.draft import FEELING_DIMENSION_LABELS, FEELING_LEVEL_LABELS
 from weft.domain.feelings import DIMENSIONS, by_direction
-from weft.domain.graph_write import PREDICATE_LABELS
+from weft.domain.graph_write import FACT_LABELS
 from weft.domain.taxonomy import Category
 from weft.domain.tenancy import FORBIDDEN_TENANT_KWARGS
 from weft.infra import Infra
@@ -47,8 +47,6 @@ from weft.services._uow import graph
 FINAL_ANSWER = "final_answer"
 EXCERPT_FOR_MODEL = 160
 IDENTITY_LABELS = {"gender": "性别", "birthday": "生日", "hometown": "籍贯"}
-# The extraction prompt's predicate labels, plus events between two persons.
-FACT_LABELS = {**PREDICATE_LABELS, "RELATED_EVENT": "两人之间的事"}
 CATEGORY_LABELS = {c.value: c.label for c in Category}
 Predicate = Literal[
     "WORKS_AT", "STUDIED_AT", "LIVES_IN", "HAS_TRAIT", "LIKES", "DISLIKES", "EXPERIENCED",

@@ -12,14 +12,15 @@ export type CardProps = HTMLAttributes<HTMLElement> & {
 };
 
 /**
- * Content container: bg-container, rounded.md, padding spacing.md.
- * plain = no border; outlined = divider border + card shadow (final.html .card);
- * highlighted = primary-6 border (e.g. the draft being reviewed in the side panel).
+ * Content container, only where DESIGN.md allows one (a draft card, a floating person card):
+ * answers and lists are never boxed. bg-container, rounded.md, padding spacing.md, no shadow.
+ * plain = no border; outlined = a thin divider border; highlighted = ink border (the draft
+ * being reviewed in the side panel — a selected state).
  */
 const VARIANTS: Record<CardVariant, string> = {
   plain: "border-transparent",
-  outlined: "border-neutral-divider shadow-card",
-  highlighted: "border-primary-6 shadow-card",
+  outlined: "border-neutral-divider",
+  highlighted: "border-primary-6",
 };
 
 export function Card({

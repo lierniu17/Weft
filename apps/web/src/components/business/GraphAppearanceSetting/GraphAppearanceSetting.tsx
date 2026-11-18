@@ -11,11 +11,11 @@ export type GraphAppearanceSettingProps = {
 };
 
 const OPTIONS = [
-  { value: "light", label: "清蓝" },
+  { value: "light", label: "浅色" },
   { value: "starfield", label: "星空" },
 ];
 
-/** 我的 → 图谱外观 (graph-viz AC-18): 清蓝 / 星空, saved to the account. */
+/** 我的 → 图谱外观 (graph-viz AC-18, style refresh AC-11): 浅色 / 星空, saved to the account. */
 export function GraphAppearanceSetting({
   value,
   onChange,
@@ -29,7 +29,7 @@ export function GraphAppearanceSetting({
     >
       <div className="flex min-w-[0] flex-col">
         <span className="text-body-md text-neutral-text-primary">图谱外观</span>
-        <span id={hint} className="text-caption text-neutral-text-secondary">
+        <span id={hint} className="text-meta text-neutral-text-tertiary">
           只改变关系图，换设备登录后仍保持
         </span>
       </div>

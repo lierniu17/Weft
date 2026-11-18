@@ -27,14 +27,20 @@ export function CurrentPersonPanel({ entryId }: { entryId: string | undefined })
       </div>
     );
   }
-  if (!profile.data) return <PersonHeader name="" loading />;
+  if (!profile.data) return <PersonHeader name="" loading className="p-md" />;
 
   const p = profile.data;
   const view = profileView(p);
   return (
     <div className="flex flex-col">
       <SectionHeader title="当前人物" className="px-md pt-md" />
-      <PersonHeader name={p.person.name} aliases={p.person.aliases} isSelf={p.person.is_self} />
+      <PersonHeader
+        name={p.person.name}
+        aliases={p.person.aliases}
+        isSelf={p.person.is_self}
+        headingLevel={2}
+        className="px-md pt-sm"
+      />
       <div className="flex flex-col gap-md p-md">
         <ProfileSection
           variant="summary"

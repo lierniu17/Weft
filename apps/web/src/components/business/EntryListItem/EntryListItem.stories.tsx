@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { EntryListItem } from "./EntryListItem.tsx";
 
 const today = new Date(2026, 10, 16);
@@ -37,7 +37,9 @@ export const Confirmed: Story = {
     const row = canvas.getByRole("button", { name: /今天和老张/ });
     await expect(row).toHaveTextContent("今天 · 3 条信息");
     await expect(status(canvasElement)).toHaveTextContent("已确认");
-    await expect(getComputedStyle(status(canvasElement)).color).toBe(rgb("#5B6475"));
+    await expect(getComputedStyle(status(canvasElement)).color).toBe(
+      token("neutral-text-secondary"),
+    );
     await userEvent.click(row);
     await expect(args.onClick).toHaveBeenCalled();
   },
@@ -54,7 +56,7 @@ export const Pending: Story = {
   play: async ({ canvasElement }) => {
     const s = status(canvasElement);
     await expect(s).toHaveTextContent("待确认");
-    await expect(getComputedStyle(s).color).toBe(rgb("#C81E1E"));
+    await expect(getComputedStyle(s).color).toBe(token("status-error-6"));
     await expect(within(canvasElement).getByRole("img", { name: "有待确认的草稿" })).toBeVisible();
     await expect(within(canvasElement).getByRole("button")).toHaveTextContent("11-08");
   },
@@ -70,7 +72,9 @@ export const Discarded: Story = {
   },
   play: async ({ canvasElement }) => {
     await expect(status(canvasElement)).toHaveTextContent("已放弃");
-    await expect(getComputedStyle(status(canvasElement)).color).toBe(rgb("#5B6475"));
+    await expect(getComputedStyle(status(canvasElement)).color).toBe(
+      token("neutral-text-secondary"),
+    );
     await expect(within(canvasElement).queryByRole("img")).toBeNull();
   },
 };
@@ -79,7 +83,7 @@ export const Failed: Story = {
   args: { status: "failed", itemCount: undefined },
   play: async ({ canvasElement }) => {
     await expect(status(canvasElement)).toHaveTextContent("整理失败");
-    await expect(getComputedStyle(status(canvasElement)).color).toBe(rgb("#C81E1E"));
+    await expect(getComputedStyle(status(canvasElement)).color).toBe(token("status-error-6"));
   },
 };
 

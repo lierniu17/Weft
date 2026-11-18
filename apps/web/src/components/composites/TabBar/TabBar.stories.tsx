@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { FiMessageSquare, FiUser, FiUsers } from "react-icons/fi";
 import { expect, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { type NavItem, TabBar } from "./TabBar.tsx";
 
 const ITEMS: NavItem[] = [
@@ -30,7 +30,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** AC-UI-1: tabs 对话 / 人物 / 我的; the active one is primary and aria-current. */
+/** Tabs 对话 / 人物 / 我的; the active one is ink (AC-1) and aria-current. */
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const nav = within(canvasElement).getByRole("navigation", { name: "主导航" });
@@ -38,8 +38,8 @@ export const Default: Story = {
     await expect(tabs.map((t) => t.textContent)).toEqual(["对话", "人物", "我的"]);
     await expect(tabs[0].getBoundingClientRect().height).toBe(56);
     await expect(tabs[0]).toHaveAttribute("aria-current", "page");
-    await expect(getComputedStyle(tabs[0]).color).toBe(rgb("#4F46E5"));
-    await expect(getComputedStyle(tabs[1]).color).toBe(rgb("#5B6475"));
+    await expect(getComputedStyle(tabs[0]).color).toBe(token("primary-6"));
+    await expect(getComputedStyle(tabs[1]).color).toBe(token("neutral-text-tertiary"));
 
     await userEvent.click(tabs[1]);
     await expect(tabs[1]).toHaveAttribute("aria-current", "page");

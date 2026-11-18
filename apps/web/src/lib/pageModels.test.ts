@@ -131,11 +131,19 @@ describe("画像分区 (AC-21, AC-22, AC-23)", () => {
   it("identity fields read as 「生日 · 3 月 5 日」", () => {
     expect(view.identity).toEqual([{ id: "identity:birthday", text: "生日 · 3 月 5 日" }]);
   });
-  it("roles keep history (ended) and 待核实, with their kind", () => {
+  it("roles keep history (ended) and 待核实; a 工作单位 reads without the word 「单位」", () => {
     expect(view.roles.map((r) => [r.text, r.note, r.start, r.end, r.unverified])).toEqual([
-      ["字节跳动", "单位", "2023", "2026-10", false],
-      ["阿里巴巴", "单位", "2026-10", null, false],
-      ["腾讯", "单位", null, null, true],
+      ["字节跳动", null, "2023", "2026-10", false],
+      ["阿里巴巴", null, "2026-10", null, false],
+      ["腾讯", null, null, null, true],
+    ]);
+  });
+  it("a current role names the relation with 本人 it stands for (「… · 同事」)", () => {
+    const withRelations = profileView(profile, ["同事", "朋友"]);
+    expect(withRelations.roles.map((r) => [r.text, r.note])).toEqual([
+      ["字节跳动", null], // ended: he is no 同事 there any more
+      ["阿里巴巴", "同事"],
+      ["腾讯", "同事"],
     ]);
   });
   it("likes and dislikes share one section; an invalidated tag is dropped", () => {

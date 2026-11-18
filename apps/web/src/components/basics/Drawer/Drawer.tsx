@@ -26,21 +26,25 @@ export type DrawerProps = {
    * only when focus is inside the panel (Esc in the page beside it keeps its own meaning).
    */
   modal?: boolean;
-  /** Inline right column width: 360px, or 560px for a graph beside the chat. */
+  /** Inline right column width: 380px, or 560px for a graph beside the chat. */
   width?: "default" | "wide";
   className?: string;
 };
 
-/** In the page flow next to the content it serves (no portal, no mask). */
+/** In the page flow next to the content it serves (no portal, no mask, no shadow). */
 const INLINE =
   "relative h-full max-w-full shrink-0 border-l border-neutral-divider data-[state=open]:animate-panel-in";
-const INLINE_WIDTH = { default: "w-[360px]", wide: "w-[560px]" } as const;
+const INLINE_WIDTH = { default: "w-[380px]", wide: "w-[560px]" } as const;
 
+/**
+ * Floating surfaces carry shadow.lg (DESIGN.md: the third surface). Motion (AC-13): in over
+ * motion.sheet on the decelerate curve, out over motion.sheet-exit on the accelerate curve.
+ */
 const VARIANTS: Record<DrawerVariant, string> = {
   "bottom-sheet":
-    "inset-x-[0] bottom-[0] max-h-[92vh] rounded-t-lg shadow-overlay data-[state=open]:animate-sheet-in data-[state=closed]:animate-sheet-out",
+    "inset-x-[0] bottom-[0] max-h-[88vh] rounded-t-xl shadow-lg data-[state=open]:animate-sheet-in data-[state=closed]:animate-sheet-out",
   "side-panel":
-    "inset-y-[0] right-[0] w-[360px] max-w-full border-l border-neutral-divider data-[state=open]:animate-panel-in data-[state=closed]:animate-panel-out",
+    "inset-y-[0] right-[0] w-[380px] max-w-full border-l border-neutral-divider shadow-lg data-[state=open]:animate-panel-in data-[state=closed]:animate-panel-out",
 };
 
 /**
@@ -99,7 +103,7 @@ export function Drawer({
         <div className="min-w-[0] flex-1">
           <Dialog.Title className="text-h3 text-neutral-text-primary">{title}</Dialog.Title>
           {description && (
-            <Dialog.Description className="text-caption text-neutral-text-secondary">
+            <Dialog.Description className="text-meta text-neutral-text-tertiary">
               {description}
             </Dialog.Description>
           )}
@@ -112,7 +116,7 @@ export function Drawer({
       </header>
       <div className="min-h-[0] flex-1 overflow-y-auto px-md pb-md">{children}</div>
       {footer && (
-        <footer className="flex shrink-0 gap-sm border-t border-neutral-divider px-md py-sm">
+        <footer className="flex shrink-0 gap-sm border-t border-neutral-divider px-md py-md">
           {footer}
         </footer>
       )}
@@ -130,7 +134,7 @@ export function Drawer({
       <Dialog.Portal>
         <Dialog.Overlay
           data-drawer-mask=""
-          className="fixed inset-[0] z-40 bg-mask data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in"
+          className="fixed inset-[0] z-40 bg-mask data-[state=closed]:animate-scrim-out data-[state=open]:animate-scrim-in"
         />
         {panel}
       </Dialog.Portal>

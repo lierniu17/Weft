@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Draft } from "../contracts/draft.ts";
 import { api, enc, type Schemas } from "./client.ts";
 import { invalidateGraph, keys } from "./keys.ts";
+import { expectSummariesForAll } from "./summaryExpectation.ts";
 
 export type Entry = Schemas["EntryOut"];
 export type EntryDetail = Schemas["EntryDetailOut"];
@@ -58,19 +59,25 @@ export function useSubmitEntry() {
   });
 }
 
-function useDraftAction(path: (id: string) => string, method: "post" | "put" = "post") {
+function useDraftAction(
+  path: (id: string) => string,
+  method: "post" | "put" = "post",
+  afterSuccess?: () => void,
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, content }: { id: string; content?: Draft }) =>
       method === "put" ? api.put<DraftOut>(path(id), { content }) : api.post<DraftOut>(path(id)),
     onSuccess: (draft) => {
       qc.setQueryData(keys.draft(draft.id), draft);
+      afterSuccess?.();
       if (method === "post") void invalidateGraph(qc);
     },
   });
 }
 
 export const useUpdateDraft = () => useDraftAction((id) => `/drafts/${enc(id)}`, "put");
-export const useConfirmDraft = () => useDraftAction((id) => `/drafts/${enc(id)}/confirm`);
+export const useConfirmDraft = () =>
+  useDraftAction((id) => `/drafts/${enc(id)}/confirm`, "post", expectSummariesForAll);
 export const useDiscardDraft = () => useDraftAction((id) => `/drafts/${enc(id)}/discard`);
 export const useRetryDraft = () => useDraftAction((id) => `/drafts/${enc(id)}/retry`);

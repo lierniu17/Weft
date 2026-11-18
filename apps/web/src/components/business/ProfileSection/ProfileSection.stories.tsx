@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { type ProfileItem, ProfileSection } from "./ProfileSection.tsx";
 
 const TODAY = new Date(2026, 10, 16);
@@ -15,8 +15,8 @@ const meta = {
     today: TODAY,
     onItemOpen: fn(),
     items: [
-      { id: "r1", text: "腾讯", start: "2026" },
-      { id: "r2", text: "字节跳动", start: "2023", end: "2026-10" },
+      { id: "r1", text: "字节跳动", note: "同事", start: "2018-03" },
+      { id: "r2", text: "腾讯", start: "2015", end: "2018-02" },
       { id: "r3", text: "北京", note: "城市", start: "2018" },
     ],
   },
@@ -34,23 +34,30 @@ type Story = StoryObj<typeof meta>;
 
 const section = (root: HTMLElement, name: string) => within(root).getByRole("region", { name });
 
-/** AC-22 / BOT-4: every role shows its period; ended ones fold into 「历史」. */
+/**
+ * AC-22 / BOT-4: every role shows its period; ended ones fold into 「历史」. Two lines like
+ * 方案 A: the organisation, then 「2018 年 3 月 – 至今 · 同事」 (no 「单位」 kind word).
+ */
 export const Roles: Story = {
   play: async ({ canvasElement, args }) => {
     const s = within(section(canvasElement, "社会角色"));
-    await expect(s.getByRole("button", { name: /腾讯.*2026 年 – 至今/ })).toBeVisible();
-    await expect(s.getByRole("button", { name: /北京.*城市.*2018 年 – 至今/ })).toBeVisible();
+    const bytedance = s.getByRole("button", { name: /字节跳动/ });
+    await expect(bytedance.querySelector("[data-role-title]")).toHaveTextContent(/^字节跳动$/);
+    const sub = bytedance.querySelector("[data-role-sub]") as HTMLElement;
+    await expect(sub).toHaveTextContent(/^2018 年 3 月 – 至今 · 同事$/);
+    await expect(getComputedStyle(sub).display).toBe("block");
+    await expect(getComputedStyle(sub).color).toBe(token("neutral-text-tertiary"));
+    await expect(bytedance).not.toHaveTextContent("单位");
+    await expect(s.getByRole("button", { name: /北京.*2018 年 – 至今 · 城市/ })).toBeVisible();
     // History collapsed by default.
     const toggle = s.getByRole("button", { name: "历史（1）" });
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(s.queryByText(/字节跳动/)).toBeNull();
+    await expect(s.queryByText(/腾讯/)).toBeNull();
     await userEvent.click(toggle);
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await expect(
-      s.getByRole("button", { name: /字节跳动.*2023 年 – 2026 年 10 月/ }),
-    ).toBeVisible();
+    await expect(s.getByRole("button", { name: /腾讯.*2015 年 – 2018 年 2 月/ })).toBeVisible();
     // AC-25: any item opens its citation.
-    await userEvent.click(s.getByRole("button", { name: /腾讯/ }));
+    await userEvent.click(bytedance);
     await expect(args.onItemOpen).toHaveBeenCalledWith("r1");
   },
 };
@@ -66,7 +73,9 @@ export const RolesWithUnverified: Story = {
   play: async ({ canvasElement }) => {
     const row = within(section(canvasElement, "社会角色")).getByRole("button", { name: /腾讯/ });
     await expect(row).toHaveTextContent("待核实");
-    await expect(getComputedStyle(within(row).getByText("待核实")).color).toBe(rgb("#B45309"));
+    await expect(getComputedStyle(within(row).getByText("待核实")).color).toBe(
+      token("status-warning-6"),
+    );
   },
 };
 
@@ -154,7 +163,7 @@ export const NotesEditing: Story = {
   },
 };
 
-/** 我的评价: italic with a secondary-6 left rule, distinct from facts (AC-23). */
+/** 我的评价: italic with a neutral secondary left rule, distinct from facts (AC-23). */
 export const Opinion: Story = {
   args: { variant: "opinion", title: undefined, items: [{ id: "o1", text: "靠谱，可以深交" }] },
   play: async ({ canvasElement }) => {
@@ -162,6 +171,6 @@ export const Opinion: Story = {
     const text = s.getByText("靠谱，可以深交");
     const quote = text.closest("[data-opinion]") as HTMLElement;
     await expect(getComputedStyle(quote).fontStyle).toBe("italic");
-    await expect(getComputedStyle(quote).borderLeftColor).toBe(rgb("#0B7A6E"));
+    await expect(getComputedStyle(quote).borderLeftColor).toBe(token("neutral-text-secondary"));
   },
 };

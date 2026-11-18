@@ -33,12 +33,12 @@ export function MessageBubble({
       <div className="flex w-full justify-end">
         <p
           data-bubble={variant}
-          className="max-w-[78%] whitespace-pre-wrap break-words rounded-lg rounded-br-sm bg-primary-1 px-md py-sm text-body-md text-neutral-text-primary"
+          className="max-w-[78%] whitespace-pre-wrap break-words rounded-bubble bg-neutral-bg-muted px-md py-sm text-body-md text-neutral-text-primary"
         >
           {children}
         </p>
       </div>
-      <p className="text-caption text-neutral-text-secondary">{meta}</p>
+      <p className="text-caption text-neutral-text-tertiary">{meta}</p>
     </div>
   );
 }

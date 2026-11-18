@@ -9,6 +9,7 @@ AC-14 (Q&A part): an outdated fact is still answerable as history. AC-23: 你的
 
 from __future__ import annotations
 
+import re
 from collections.abc import AsyncIterator
 
 import pytest
@@ -71,6 +72,7 @@ async def test_a_profile_question_reads_the_profile_and_cites_every_claim(
     assert {c.entry_id for c in answer.citations} <= set(s.entries)
 
 
+INTERNAL_NAME = re.compile(r"[A-Z]+_[A-Z_]+")
 RELATIONSHIP = "老张和小李是什么关系？"
 
 
@@ -96,6 +98,10 @@ async def test_a_pair_question_reads_the_relationship_and_says_it_is_hearsay(
     pair = answer.citations[0].pair
     assert pair is not None and [p.name for p in pair] == ["张伟", "李明"]
     assert "借钱" in answer.citations[0].entry_excerpt
+    # style refresh AC-9: the event between them is labelled in Chinese for the model, and
+    # no internal name (RELATED_EVENT …) is in what the user reads
+    assert "两人之间的事" in " ".join(llm.tool_outputs)
+    assert not INTERNAL_NAME.search(text_of(answer))
 
 
 HOW_MET = "我是怎么认识小王的？"

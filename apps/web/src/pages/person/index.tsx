@@ -1,6 +1,8 @@
-/** 人物页: PersonHeader, 我和他, local RelationGraph (1 / 2 hops), 画像 and 他的关系. */
+/**
+ * 人物页: PersonHeader (with 「我和他的关系 ›」), 画像, then 他的关系 with the local
+ * RelationGraph (1 / 2 hops) on top — in the right column from 1200px.
+ */
 import { useEffect, useRef, useState } from "react";
-import { FiChevronRight } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router";
 import { useMe } from "../../api/auth.ts";
 import { ApiError, enc } from "../../api/client.ts";
@@ -12,10 +14,17 @@ import {
   useLocalGraph,
   usePair,
   useProfile,
+  useSummaryPending,
 } from "../../api/graph.ts";
 import { useGraphTheme } from "../../api/preferences.ts";
 import { exposeGraph } from "../../app/devHooks.ts";
-import { useLayout, useSidePanel, useToday } from "../../app/layout.ts";
+import {
+  CONTENT_COLUMN,
+  RIGHT_COLUMN,
+  useLayout,
+  useSidePanel,
+  useToday,
+} from "../../app/layout.ts";
 import { Banner } from "../../components/basics/Banner/Banner.tsx";
 import { Button } from "../../components/basics/Button/Button.tsx";
 import { Modal } from "../../components/basics/Modal/Modal.tsx";
@@ -29,6 +38,7 @@ import { ListItem } from "../../components/composites/ListItem/ListItem.tsx";
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
 import { SectionHeader } from "../../components/composites/SectionHeader/SectionHeader.tsx";
 import type { Citation } from "../../contracts/answer.ts";
+import { cx } from "../../lib/cx.ts";
 import { relationshipStatusLabel } from "../../lib/labels.ts";
 import { feelingSummary, knownFor, toCitations } from "../../lib/pageModels.ts";
 import { ProfileBody } from "./ProfileBody.tsx";
@@ -43,6 +53,7 @@ export function PersonPage() {
   const selfId = me.data?.self_person_id;
   const profile = useProfile(personId);
   const isSelf = profile.data?.person.is_self ?? personId === selfId;
+  const summaryPending = useSummaryPending(personId);
   const pair = usePair(isSelf ? undefined : selfId, personId);
   const [hops, setHops] = useState<1 | 2>(1);
   const graph = useLocalGraph(personId, hops);
@@ -58,6 +69,8 @@ export function PersonPage() {
   const edit = useEditProfile(personId);
   const del = useDeletePerson();
   const [editing, setEditing] = useState(false);
+  /** 「还可以补充」 → the field or section to focus when in-place editing opens. */
+  const [focus, setFocus] = useState<string | null>(null);
   const pending = useRef(new Map<string, ProfileEdit>());
   const [deleting, setDeleting] = useState(false);
   const impact = useDeletionImpact(personId, deleting);
@@ -86,9 +99,13 @@ export function PersonPage() {
     pending.current.clear();
     for (const op of ops) await apply(op);
     setEditing(false);
+    setFocus(null);
   };
 
   const rel = pair.data?.relationship;
+  // Phones: 编辑 moves to the NavBar so the header's relation line has the full width.
+  const phone = layout === "mobile";
+  const startEditing = editing ? undefined : () => setEditing(true);
   const neighbours = (graph.data?.edges ?? []).flatMap((e) => {
     const other = e.source === personId ? e.target : e.target === personId ? e.source : null;
     const node = graph.data?.nodes.find((n) => n.id === other);
@@ -104,12 +121,21 @@ export function PersonPage() {
       relationTypes={rel?.types}
       status={rel?.status ?? undefined}
       feelingSummary={feelingSummary(pair.data?.a_to_b)}
-      onEdit={editing ? undefined : () => setEditing(true)}
+      onEdit={phone ? undefined : startEditing}
+      onOpenRelationship={
+        p.person.is_self || !selfId
+          ? undefined
+          : () => navigate(`/people/${enc(selfId)}/relationships/${enc(personId)}`)
+      }
       onDelete={p.person.is_self ? undefined : () => setDeleting(true)}
+      className="pt-sm"
     />
   ) : (
-    <PersonHeader name="" loading />
+    <PersonHeader name="" loading className="pt-sm" />
   );
+
+  // Desktop: the graph and his relations in the 380px right column, unless 出处 is open there.
+  const sideColumn = layout === "desktop" && citations === null;
 
   const relationGraph = graph.data ? (
     <RelationGraph
@@ -129,13 +155,15 @@ export function PersonPage() {
     <Skeleton variant="card" height="200px" />
   );
 
-  const relations = (
-    <section aria-label={isSelf ? "我的关系" : "他的关系"} className="flex flex-col">
-      <SectionHeader title={isSelf ? "我的关系" : "他的关系"} count={neighbours.length} level={3} />
-      {neighbours.length === 0 ? (
-        <p className="py-sm text-body-sm text-neutral-text-secondary">还没有记录</p>
-      ) : (
-        <ul className="-mx-md">
+  // Empty sections take no room (style refresh AC-5 / AC-9): no 「还没有记录」 here either.
+  // Below 1200px the graph opens 他的关系, after the 画像 (the profile comes first on phones).
+  const relationsTitle = isSelf ? "我的关系" : "他的关系";
+  const relations = (neighbours.length > 0 || !sideColumn) && (
+    <section aria-label={relationsTitle} className="flex flex-col gap-sm">
+      {neighbours.length > 0 && <SectionHeader title={relationsTitle} count={neighbours.length} />}
+      {!sideColumn && relationGraph}
+      {neighbours.length > 0 && (
+        <ul className="motion-stagger -mx-md flex flex-col">
           {neighbours.map(({ edge, node }) => (
             <li key={edge.id}>
               <ListItem
@@ -163,7 +191,14 @@ export function PersonPage() {
       profile={p}
       today={today}
       editing={editing}
+      focus={focus}
+      onPick={(key) => {
+        setFocus(key);
+        setEditing(true);
+      }}
       pending={pending.current}
+      relations={rel?.types.map((t) => t.subtype)}
+      summaryPending={summaryPending}
       onEdit={(op) => void apply(op)}
       onOpenSources={(id) => {
         const sources = toCitations(
@@ -186,7 +221,8 @@ export function PersonPage() {
     <div className="flex min-h-[0] flex-1">
       <div className="flex min-w-[0] flex-1 flex-col">
         <NavBar
-          title={p?.person.name ?? "人物"}
+          // the name is the page's h1 in PersonHeader
+          title={p ? "" : "人物"}
           subtitle={editing ? "编辑中" : undefined}
           variant="pushed"
           onBack={back}
@@ -195,51 +231,37 @@ export function PersonPage() {
               <Button variant="ghost" size="sm" loading={edit.isPending} onClick={finishEditing}>
                 完成
               </Button>
+            ) : phone && p ? (
+              <Button variant="ghost" size="sm" onClick={startEditing}>
+                编辑
+              </Button>
             ) : undefined
           }
         />
-        <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-container">
-          {profile.isError && !notFound && (
-            <Banner variant="error" className="m-md">
-              人物加载失败
-            </Banner>
-          )}
-          {header}
-          {!isSelf && p && (
-            <ListItem
-              variant="navigational"
-              title={
-                rel ? `我和他：${rel.types.map((t) => t.subtype).join(" · ") || "关系"}` : "我和他"
-              }
-              subtitle={feelingSummary(pair.data?.a_to_b) ?? (rel ? undefined : "还没有记录")}
-              onClick={() =>
-                selfId && navigate(`/people/${enc(selfId)}/relationships/${enc(personId)}`)
-              }
-              trailing={
-                <span className="flex items-center">
-                  关系
-                  <FiChevronRight aria-hidden="true" />
-                </span>
-              }
-            />
-          )}
-          {layout === "desktop" ? (
-            <div className="flex gap-lg p-md">
-              <div className="min-w-[0] flex-1">{body}</div>
-              <div className="flex w-[360px] shrink-0 flex-col gap-lg">
-                {relationGraph}
-                {relations}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-lg p-md">
-              {relationGraph}
-              {body}
-              {relations}
-            </div>
-          )}
+        <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-layout">
+          <div
+            data-page-content=""
+            className={cx(CONTENT_COLUMN, "motion-stagger flex flex-col gap-lg pt-xs pb-xl")}
+          >
+            {profile.isError && !notFound && <Banner variant="error">人物加载失败</Banner>}
+            {header}
+            {body}
+            {!sideColumn && relations}
+          </div>
         </div>
       </div>
+      {sideColumn && (
+        <aside
+          aria-label="关系图"
+          className={cx(
+            RIGHT_COLUMN,
+            "flex flex-col gap-lg overflow-y-auto border-l border-neutral-divider p-md",
+          )}
+        >
+          {relationGraph}
+          {relations}
+        </aside>
+      )}
       <CitationSheet
         open={citations !== null}
         onOpenChange={(open) => !open && setCitations(null)}

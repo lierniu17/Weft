@@ -155,7 +155,7 @@ export function PanoramaBody({
         <div
           role="status"
           data-graph-answer=""
-          className="flex items-start gap-sm rounded-md border border-neutral-divider bg-neutral-bg-container p-sm"
+          className="flex items-start gap-sm rounded-md bg-neutral-bg-subtle p-sm"
         >
           <p className="min-w-[0] flex-1 text-body-sm text-neutral-text-primary">
             {answerText(answer)}
@@ -188,7 +188,7 @@ export function PanoramaBody({
           value={view}
           onValueChange={(v) => setView(v === "list" ? "list" : "graph")}
         />
-        {graph.isError && <span className="text-caption text-status-error-6">全景图加载失败</span>}
+        {graph.isError && <span className="text-meta text-status-error-6">全景图加载失败</span>}
       </div>
       {data ? (
         view === "graph" ? (

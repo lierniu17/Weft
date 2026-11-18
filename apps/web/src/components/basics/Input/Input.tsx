@@ -24,7 +24,7 @@ export function Input({ variant = "default", error, disabled, className, ...rest
         {variant === "search" && (
           <FiSearch
             aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-sm -translate-y-1/2 text-neutral-text-secondary"
+            className="pointer-events-none absolute top-1/2 left-md -translate-y-1/2 text-neutral-text-tertiary"
           />
         )}
         <input
@@ -33,12 +33,12 @@ export function Input({ variant = "default", error, disabled, className, ...rest
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? helperId : undefined}
           className={cx(
-            "motion-colors h-[40px] w-full rounded-sm border px-sm text-body-md text-neutral-text-primary outline-none",
-            "placeholder:text-neutral-text-disabled focus:border-primary-6",
-            "disabled:cursor-not-allowed disabled:bg-neutral-bg-layout disabled:text-neutral-text-disabled",
+            "motion-colors h-[40px] w-full border px-md text-body-md text-neutral-text-primary outline-none",
+            "placeholder:text-neutral-text-disabled focus:border-neutral-text-tertiary",
+            "disabled:cursor-not-allowed disabled:bg-neutral-bg-subtle disabled:text-neutral-text-disabled",
             variant === "search"
-              ? "border-transparent bg-neutral-bg-layout pl-xl"
-              : "bg-neutral-bg-container",
+              ? "rounded-full border-transparent bg-neutral-bg-muted pl-xl"
+              : "rounded-md bg-neutral-bg-container",
             variant !== "search" && !error && "border-neutral-border",
             error && "border-status-error-6",
             variant === "password" && "pr-xxl",

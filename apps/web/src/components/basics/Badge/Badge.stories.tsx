@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Badge } from "./Badge.tsx";
 
 const meta = {
@@ -18,7 +18,7 @@ export const Dot: Story = {
     const dot = within(canvasElement).getByRole("img", { name: "有待确认的草稿" });
     const box = dot.getBoundingClientRect();
     await expect(box.width).toBe(8);
-    await expect(getComputedStyle(dot).backgroundColor).toBe(rgb("#C81E1E"));
+    await expect(getComputedStyle(dot).backgroundColor).toBe(token("status-error-graphic"));
   },
 };
 
@@ -28,7 +28,7 @@ export const Count: Story = {
     const badge = within(canvasElement).getByRole("status");
     await expect(badge).toHaveTextContent("3");
     await expect(within(badge).getByText("3 条待确认")).toBeInTheDocument();
-    await expect(getComputedStyle(badge).color).toBe(rgb("#FFFFFF"));
+    await expect(getComputedStyle(badge).color).toBe(token("on-primary"));
     await expect(badge.getBoundingClientRect().width).toBeGreaterThanOrEqual(16);
   },
 };

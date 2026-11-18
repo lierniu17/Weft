@@ -5,7 +5,13 @@ import { ApiError, enc } from "../../api/client.ts";
 import { useEntries, useSubmitEntry } from "../../api/entries.ts";
 import { useAsk, useUsage } from "../../api/graph.ts";
 import { useChatSession } from "../../app/chatSession.tsx";
-import { useLayout, useSheetVariant, useToday } from "../../app/layout.ts";
+import {
+  CONTENT_COLUMN,
+  RIGHT_COLUMN,
+  useLayout,
+  useSheetVariant,
+  useToday,
+} from "../../app/layout.ts";
 import { Button } from "../../components/basics/Button/Button.tsx";
 import { Drawer } from "../../components/basics/Drawer/Drawer.tsx";
 import { Skeleton } from "../../components/basics/Skeleton/Skeleton.tsx";
@@ -18,10 +24,10 @@ import {
 } from "../../components/business/ChatComposer/ChatComposer.tsx";
 import { CitationSheet } from "../../components/business/CitationSheet/CitationSheet.tsx";
 import { MessageBubble } from "../../components/business/MessageBubble/MessageBubble.tsx";
-import { Card } from "../../components/composites/Card/Card.tsx";
 import { EmptyState } from "../../components/composites/EmptyState/EmptyState.tsx";
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
 import type { Answer, Citation } from "../../contracts/answer.ts";
+import { cx } from "../../lib/cx.ts";
 import { type OccurredOn, todayOccurredOn } from "../../lib/datePrecision.ts";
 import { draftCardLabels, quotaMessages, toPartialDate } from "../../lib/pageModels.ts";
 import { PanoramaBody } from "../panorama/PanoramaView.tsx";
@@ -186,7 +192,7 @@ export function ChatPage() {
               role="status"
               aria-busy="true"
               aria-label="正在加载对话"
-              className="flex flex-col gap-md p-md"
+              className={cx(CONTENT_COLUMN, "flex flex-col gap-md py-md")}
             >
               <Skeleton variant="card" />
               <Skeleton variant="card" />
@@ -201,7 +207,11 @@ export function ChatPage() {
               }}
             />
           ) : (
-            <ol aria-label="对话" className="flex flex-col gap-md px-md py-md">
+            <ol
+              aria-label="对话"
+              data-page-content=""
+              className={cx(CONTENT_COLUMN, "motion-stagger flex flex-col gap-lg py-md")}
+            >
               {history.map((e) => (
                 <EntryThread
                   key={e.id}
@@ -245,20 +255,21 @@ export function ChatPage() {
                         {...answerHandlers}
                       />
                     ) : item.error ? (
-                      <Card className="max-w-[88%] text-body-sm text-status-error-6" role="alert">
+                      <p className="py-xs text-body-md text-status-error-6" role="alert">
                         {item.error}
-                      </Card>
+                      </p>
                     ) : (
-                      <Card
+                      // answers are never boxed (AC-4): the wait is set on the page too
+                      <div
                         role="status"
                         aria-busy="true"
                         aria-label="正在查找"
-                        className="flex max-w-[88%] flex-col gap-sm"
+                        className="flex flex-col gap-sm py-xs"
                       >
                         <p className="text-body-md text-neutral-text-secondary">正在图谱里查找…</p>
                         <Skeleton width="80%" />
                         <Skeleton width="60%" />
-                      </Card>
+                      </div>
                     )}
                   </li>
                 );
@@ -268,6 +279,7 @@ export function ChatPage() {
           <div ref={bottom} />
         </div>
         <ChatComposer
+          className="mx-auto w-full max-w-[720px]"
           mode={mode}
           onModeChange={setMode}
           value={text}
@@ -302,7 +314,10 @@ export function ChatPage() {
       {inline && !reviewing && citations === null && !graphPanel && (
         <aside
           aria-label="右栏"
-          className="flex w-[360px] shrink-0 flex-col overflow-y-auto border-l border-neutral-divider bg-neutral-bg-container"
+          className={cx(
+            RIGHT_COLUMN,
+            "flex flex-col overflow-y-auto border-l border-neutral-divider bg-neutral-bg-container",
+          )}
         >
           <CurrentPersonPanel entryId={latestConfirmed?.id} />
         </aside>

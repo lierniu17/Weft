@@ -65,7 +65,7 @@ export function GraphTimeline({
         <Slider.Thumb
           aria-label="时间"
           aria-valuetext={label}
-          className="focus-ring block size-[16px] cursor-pointer rounded-full border-2 border-primary-6 bg-neutral-bg-container shadow-card"
+          className="focus-ring block size-[16px] cursor-pointer rounded-full border-2 border-primary-6 bg-neutral-bg-container shadow-sm"
         />
       </Slider.Root>
       <output
