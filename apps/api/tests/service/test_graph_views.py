@@ -53,7 +53,7 @@ async def test_at_2013_only_persons_met_by_then_are_shown(infra: Infra) -> None:
     assert view.at == PartialDate(2013)
     assert "张伟" in names(await panorama(infra, s, "2018-03"))
     assert "张伟" not in names(await panorama(infra, s, "2018-02"))
-    assert len((await panorama(infra, s)).nodes) == 30
+    assert len((await panorama(infra, s)).nodes) == 31
 
 
 async def test_met_date_falls_back_to_the_first_entry_mentioning_the_person(

@@ -41,3 +41,52 @@
 {"id": "none-08", "kind": "no_answer", "question": "孙悦是哪里人？", "gold": {"no_answer": true}}
 {"id": "none-09", "kind": "no_answer", "question": "赵磊结婚了吗？", "gold": {"no_answer": true}}
 {"id": "none-10", "kind": "no_answer", "question": "我是怎么认识马云的？", "gold": {"no_answer": true}}
+{"id": "confirm-01", "kind": "confirm", "split": "dev", "question": "老周喜欢什么？", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "confirm-02", "kind": "confirm", "split": "dev", "question": "老周最近怎么样？", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "confirm-03", "kind": "confirm", "split": "dev", "question": "我和老周是怎么认识的？", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "confirm-04", "kind": "confirm", "split": "dev", "question": "老周在哪工作？", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "confirm-05", "kind": "confirm", "split": "dev", "question": "老周住在哪？", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "confirm-06", "kind": "confirm", "split": "dev", "question": "老周是哪里人？", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "confirm-07", "kind": "confirm", "split": "dev", "question": "郭佳那事怎么样了？", "gold": {"clarify": true, "text": ["升职", "买房"]}}
+{"id": "confirm-08", "kind": "confirm", "split": "dev", "question": "小李那件事后来怎么样了？", "gold": {"clarify": true, "text": ["阿里|跳槽", "老张|借钱|闹掰"]}}
+{"id": "confirm-09", "kind": "confirm", "split": "dev", "question": "周建国那件事后来怎么样了？", "gold": {"clarify": true, "text": ["退休", "摔|住院"]}}
+{"id": "single-01", "kind": "confirm", "split": "dev", "question": "周涛最近喜欢什么？", "gold": {"text": ["钓鱼"]}}
+{"id": "single-02", "kind": "confirm", "split": "dev", "question": "老家的邻居老周喜欢干什么？", "gold": {"text": ["象棋"]}}
+{"id": "single-03", "kind": "confirm", "split": "dev", "question": "我的大学同学老周现在在哪工作？", "gold": {"text": ["华为"]}}
+{"id": "single-04", "kind": "confirm", "split": "dev", "question": "郭佳升职是什么时候？", "gold": {"text": ["6 月|6月|六月|2026-06"]}}
+{"id": "single-05", "kind": "confirm", "split": "dev", "question": "唐亮那事后来怎么样了？", "gold": {"clarify": true, "text": ["火锅", "联系|电话"]}}
+{"id": "follow-01", "kind": "follow_up", "split": "dev", "history": ["老张在哪上班？"], "question": "那他老婆呢？", "gold": {"persons": ["黄丽"], "text": ["中学"], "used_history": true}}
+{"id": "follow-02", "kind": "follow_up", "split": "dev", "history": ["小李现在在哪工作？"], "question": "他之前在哪？", "gold": {"text": ["字节"], "used_history": true}}
+{"id": "follow-03", "kind": "follow_up", "split": "dev", "history": ["陈静住在哪里？"], "question": "她喜欢干什么？", "gold": {"text": ["露营"], "used_history": true}}
+{"id": "follow-04", "kind": "follow_up", "split": "dev", "history": ["我是怎么认识小王的？"], "question": "他在哪工作？", "gold": {"text": ["腾讯"], "used_history": true}}
+{"id": "follow-05", "kind": "follow_up", "split": "dev", "history": ["老张是个什么样的人？", "他老婆是谁？"], "question": "她是做什么的？", "gold": {"persons": ["黄丽"], "text": ["中学|老师"], "used_history": true}}
+{"id": "follow-06", "kind": "follow_up", "split": "dev", "history": ["郑凯以前在哪工作？", "他现在在做什么？"], "question": "我和他是什么时候认识的？", "gold": {"text": ["2024"], "used_history": true}}
+{"id": "follow-07", "kind": "follow_up", "split": "dev", "history": ["老张的老婆是谁？"], "history_minutes_ago": 45, "question": "她是做什么的？", "gold": {"no_answer": true, "used_history": false}}
+{"id": "follow-08", "kind": "follow_up", "split": "dev", "history": ["陈静住在哪里？"], "history_minutes_ago": 40, "question": "她喜欢干什么？", "gold": {"no_answer": true, "used_history": false}}
+{"id": "follow-09", "kind": "follow_up", "split": "dev", "history": ["老张在哪上班？"], "question": "陈静住在哪里？", "gold": {"text": ["杭州"], "not_persons": ["张伟"], "used_history": false}}
+{"id": "follow-10", "kind": "follow_up", "split": "dev", "history": ["小李现在在哪工作？", "他之前在哪？"], "question": "谁喜欢露营？", "gold": {"persons": ["刘洋", "孙悦", "林芳", "王浩", "陈静"], "persons_exact": true, "used_history": false}}
+{"id": "follow-11", "kind": "follow_up", "split": "dev", "history": ["老张是个什么样的人？"], "question": "那小王呢？", "gold": {"persons": ["王浩"], "text": ["腾讯|露营"], "used_history": true}}
+{"id": "follow-12", "kind": "follow_up", "split": "dev", "history": ["周涛在哪工作？"], "question": "老周喜欢什么？", "gold": {"text": ["钓鱼"], "not_persons": ["周建国"]}}
+{"id": "single-06", "kind": "confirm", "split": "dev", "question": "大学同学老周以前在哪上学？", "gold": {"text": ["浙江大学"]}}
+{"id": "follow-13", "kind": "follow_up", "split": "dev", "history": ["陈建国是我什么人？"], "question": "那他老婆呢？", "gold": {"persons": ["王秀英"], "used_history": true}}
+{"id": "single-07", "kind": "confirm", "split": "dev", "question": "罗教授那事怎么样了？", "gold": {"text": ["退休"]}}
+{"id": "h2-confirm-01", "kind": "confirm", "split": "dev", "question": "老周以前是做什么的？", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "h2-confirm-02", "kind": "confirm", "split": "dev", "question": "我那个邻居最近怎么样？", "gold": {"clarify": true, "persons": ["周建国", "林芳"]}}
+{"id": "h2-confirm-03", "kind": "confirm", "split": "dev", "question": "老家邻居老周那件事后来怎么样了？", "gold": {"clarify": true, "text": ["退休", "摔|住院"]}}
+{"id": "h2-confirm-04", "kind": "confirm", "split": "dev", "question": "李明那件事最后怎么样了？", "gold": {"clarify": true, "text": ["阿里|跳槽", "老张|借钱|闹掰"]}}
+{"id": "h2-confirm-05", "kind": "confirm", "split": "dev", "question": "郭佳那个事是什么时候的？", "gold": {"clarify": true, "text": ["升职", "买房"]}}
+{"id": "h2-single-01", "kind": "confirm", "split": "dev", "question": "老家那个老周现在身体怎么样？", "gold": {"text": ["摔|住院"]}}
+{"id": "h2-single-02", "kind": "confirm", "split": "dev", "question": "老张和小李那事后来怎么样了？", "gold": {"text": ["借钱|闹掰|矛盾"]}}
+{"id": "h2-single-03", "kind": "confirm", "split": "dev", "question": "老张的女儿那件事是什么时候？", "gold": {"text": ["高考", "2027|明年"]}}
+{"id": "h2-single-04", "kind": "confirm", "split": "dev", "question": "在华为上班的那个老周喜欢什么？", "gold": {"text": ["钓鱼"], "not_persons": ["周建国"]}}
+{"id": "h2-follow-01", "kind": "follow_up", "split": "dev", "history": ["我是怎么认识冯强的？"], "question": "他在哪工作？", "gold": {"persons": ["冯强"], "text": ["中石化"], "used_history": true}}
+{"id": "h2-follow-02", "kind": "follow_up", "split": "dev", "history": ["我老婆是谁？", "她的闺蜜是谁？"], "question": "那个闺蜜是做什么的？", "gold": {"persons": ["杜鹃"], "text": ["幼儿园"], "used_history": true}}
+{"id": "h2-follow-03", "kind": "follow_up", "split": "dev", "history": ["韩梅梅喜欢什么？"], "question": "高峰是做什么的？", "gold": {"text": ["教练|健身"], "not_persons": ["韩梅梅"], "used_history": false}}
+{"id": "h3-confirm-01", "kind": "confirm", "split": "heldout", "question": "老家楼下那个老周，那件事现在怎么样了？", "gold": {"clarify": true, "text": ["退休", "摔|住院"]}}
+{"id": "h3-confirm-02", "kind": "confirm", "split": "heldout", "question": "帮我回忆一下老周这个人。", "gold": {"clarify": true, "persons": ["周涛", "周建国"]}}
+{"id": "h3-confirm-03", "kind": "confirm", "split": "heldout", "question": "同学小李的那个事情，最后是怎么收场的？", "gold": {"clarify": true, "text": ["阿里|跳槽", "老张|借钱|闹掰"]}}
+{"id": "h3-single-01", "kind": "confirm", "split": "heldout", "question": "老家的老邻居老周哪年退休的？", "gold": {"text": ["2019"], "not_persons": ["周涛"]}}
+{"id": "h3-single-02", "kind": "confirm", "split": "heldout", "question": "在市一院上班的那个邻居叫什么？", "gold": {"persons": ["林芳"], "not_persons": ["周建国"]}}
+{"id": "h3-follow-01", "kind": "follow_up", "split": "heldout", "history": ["黄丽是谁？", "她老公在哪上班？"], "question": "他们女儿什么时候高考？", "gold": {"text": ["2027|明年"], "used_history": true}}
+{"id": "h3-follow-02", "kind": "follow_up", "split": "heldout", "history": ["我老婆在哪上班？"], "question": "她和我是怎么认识的？", "gold": {"persons": ["刘婷"], "text": ["聚会|2019"], "used_history": true}}
+{"id": "h3-follow-03", "kind": "follow_up", "split": "heldout", "history": ["何伟是哪家公司的？"], "question": "我跟他是什么关系？", "gold": {"persons": ["何伟"], "text": ["客户"], "used_history": true}}

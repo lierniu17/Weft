@@ -130,6 +130,17 @@
       "title": "Citations",
       "type": "array"
      },
+     "clarify": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AnswerClarify"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "kind = clarify: the 指代确认 question and its candidates"
+     },
      "follow_ups": {
       "description": "追问建议, e.g. 「他俩什么时候认识的？」",
       "items": {
@@ -208,13 +219,75 @@
     "title": "Answer",
     "type": "object"
    },
+   "AnswerClarify": {
+    "additionalProperties": false,
+    "description": "指代确认 (conversation-context AC-1): a question and 2–4 candidates to pick from.",
+    "properties": {
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/AnswerClarifyOption"
+      },
+      "maxItems": 4,
+      "minItems": 2,
+      "title": "Options",
+      "type": "array"
+     },
+     "question": {
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+     }
+    },
+    "required": [
+     "question",
+     "options"
+    ],
+    "title": "AnswerClarify",
+    "type": "object"
+   },
+   "AnswerClarifyOption": {
+    "additionalProperties": false,
+    "properties": {
+     "label": {
+      "description": "Who or which event, e.g. 「老周（周涛，大学同学）」",
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+     },
+     "person_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The person this option means (always in the user's graph)",
+      "title": "Person Id"
+     },
+     "question": {
+      "description": "The full question answered when this is picked",
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+     }
+    },
+    "required": [
+     "label",
+     "question"
+    ],
+    "title": "AnswerClarifyOption",
+    "type": "object"
+   },
    "AnswerKind": {
     "enum": [
      "text",
      "path",
      "list",
      "stat",
-     "no_answer"
+     "no_answer",
+     "clarify"
     ],
     "title": "AnswerKind",
     "type": "string"
@@ -519,9 +592,21 @@
       "type": "string"
      },
      "label": {
-      "description": "What clicking does, e.g. 「记下：…」「查：…」",
+      "description": "What clicking does: 「记下：…」「查：…」; 指代确认: 「老周（周涛，同学）」",
       "title": "Label",
       "type": "string"
+     },
+     "person_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "指代确认 (source ask): the person this candidate means; null otherwise",
+      "title": "Person Id"
      },
      "question": {
       "anyOf": [
@@ -539,14 +624,15 @@
     "required": [
      "label",
      "intent",
-     "question"
+     "question",
+     "person_id"
     ],
     "title": "ClarifyOptionOut",
     "type": "object"
    },
    "ClarifyOut": {
     "additionalProperties": false,
-    "description": "反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options.",
+    "description": "反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options; or\n指代确认 (source ask, conversation context): which person / event a question meant, 2–4\noptions. Clicking either goes through ``POST /api/messages/{id}/clarify``.",
     "properties": {
      "options": {
       "items": {
@@ -563,9 +649,19 @@
       "description": "Settled (clicked, answered, re-routed): hide options",
       "title": "Resolved",
       "type": "boolean"
+     },
+     "source": {
+      "description": "intent: 反问 of intent recognition; ask: 问答's 指代确认 (clicking is free)",
+      "enum": [
+       "intent",
+       "ask"
+      ],
+      "title": "Source",
+      "type": "string"
      }
     },
     "required": [
+     "source",
      "question",
      "options",
      "resolved"
@@ -1573,6 +1669,27 @@
     "title": "FeelingOut",
     "type": "object"
    },
+   "FollowedOut": {
+    "additionalProperties": false,
+    "description": "An earlier question an answer was read with (上文, 「接着：…」).",
+    "properties": {
+     "message_id": {
+      "format": "uuid",
+      "title": "Message Id",
+      "type": "string"
+     },
+     "question": {
+      "title": "Question",
+      "type": "string"
+     }
+    },
+    "required": [
+     "message_id",
+     "question"
+    ],
+    "title": "FollowedOut",
+    "type": "object"
+   },
    "GraphEdgeOut": {
     "additionalProperties": false,
     "properties": {
@@ -2140,6 +2257,14 @@
       ],
       "description": "record / record_ask: the Entry + Draft"
      },
+     "history_used_of": {
+      "description": "上文: the earlier questions the answer was read with, oldest first; empty when it was answered on its own. Non-empty: show 「接着：<last question>」 and offer 「不接上文」 (POST /api/messages/{id}/reanswer)",
+      "items": {
+       "$ref": "#/components/schemas/FollowedOut"
+      },
+      "title": "History Used Of",
+      "type": "array"
+     },
      "intent": {
       "$ref": "#/components/schemas/Intent",
       "description": "How the message is handled now (after any re-route)"
@@ -2202,7 +2327,8 @@
      "reply",
      "problems",
      "clarify",
-     "clarification_of"
+     "clarification_of",
+     "history_used_of"
     ],
     "title": "MessageOut",
     "type": "object"
@@ -4026,7 +4152,7 @@
   },
   "/api/messages/{message_id}/clarify": {
    "post": {
-    "description": "Click option ``option`` of the message's 反问; returns the updated message.",
+    "description": "Click option ``option`` of the message's 反问 or 指代确认 (source ask: answers the\noption's question, counting nothing more); returns the updated message.",
     "operationId": "clarify_message_api_messages__message_id__clarify_post",
     "parameters": [
      {
@@ -4073,6 +4199,50 @@
      }
     },
     "summary": "Clarify Message",
+    "tags": [
+     "messages"
+    ]
+   }
+  },
+  "/api/messages/{message_id}/reanswer": {
+   "post": {
+    "description": "「不接上文」: answer the message's question again without the earlier questions it was\nread with; counts one ask and replaces the answer. 409 if it was not read with any.",
+    "operationId": "reanswer_message_api_messages__message_id__reanswer_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "message_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Message Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MessageOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reanswer Message",
     "tags": [
      "messages"
     ]

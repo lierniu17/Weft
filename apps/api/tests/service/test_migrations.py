@@ -152,7 +152,7 @@ def test_migration_0004_only_adds_the_clarification_columns(fresh_database: str)
     migrate(fresh_database, revision="0003")
     before = asyncio.run(_messages(fresh_database))
 
-    migrate(fresh_database)
+    migrate(fresh_database, revision="0004")
 
     after = asyncio.run(_messages(fresh_database))
     assert [{k: v for k, v in m.items() if k not in CLARIFY_COLUMNS} for m in after] == before
@@ -167,4 +167,29 @@ def test_migration_0004_only_adds_the_clarification_columns(fresh_database: str)
     config.set_main_option("sqlalchemy.url", fresh_database)
     command.downgrade(config, "0003")
     assert not asyncio.run(_columns(fresh_database)) & CLARIFY_COLUMNS
+    assert len(asyncio.run(_messages(fresh_database))) == len(before)
+
+
+def test_migration_0005_only_adds_the_history_column(fresh_database: str) -> None:
+    """上文 (conversation-context): 0005 adds history_used_of and changes no message."""
+    migrate(fresh_database, revision="0002")
+    asyncio.run(_seed_old_schema(fresh_database))
+    migrate(fresh_database, revision="0004")
+    before = asyncio.run(_messages(fresh_database))
+
+    migrate(fresh_database)
+
+    after = asyncio.run(_messages(fresh_database))
+    assert [{k: v for k, v in m.items() if k != "history_used_of"} for m in after] == before
+    assert all(m["history_used_of"] is None for m in after)
+
+    from alembic import command
+    from alembic.config import Config
+
+    from weft.settings import API_DIR
+
+    config = Config(str(API_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", fresh_database)
+    command.downgrade(config, "0004")
+    assert "history_used_of" not in asyncio.run(_columns(fresh_database))
     assert len(asyncio.run(_messages(fresh_database))) == len(before)

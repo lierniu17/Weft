@@ -250,12 +250,42 @@ class Taxonomy:
 
 BUILTIN = Taxonomy(_BUILTIN_SUBTYPES)
 
+DIRECTIONAL_SUBTYPES = frozenset({"父母", "子女", "祖孙"})  # read pair[0] 是 pair[1] 的 X
+
+# Wordings that are no relation one person is to another (an act or a state between them)
+_NOT_RELATIONS = frozenset(
+    {"借钱", "欠钱", "借贷", "闹掰", "不和", "有过节", "断交", "合租", "师徒", "情侣", "夫妻"}
+    | {"竞争", "矛盾", "绝交", "纠纷", "投资", "债权债务", "租赁", "暗恋", "暧昧", "姻亲"}
+)
+# More colloquial wordings of who someone is to me, for questions (「我媳妇」「我老伴」)
+_MORE_RELATION_WORDS = {"媳妇": "配偶", "老伴": "配偶", "太太": "配偶"}
+RELATION_WORDS = frozenset(
+    w
+    for w in (
+        *(n for names in _BUILTIN_SUBTYPES.values() for n in names),
+        *_SYNONYMS,
+        *_MORE_RELATION_WORDS,
+    )
+    if w not in _NOT_RELATIONS
+)
+
+
+def subtype_of(word: str) -> str | None:
+    """The built-in subtype a relation word stands for (「老婆」 -> 配偶), if any."""
+    if BUILTIN.category_of(word) is not None:
+        return word
+    return _SYNONYMS.get(word) or _MORE_RELATION_WORDS.get(word)
+
+
 __all__ = [
     "BUILTIN",
+    "DIRECTIONAL_SUBTYPES",
     "OTHER",
+    "RELATION_WORDS",
     "Category",
     "CustomSubtype",
     "InvalidCustomSubtypeError",
     "RelationshipType",
     "Taxonomy",
+    "subtype_of",
 ]

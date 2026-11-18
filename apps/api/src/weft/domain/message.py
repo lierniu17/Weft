@@ -9,7 +9,9 @@ re-routed, only to the other kind, and never a 记录 already confirmed into the
 
 反问 (intent-clarify AC-4): the next message is sent with the pending 反问 as context only
 if the user's latest message is 拿不准, not resolved, not itself an answer to a 反问, still
-handled as 无关, and at most the answer window old.
+handled as 无关, and at most the answer window old. The same holds for 问答's 指代确认
+(conversation-context AC-3): the latest message is a question that got a 指代确认 instead of
+an answer, not resolved, not itself an answer to one, at most the window old.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
 from weft.domain.draft import DraftStatus
-from weft.domain.intent import Intent
+from weft.domain.intent import ClarifySource, Intent
 
 if TYPE_CHECKING:
     from weft.repositories.records import MessageRecord
@@ -80,11 +82,17 @@ def reroute_refusal(
 
 
 def awaits_answer(latest: MessageRecord | None, *, now: datetime, window: timedelta) -> bool:
-    """Whether the user's ``latest`` message is a 反问 still open to a typed answer."""
+    """Whether the user's ``latest`` message is a 反问 or 指代确认 still open to a typed
+    answer."""
+    if latest is None:
+        return False
+    asked_back = (latest.uncertain and latest.intent is Intent.CHITCHAT) or (
+        latest.clarify is not None
+        and latest.clarify.source is ClarifySource.ASK
+        and latest.answer is None
+    )
     return (
-        latest is not None
-        and latest.uncertain
-        and latest.intent is Intent.CHITCHAT
+        asked_back
         and latest.clarification_resolved_at is None
         and latest.clarification_of is None  # only one round: an answer is never asked back
         and now - latest.created_at <= window

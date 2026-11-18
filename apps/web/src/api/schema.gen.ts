@@ -287,9 +287,31 @@ export interface paths {
         put?: never;
         /**
          * Clarify Message
-         * @description Click option ``option`` of the message's 反问; returns the updated message.
+         * @description Click option ``option`` of the message's 反问 or 指代确认 (source ask: answers the
+         *     option's question, counting nothing more); returns the updated message.
          */
         post: operations["clarify_message_api_messages__message_id__clarify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{message_id}/reanswer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reanswer Message
+         * @description 「不接上文」: answer the message's question again without the earlier questions it was
+         *     read with; counts one ask and replaces the answer. 409 if it was not read with any.
+         */
+        post: operations["reanswer_message_api_messages__message_id__reanswer_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -526,6 +548,8 @@ export interface components {
         Answer: {
             /** Citations */
             citations: components["schemas"]["Citation"][];
+            /** @description kind = clarify: the 指代确认 question and its candidates */
+            clarify?: components["schemas"]["AnswerClarify"] | null;
             /**
              * Follow Ups
              * @description 追问建议, e.g. 「他俩什么时候认识的？」
@@ -553,10 +577,38 @@ export interface components {
             stat?: components["schemas"]["AnswerStat"] | null;
         };
         /**
+         * AnswerClarify
+         * @description 指代确认 (conversation-context AC-1): a question and 2–4 candidates to pick from.
+         */
+        AnswerClarify: {
+            /** Options */
+            options: components["schemas"]["AnswerClarifyOption"][];
+            /** Question */
+            question: string;
+        };
+        /** AnswerClarifyOption */
+        AnswerClarifyOption: {
+            /**
+             * Label
+             * @description Who or which event, e.g. 「老周（周涛，大学同学）」
+             */
+            label: string;
+            /**
+             * Person Id
+             * @description The person this option means (always in the user's graph)
+             */
+            person_id?: string | null;
+            /**
+             * Question
+             * @description The full question answered when this is picked
+             */
+            question: string;
+        };
+        /**
          * AnswerKind
          * @enum {string}
          */
-        AnswerKind: "text" | "path" | "list" | "stat" | "no_answer";
+        AnswerKind: "text" | "path" | "list" | "stat" | "no_answer" | "clarify";
         /** AnswerListItem */
         AnswerListItem: {
             /** Citations */
@@ -694,9 +746,14 @@ export interface components {
             intent: "record" | "ask" | "record_ask";
             /**
              * Label
-             * @description What clicking does, e.g. 「记下：…」「查：…」
+             * @description What clicking does: 「记下：…」「查：…」; 指代确认: 「老周（周涛，同学）」
              */
             label: string;
+            /**
+             * Person Id
+             * @description 指代确认 (source ask): the person this candidate means; null otherwise
+             */
+            person_id: string | null;
             /**
              * Question
              * @description ask / record_ask: the question that is answered
@@ -705,7 +762,9 @@ export interface components {
         };
         /**
          * ClarifyOut
-         * @description 反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options.
+         * @description 反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options; or
+         *     指代确认 (source ask, conversation context): which person / event a question meant, 2–4
+         *     options. Clicking either goes through ``POST /api/messages/{id}/clarify``.
          */
         ClarifyOut: {
             /** Options */
@@ -717,6 +776,12 @@ export interface components {
              * @description Settled (clicked, answered, re-routed): hide options
              */
             resolved: boolean;
+            /**
+             * Source
+             * @description intent: 反问 of intent recognition; ask: 问答's 指代确认 (clicking is free)
+             * @enum {string}
+             */
+            source: "intent" | "ask";
         };
         /** ClarifyRequest */
         ClarifyRequest: {
@@ -1108,6 +1173,19 @@ export interface components {
             /** Source */
             source: string;
         };
+        /**
+         * FollowedOut
+         * @description An earlier question an answer was read with (上文, 「接着：…」).
+         */
+        FollowedOut: {
+            /**
+             * Message Id
+             * Format: uuid
+             */
+            message_id: string;
+            /** Question */
+            question: string;
+        };
         /** GraphEdgeOut */
         GraphEdgeOut: {
             /** @description The closer direction's level */
@@ -1317,6 +1395,11 @@ export interface components {
             created_at: string;
             /** @description record / record_ask: the Entry + Draft */
             entry: components["schemas"]["MessageEntryOut"] | null;
+            /**
+             * History Used Of
+             * @description 上文: the earlier questions the answer was read with, oldest first; empty when it was answered on its own. Non-empty: show 「接着：<last question>」 and offer 「不接上文」 (POST /api/messages/{id}/reanswer)
+             */
+            history_used_of: components["schemas"]["FollowedOut"][];
             /** @description How the message is handled now (after any re-route) */
             intent: components["schemas"]["Intent"];
             /**
@@ -2311,6 +2394,37 @@ export interface operations {
                 "application/json": components["schemas"]["ClarifyRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reanswer_message_api_messages__message_id__reanswer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

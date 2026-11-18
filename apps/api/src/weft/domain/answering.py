@@ -22,7 +22,11 @@ from dataclasses import dataclass
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft.domain.answer import (
+    MAX_CLARIFY_OPTIONS,
+    MIN_CLARIFY_OPTIONS,
     Answer,
+    AnswerClarify,
+    AnswerClarifyOption,
     AnswerKind,
     AnswerListItem,
     AnswerSegment,
@@ -77,6 +81,12 @@ class FinalItem(_Final):
     evidence: list[str] = Field(default_factory=list)
 
 
+class FinalOption(_Final):
+    label: str = Field(description="候选：是谁（姓名和一句关系描述）或哪件事（一句话和时间）")
+    question: str = Field(description="选了这个候选时要回答的完整问题（人名写全，不用代词）")
+    person: str | None = Field(default=None, description="候选是某个人物时填他的 P 句柄")
+
+
 class FinalAnswer(_Final):
     """What the model submits through the ``final_answer`` tool."""
 
@@ -91,6 +101,67 @@ class FinalAnswer(_Final):
     items: list[FinalItem] = Field(default_factory=list, description="kind=list")
     stat_persons: list[str] = Field(default_factory=list, description="kind=stat: who is counted")
     follow_ups: list[str] = Field(default_factory=list)
+    clarify_question: str | None = Field(
+        default=None, description="kind=clarify：确认问题，如“你问的是哪位老周？”"
+    )
+    options: list[FinalOption] = Field(
+        default_factory=list, description="kind=clarify：2 到 4 个候选"
+    )
+    used_history: bool = Field(
+        default=False, description="理解这个问题时用到了上文（history）就填 true"
+    )
+
+
+MAX_CLARIFY_LABEL = 40
+MAX_CLARIFY_QUESTION = 80
+MAX_OPTION_QUESTION = 200
+
+
+def clarification(final: FinalAnswer, persons: Mapping[str, PersonRef]) -> AnswerClarify | str:
+    """The 指代确认 a ``clarify`` final answer asks (conversation-context AC-1), or why it
+    cannot be used: a question and 2–4 distinct options, each with a label and a full
+    question; an option about a person must name one the tools returned from this user's
+    graph (``persons``: handle -> person), never 我."""
+    question = (final.clarify_question or "").strip()
+    if not question:
+        return "clarify_question 不能为空"
+    options: list[AnswerClarifyOption] = []
+    for i, raw in enumerate(final.options, start=1):
+        label, asked = raw.label.strip(), raw.question.strip()
+        if not label or not asked:
+            return f"第 {i} 个候选缺少 label 或 question"
+        person_id: str | None = None
+        if raw.person is not None and raw.person.strip():
+            ref = persons.get(raw.person.strip())
+            if ref is None or ref.is_self:
+                return f"第 {i} 个候选的 person 不是工具结果里的 P 句柄：{raw.person}"
+            person_id = ref.person_id
+        if any(o.label == label[:MAX_CLARIFY_LABEL] or o.question == asked for o in options):
+            return f"第 {i} 个候选和前面的重复了"
+        options.append(
+            AnswerClarifyOption(
+                label=label[:MAX_CLARIFY_LABEL],
+                question=asked[:MAX_OPTION_QUESTION],
+                person_id=person_id,
+            )
+        )
+    if not MIN_CLARIFY_OPTIONS <= len(options) <= MAX_CLARIFY_OPTIONS:
+        return (
+            f"候选要有 {MIN_CLARIFY_OPTIONS} 到 {MAX_CLARIFY_OPTIONS} 个，现在是 {len(options)} 个"
+        )
+    return AnswerClarify(question=question[:MAX_CLARIFY_QUESTION], options=options)
+
+
+def clarify_answer(asked: AnswerClarify) -> Answer:
+    """The ``Answer`` for a 指代确认: the question as text, the candidates, nothing cited."""
+    return Answer(
+        kind=AnswerKind.CLARIFY,
+        segments=[AnswerSegment(text=asked.question)],
+        citations=[],
+        persons=[],
+        follow_ups=[],
+        clarify=asked,
+    )
 
 
 def _has(text: str, markers: tuple[str, ...]) -> bool:
@@ -187,7 +258,7 @@ def build_answer(
     subjects = subjects or {}
     if (
         final is None
-        or final.kind is AnswerKind.NO_ANSWER
+        or final.kind in (AnswerKind.NO_ANSWER, AnswerKind.CLARIFY)  # a 确认 is not built here
         or not evidence
         or unknown_subject(subjects)
     ):
@@ -257,11 +328,14 @@ __all__ = [
     "Evidence",
     "FinalAnswer",
     "FinalItem",
+    "FinalOption",
     "FinalSegment",
     "Source",
     "Subjects",
     "answers_about_subjects",
     "build_answer",
+    "clarification",
+    "clarify_answer",
     "hedge",
     "no_answer",
     "unknown_subject",

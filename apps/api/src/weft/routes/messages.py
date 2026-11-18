@@ -1,12 +1,13 @@
 """消息 routes (intent routing, ADR 0005): send a message, list the chat, re-route a message,
-click an option of a 反问 (intent clarify).
+click an option of a 反问 (intent clarify) or of a 指代确认, answer again without the 上文
+(「不接上文」, conversation context).
 
 ``POST /api/messages`` recognizes the message and records it, answers it, or both
 (``weft.services.messages``); a new Draft is extracted in the background, exactly like
 ``POST /api/entries``. Parts that hit a used-up quota come back as ``problems`` (201);
 re-routing is a single action, so its quota error is a 429 and nothing changes; the same
-holds for clicking a 反问 option. A typed answer to a 反问 is just the next
-``POST /api/messages``.
+holds for clicking a 反问 option and for 「不接上文」. A typed answer to a 反问 or a 指代确认
+is just the next ``POST /api/messages``.
 """
 
 from __future__ import annotations
@@ -52,6 +53,16 @@ CLARIFY_ERRORS = {
     "question_too_long": 422,
     "blank_text": 422,
     "text_too_long": 422,
+    "quota_exceeded": 429,
+    "ask_failed": 503,
+}
+
+
+REANSWER_ERRORS = {
+    "not_found": 404,
+    "no_history": 409,
+    "blank_question": 422,
+    "question_too_long": 422,
     "quota_exceeded": 429,
     "ask_failed": 503,
 }
@@ -109,9 +120,21 @@ async def clarify_message(
     infra: InfraDep,
     background: BackgroundTasks,
 ) -> MessageOut:
-    """Click option ``option`` of the message's 反问; returns the updated message."""
+    """Click option ``option`` of the message's 反问 or 指代确认 (source ask: answers the
+    option's question, counting nothing more); returns the updated message."""
     with tenant_scope(session.tenant):
         handled = unwrap(await messages.clarify(infra, message_id, body.option), CLARIFY_ERRORS)
     if handled.new_draft_id is not None:
         background.add_task(extraction_job, infra, session.tenant, handled.new_draft_id)
+    return MessageOut.of(handled.view)
+
+
+@router.post("/messages/{message_id}/reanswer", response_model=MessageOut)
+async def reanswer_message(
+    message_id: uuid.UUID, session: SessionDep, infra: InfraDep
+) -> MessageOut:
+    """「不接上文」: answer the message's question again without the earlier questions it was
+    read with; counts one ask and replaces the answer. 409 if it was not read with any."""
+    with tenant_scope(session.tenant):
+        handled = unwrap(await messages.reanswer(infra, message_id), REANSWER_ERRORS)
     return MessageOut.of(handled.view)

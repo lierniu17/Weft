@@ -12,7 +12,9 @@
   by ``eval/extraction/score.py`` (person F1 ≥ 0.9, relationship-type and confidence
   accuracy ≥ 0.8).
 * ``qa`` (AC-36, AC-38): ``eval/qa/questions.jsonl`` over the seed graph; per-kind accuracy
-  and the fabrication rate on the no-answer questions (must be 0).
+  and the fabrication rate on the no-answer questions (must be 0). Conversation context
+  (conversation-context AC-12): confirm rate ≥ 0.85, false-confirm rate ≤ 0.10 and follow-up
+  accuracy ≥ 0.80, per split (the original 43 are ``base``; judged on ``heldout``).
 * ``intent`` (intent-routing AC-11): message recognition over ``eval/intent/samples.jsonl``,
   scored by ``eval/intent/score.py`` (accuracy ≥ 0.95, record miss rate ≤ 0.02, false
   record rate ≤ 0.05, time accuracy ≥ 0.90; decided on the held-out split).

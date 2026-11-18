@@ -529,16 +529,26 @@ class ProblemOut(_Out):
 
 
 class ClarifyOptionOut(_Out):
-    label: str = Field(description="What clicking does, e.g. 「记下：…」「查：…」")
+    label: str = Field(
+        description="What clicking does: 「记下：…」「查：…」; 指代确认: 「老周（周涛，同学）」"
+    )
     intent: Literal["record", "ask", "record_ask"] = Field(
         description="record: the original text becomes a 记录; ask: question is answered"
     )
     question: str | None = Field(description="ask / record_ask: the question that is answered")
+    person_id: str | None = Field(
+        description="指代确认 (source ask): the person this candidate means; null otherwise"
+    )
 
 
 class ClarifyOut(_Out):
-    """反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options."""
+    """反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options; or
+    指代确认 (source ask, conversation context): which person / event a question meant, 2–4
+    options. Clicking either goes through ``POST /api/messages/{id}/clarify``."""
 
+    source: Literal["intent", "ask"] = Field(
+        description="intent: 反问 of intent recognition; ask: 问答's 指代确认 (clicking is free)"
+    )
     question: str
     options: list[ClarifyOptionOut]
     resolved: bool = Field(description="Settled (clicked, answered, re-routed): hide options")
@@ -546,17 +556,26 @@ class ClarifyOut(_Out):
     @classmethod
     def of(cls, c: Clarification, *, resolved: bool) -> ClarifyOut:
         return cls(
+            source=c.source.value,
             question=c.question,
             options=[
                 ClarifyOptionOut(
                     label=o.label,
                     intent=o.intent.value,
                     question=o.question,
+                    person_id=o.person_id,
                 )
                 for o in c.options
             ],
             resolved=resolved,
         )
+
+
+class FollowedOut(_Out):
+    """An earlier question an answer was read with (上文, 「接着：…」)."""
+
+    message_id: uuid.UUID
+    question: str
 
 
 class MessageOut(_Out):
@@ -578,6 +597,13 @@ class MessageOut(_Out):
     )
     clarification_of: uuid.UUID | None = Field(
         description="This message was typed as the answer to that message's 反问"
+    )
+    history_used_of: list[FollowedOut] = Field(
+        description=(
+            "上文: the earlier questions the answer was read with, oldest first; empty when "
+            "it was answered on its own. Non-empty: show 「接着：<last question>」 and offer "
+            "「不接上文」 (POST /api/messages/{id}/reanswer)"
+        )
     )
 
     @classmethod
@@ -610,6 +636,7 @@ class MessageOut(_Out):
             if m.clarify is None
             else ClarifyOut.of(m.clarify, resolved=m.clarification_resolved_at is not None),
             clarification_of=m.clarification_of,
+            history_used_of=[FollowedOut(message_id=i, question=q) for i, q in v.follows],
         )
 
 
