@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { MessageBubble } from "./MessageBubble.tsx";
 
 const today = new Date(2026, 10, 16);
@@ -28,15 +28,15 @@ type Story = StoryObj<typeof meta>;
 
 const bubble = (root: HTMLElement) => root.querySelector("[data-bubble]") as HTMLElement;
 
-/** Right-aligned, primary-1, radius 16px with a 6px bottom-right corner, max 78%. */
+/** Right-aligned, bg-muted, rounded.bubble (18px with a 6px bottom-right corner), max 78%. */
 export const Record: Story = {
   play: async ({ canvasElement }) => {
     const b = bubble(canvasElement);
     const style = getComputedStyle(b);
-    await expect(style.backgroundColor).toBe(rgb("#EEF2FF"));
-    await expect(style.color).toBe(rgb("#1D2433"));
-    await expect(style.borderTopLeftRadius).toBe("16px");
-    await expect(style.borderBottomLeftRadius).toBe("16px");
+    await expect(style.backgroundColor).toBe(token("neutral-bg-muted"));
+    await expect(style.color).toBe(token("neutral-text-primary"));
+    await expect(style.borderTopLeftRadius).toBe("18px");
+    await expect(style.borderBottomLeftRadius).toBe("18px");
     await expect(style.borderBottomRightRadius).toBe("6px");
     const row = b.parentElement as HTMLElement;
     await expect(b.getBoundingClientRect().width).toBeLessThanOrEqual(

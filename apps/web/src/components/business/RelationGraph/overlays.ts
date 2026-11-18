@@ -8,6 +8,7 @@ import { CATEGORY_TOKEN } from "../../../lib/graph/edgeStyle.ts";
 import { graphLabels } from "../../../lib/graph/graphLabels.ts";
 import type { PlacedLabel } from "../../../lib/graph/labelPlacement.ts";
 import { withAlpha } from "../../../lib/graph/scene.ts";
+import { tokens } from "../../../tokens.gen.ts";
 import type { GraphRenderer } from "./renderer.ts";
 import { labelRadius, worldRadius } from "./sceneRules.ts";
 import { tweenValue } from "./tween.ts";
@@ -183,7 +184,7 @@ function drawBackground(
     g.addColorStop(1, theme.background[1]);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = theme.star ?? "#fff";
+    ctx.fillStyle = theme.star ?? tokens.color["graph-dark-star"];
     for (const s of host.stars) {
       ctx.globalAlpha = scene.reducedMotion ? 0.6 : 0.4 + 0.4 * Math.sin(T * 1.3 + s.t);
       ctx.fillRect(s.x - s.r, s.y - s.r, s.r * 2, s.r * 2);

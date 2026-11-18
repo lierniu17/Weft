@@ -20,7 +20,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from weft.domain.draft import FEELING_DIMENSION_LABELS, FEELING_LEVEL_LABELS
-from weft.domain.graph_write import PREDICATE_LABELS
+from weft.domain.graph_write import fact_label, humanize
 from weft.infra import Infra
 from weft.llm import ChatMessage, ChatRequest
 from weft.repositories.records import PairRecord, ProfileRecord
@@ -60,7 +60,7 @@ class Refreshed:
 def _person_payload(p: ProfileRecord) -> dict[str, Any] | None:
     facts = [
         {
-            "label": PREDICATE_LABELS.get(f.predicate, f.predicate),
+            "label": fact_label(f.predicate),
             "object": f.object,
             "text": f.fact,
             "status": "unverified" if f.unverified else ("history" if f.invalid_at else "current"),
@@ -134,7 +134,8 @@ async def _generate(infra: Infra, system: str, payload: dict[str, Any]) -> str:
         ),
         _Summary,
     )
-    return result.summary.strip()[:MAX_SUMMARY_LENGTH]
+    # Never an internal name (RELATED_EVENT …) in what the user reads (style refresh AC-9).
+    return humanize(result.summary.strip())[:MAX_SUMMARY_LENGTH]
 
 
 async def regenerate_person(infra: Infra, person_id: str) -> str | None:

@@ -22,7 +22,7 @@ export type TimelineProps = {
 const DOT: Record<TimelineVariant, string> = {
   current: "bg-primary-6",
   invalidated: "bg-neutral-text-disabled",
-  unverified: "bg-status-warning-6",
+  unverified: "bg-status-warning-graphic",
 };
 
 /** The dot colour is a hint only; the state is also spelled out. */
@@ -52,7 +52,7 @@ export function Timeline({ items, className, ...aria }: TimelineProps) {
               data-timeline-dot=""
               className={cx("mt-[6px] size-[10px] shrink-0 rounded-full", DOT[variant])}
             />
-            <span className="w-[72px] shrink-0 text-caption leading-[22px] text-neutral-text-secondary tabular-nums">
+            <span className="w-[72px] shrink-0 text-caption leading-[22px] text-neutral-text-tertiary tabular-nums">
               {item.time}
             </span>
             <span className="flex min-w-[0] flex-1 flex-wrap items-center gap-xs">

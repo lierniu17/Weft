@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Divider } from "./Divider.tsx";
 
 const meta = {
@@ -23,7 +23,7 @@ type Story = StoryObj<typeof meta>;
 export const Full: Story = {
   play: async ({ canvasElement }) => {
     const line = within(canvasElement).getByRole("separator");
-    await expect(getComputedStyle(line).backgroundColor).toBe(rgb("#EBEEF2"));
+    await expect(getComputedStyle(line).backgroundColor).toBe(token("neutral-divider"));
     await expect(line.getBoundingClientRect().width).toBe(343);
   },
 };

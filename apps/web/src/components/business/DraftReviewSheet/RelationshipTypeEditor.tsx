@@ -69,7 +69,7 @@ export function RelationshipTypeEditor({
         )}
       </div>
       {editing !== null && (
-        <div className="flex flex-col gap-sm rounded-md bg-neutral-bg-layout p-sm">
+        <div className="flex flex-col gap-sm rounded-md bg-neutral-bg-subtle p-sm">
           {taxonomy.map((group) => {
             const name = categoryLabel(group.category);
             return (

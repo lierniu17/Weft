@@ -19,12 +19,13 @@ const SIZES: Record<AvatarSize, string> = {
   lg: "size-[56px] text-h2",
 };
 
+/** Neutral: a bg-muted circle with the ink initial; 本人 reads 「我」 (and 「（我）」 to AT). */
 const VARIANTS: Record<AvatarVariant, string> = {
-  initial: "bg-secondary-1 text-secondary-7",
-  self: "bg-primary-1 text-primary-7 ring-2 ring-primary-6",
+  initial: "bg-neutral-bg-muted text-neutral-text-primary",
+  self: "bg-neutral-bg-muted text-neutral-text-primary",
 };
 
-/** Person avatar: photo, or the first character of the name. 本人 shows 「我」 with a ring. */
+/** Person avatar: photo, or the first character of the name. 本人 shows 「我」. */
 export function Avatar({ name, variant = "initial", size = "md", src, className }: AvatarProps) {
   const label = variant === "self" ? `${name}（我）` : name;
   const glyph = variant === "self" ? "我" : (Array.from(name)[0] ?? "?");

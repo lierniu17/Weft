@@ -24,7 +24,7 @@ from weft.domain.dates import PartialDate
 from weft.domain.draft import FEELING_DIMENSION_LABELS, FEELING_LEVEL_LABELS
 from weft.domain.feelings import by_direction
 from weft.domain.graph_view import closeness_rank
-from weft.domain.graph_write import PREDICATE_LABELS
+from weft.domain.graph_write import fact_label
 from weft.domain.taxonomy import Category
 from weft.domain.tenancy import ScopedGraphiti, require_tenant
 from weft.infra import Infra
@@ -454,7 +454,7 @@ async def semantic_search(infra: Infra, query: str, *, limit: int = 10) -> Searc
 
 
 def predicate_label(predicate: str) -> str:
-    return PREDICATE_LABELS.get(predicate, predicate)
+    return fact_label(predicate)
 
 
 __all__ = [

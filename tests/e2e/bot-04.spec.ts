@@ -56,7 +56,7 @@ test("BOT-4 冲突更新与待核实", { tag: "@llm" }, async ({ page }) => {
   // 5. 查看草稿，确认。
   await second.getByRole("button", { name: "查看并确认" }).click();
   await expect(sheet).toContainText("待核实");
-  await expect(sheet.getByRole("button", { name: /可信度：转述/ })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: /转述（可信度/ })).toBeVisible();
   await shot(page, "BOT-4-step5-draft");
   await sheet.getByRole("button", { name: "确认入图谱" }).click();
   await expect(second.getByRole("status")).toHaveText(/已入图谱 · 1 条信息 · 1 条待核实/);

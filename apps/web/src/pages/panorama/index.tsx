@@ -68,7 +68,7 @@ export function PanoramaPage() {
             </Button>
           }
         />
-        <div className="flex min-h-[0] flex-1 flex-col bg-neutral-bg-layout p-md">
+        <div className="flex min-h-[0] flex-1 flex-col bg-neutral-bg-layout px-md pb-md">
           <PanoramaBody
             filterQuery={filterQuery}
             filterMode={only ? "only" : "fade"}

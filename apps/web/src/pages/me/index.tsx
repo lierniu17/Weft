@@ -6,6 +6,7 @@ import { ApiError } from "../../api/client.ts";
 import { useEntries } from "../../api/entries.ts";
 import { useAddSubtype, useTaxonomy, useUsage } from "../../api/graph.ts";
 import { usePreferences, useUpdatePreferences } from "../../api/preferences.ts";
+import { CONTENT_COLUMN } from "../../app/layout.ts";
 import { Avatar } from "../../components/basics/Avatar/Avatar.tsx";
 import { Banner } from "../../components/basics/Banner/Banner.tsx";
 import { Button } from "../../components/basics/Button/Button.tsx";
@@ -18,12 +19,13 @@ import { TaxonomyEditor } from "../../components/business/TaxonomyEditor/Taxonom
 import { ListItem } from "../../components/composites/ListItem/ListItem.tsx";
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
 import { SectionHeader } from "../../components/composites/SectionHeader/SectionHeader.tsx";
+import { cx } from "../../lib/cx.ts";
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col pt-md">
-      <SectionHeader title={title} className="px-md" />
-      <div className="flex flex-col divide-y divide-neutral-divider">{children}</div>
+    <section aria-label={title} className="flex flex-col gap-sm">
+      <SectionHeader title={title} />
+      <div className="-mx-md flex flex-col divide-y divide-neutral-divider">{children}</div>
     </section>
   );
 }
@@ -45,27 +47,33 @@ export function MePage() {
   return (
     <>
       <NavBar title="我的" />
-      <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-container">
-        <div className="mx-auto flex max-w-[720px] flex-col pb-xl">
+      <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-layout">
+        <div
+          data-page-content=""
+          className={cx(CONTENT_COLUMN, "motion-stagger flex flex-col gap-lg pt-xs pb-xl")}
+        >
           {me.data && (
-            <ListItem
-              title={me.data.display_name}
-              subtitle={`账号：${me.data.username}`}
-              leading={<Avatar name={me.data.display_name} variant="self" />}
-              variant="with-avatar"
-            />
+            <div className="flex items-center gap-md">
+              <Avatar name={me.data.display_name} variant="self" size="lg" />
+              <div className="flex min-w-[0] flex-col">
+                <p className="truncate text-h1 text-neutral-text-primary">{me.data.display_name}</p>
+                <p className="truncate text-meta text-neutral-text-tertiary">
+                  账号 {me.data.username}
+                </p>
+              </div>
+            </div>
           )}
           <Group title="数据">
             <ListItem
               variant="navigational"
               title="我的记录"
-              subtitle={entries.data ? `${entries.data.length} 条` : undefined}
+              trailing={entries.data ? `${entries.data.length} 条` : undefined}
               onClick={() => navigate("/entries")}
             />
             <ListItem
               variant="navigational"
               title="关系类型词表"
-              subtitle={`自定义 ${customCount} 个`}
+              trailing={`自定义 ${customCount} 个`}
               onClick={() => navigate("/me/taxonomy")}
             />
           </Group>
@@ -78,14 +86,14 @@ export function MePage() {
           </Group>
           {usage.data ? (
             <QuotaMeter
-              className="pt-md"
+              className="-mx-md"
               record={{ used: usage.data.entry.used, limit: usage.data.entry.limit }}
               ask={{ used: usage.data.ask.used, limit: usage.data.ask.limit }}
               resetHint="北京时间 0 点重置"
             />
           ) : (
             <div
-              className="flex flex-col gap-sm p-md"
+              className="flex flex-col gap-sm"
               role="status"
               aria-busy="true"
               aria-label="正在加载额度"
@@ -105,6 +113,7 @@ export function MePage() {
             <ListItem
               variant="navigational"
               title="注销账户"
+              className="[&_[data-list-item-title]]:text-status-error-6"
               subtitle="删除全部数据"
               onClick={() => navigate("/me/delete-account")}
             />
@@ -123,8 +132,8 @@ export function TaxonomyPage() {
   return (
     <>
       <NavBar title="关系类型" variant="pushed" onBack={() => navigate(-1)} />
-      <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-container">
-        <div className="mx-auto max-w-[720px]">
+      <div className="min-h-[0] flex-1 overflow-y-auto bg-neutral-bg-layout">
+        <div data-page-content="" className="mx-auto w-full max-w-[720px] pb-xl">
           <h2 className="sr-only">关系类型词表</h2>
           {taxonomy.data ? (
             <TaxonomyEditor
@@ -156,7 +165,7 @@ export function TaxonomyPage() {
               <Skeleton width="70%" />
             </div>
           )}
-          <p className="px-md py-md text-caption text-neutral-text-secondary">
+          <p className="px-md py-md text-meta text-neutral-text-tertiary">
             自定义小类只对你自己可见，会参与之后的抽取归类。
           </p>
         </div>
@@ -205,10 +214,11 @@ export function DeleteAccountPage() {
         noValidate
         onSubmit={submit}
         aria-label="注销账户"
-        className="mx-auto flex min-h-[0] w-full max-w-[480px] flex-1 flex-col gap-lg overflow-y-auto bg-neutral-bg-container p-md"
+        data-page-content=""
+        className="mx-auto flex min-h-[0] w-full max-w-[720px] flex-1 flex-col gap-lg overflow-y-auto bg-neutral-bg-layout px-md pt-xs pb-md"
       >
         <div className="flex flex-col gap-sm">
-          <p className="text-body-md font-semibold">注销后将删除：</p>
+          <p className="text-h3 text-neutral-text-primary">注销后将删除：</p>
           <ul className="list-disc pl-lg text-body-sm text-neutral-text-primary">
             <li>全部记录原文</li>
             <li>全部人物、关系、感受</li>
@@ -217,7 +227,7 @@ export function DeleteAccountPage() {
           <Banner variant="error">此操作无法恢复。</Banner>
         </div>
         <div className="flex flex-col gap-sm">
-          <label htmlFor={passwordId} className="text-body-sm">
+          <label htmlFor={passwordId} className="text-section text-neutral-text-tertiary">
             输入密码确认
           </label>
           <Input

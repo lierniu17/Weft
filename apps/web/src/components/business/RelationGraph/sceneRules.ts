@@ -4,6 +4,7 @@ import type { EdgeStyle } from "../../../lib/graph/edgeStyle.ts";
 export { labelRadius, worldRadius } from "../../../lib/graph/layout.ts";
 
 import type { GraphTheme } from "../../../lib/graph/scene.ts";
+import { tokens } from "../../../tokens.gen.ts";
 import type { GraphScene } from "./types.ts";
 
 /** Kept lit: a focus and its links, an answer's people, or the people matching a 淡化 filter. */
@@ -24,7 +25,7 @@ export function emphasis(scene: GraphScene): Set<string> | null {
 }
 
 export function edgeColor(theme: GraphTheme | undefined, st: EdgeStyle): string {
-  if (!theme) return "#000";
+  if (!theme) return tokens.color["neutral-text-primary"];
   if (st.tense) return theme.tense;
   return st.touchesSelf ? theme.categories[st.categoryToken] : theme.thirdParty;
 }

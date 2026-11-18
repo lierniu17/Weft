@@ -24,6 +24,7 @@ from weft.domain.draft import (
 )
 from weft.domain.feelings import DIMENSIONS, by_direction
 from weft.domain.graph_view import GraphView
+from weft.domain.graph_write import humanize
 from weft.domain.preferences import GraphTheme, Preferences
 from weft.domain.quota import QuotaDecision
 from weft.domain.taxonomy import Category
@@ -204,7 +205,7 @@ class ProfileOut(_Out):
     @classmethod
     def of(cls, p: ProfileRecord) -> ProfileOut:
         summary = (
-            SummaryOut(text=p.summary, generated_at=p.summary_generated_at)
+            SummaryOut(text=humanize(p.summary), generated_at=p.summary_generated_at)
             if p.summary and p.summary_generated_at
             else None
         )
@@ -295,7 +296,8 @@ class RelationshipOut(_Out):
             origin=r.origin,
             introduced_by=None if r.introduced_by is None else PersonOut.of(r.introduced_by),
             status=None if r.status is None else RelationshipStatus(r.status),
-            summary=r.summary,
+            # generated text written before labels were complete may hold an internal name
+            summary=humanize(r.summary) if r.summary and r.summary_generated_at else r.summary,
             summary_generated_at=r.summary_generated_at,
             confidence=r.confidence,
             sources=list(r.sources),
@@ -601,7 +603,7 @@ class GraphOut(_Out):
 
 class PreferencesOut(_Out):
     graph_theme: GraphTheme = Field(
-        description="图谱外观: light = 清蓝 (default), starfield = 星空"
+        description="图谱外观: light = 浅色 (default), starfield = 星空"
     )
 
     @classmethod

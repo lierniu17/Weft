@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Answer } from "../../../contracts/answer.ts";
-import { rgb } from "../../../test/color.ts";
+import { TRANSPARENT, token } from "../../../test/color.ts";
 import { CitationSheet } from "../CitationSheet/CitationSheet.tsx";
 import { AnswerCard } from "./AnswerCard.tsx";
 import {
@@ -42,11 +42,23 @@ type Story = StoryObj<typeof meta>;
 
 const card = (root: HTMLElement) => within(root).getByRole("article", { name: "回答" });
 
-/** text: every claim carries a [n]; related persons and follow-ups are clickable. */
+/**
+ * text: every claim carries a 出处 mark; related persons (avatar chips) and follow-ups are
+ * clickable. Style refresh AC-4 / AC-7: the answer sits straight on the page — no card
+ * (no fill, border or shadow); 「在图上查看」 is a neutral text button.
+ */
 export const Text: Story = {
   play: async ({ canvasElement, args }) => {
     const c = within(card(canvasElement));
-    await expect(getComputedStyle(card(canvasElement)).backgroundColor).toBe(rgb("#FFFFFF"));
+    const surface = getComputedStyle(card(canvasElement));
+    await expect(surface.backgroundColor).toBe(TRANSPARENT);
+    await expect(surface.borderTopWidth).toBe("0px");
+    await expect(surface.boxShadow).toBe("none");
+    const chip = c.getByRole("button", { name: /张伟/ });
+    await expect(chip.querySelector("[data-chip-avatar]")).toHaveAttribute(
+      "data-chip-avatar",
+      "张",
+    );
     await expect(card(canvasElement)).toHaveTextContent("据老张说");
     await expect(c.getAllByRole("button", { name: /^出处 \d$/ })).toHaveLength(2);
     await userEvent.click(c.getByRole("button", { name: "出处 2" }));
@@ -154,7 +166,7 @@ export const NoAnswer: Story = {
     await expect(card(canvasElement)).toHaveTextContent("图谱里没有相关信息");
     await expect(c.queryByRole("button", { name: /^出处/ })).toBeNull();
     const record = c.getByRole("button", { name: "去记一笔" });
-    await expect(getComputedStyle(record).backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(getComputedStyle(record).backgroundColor).toBe(token("neutral-bg-container"));
     await userEvent.click(record);
     await expect(args.onRecord).toHaveBeenCalled();
   },
@@ -176,7 +188,11 @@ export const ShowOnGraph: Story = {
   args: { answer: PATH_ANSWER, onShowOnGraph: fn() },
   play: async ({ canvasElement, args }) => {
     const c = within(card(canvasElement));
-    await userEvent.click(c.getByRole("button", { name: "在图上查看" }));
+    const show = c.getByRole("button", { name: "在图上查看" });
+    // a neutral text button (style refresh AC-7): no fill, no border, secondary grey
+    await expect(getComputedStyle(show).backgroundColor).toBe(TRANSPARENT);
+    await expect(getComputedStyle(show).color).toBe(token("neutral-text-secondary"));
+    await userEvent.click(show);
     await expect(args.onShowOnGraph).toHaveBeenCalledTimes(1);
   },
 };

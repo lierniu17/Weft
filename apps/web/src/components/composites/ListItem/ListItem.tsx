@@ -32,8 +32,9 @@ export type ListItemProps = {
 const ROW = "flex min-h-[56px] w-full items-center gap-sm px-md py-sm text-left";
 
 /**
- * List row: leading + title + subtitle + trailing. The whole row is clickable and
- * highlights on hover. A title cut off by the single-line ellipsis reveals its full
+ * List row: leading + title + subtitle + trailing. The whole row is clickable: bg-subtle on
+ * hover (motion.fast), scales to motion.press-scale when pressed. Trailing text is meta
+ * grey, right-aligned in tabular figures, before the ›. A title cut off by the single-line ellipsis reveals its full
  * text in a Tooltip on hover / focus (AC-UI-8).
  */
 export function ListItem({
@@ -78,7 +79,7 @@ export function ListItem({
           {titleSuffix && <span className="shrink-0">{titleSuffix}</span>}
         </span>
         {subtitle && (
-          <span className="truncate text-caption text-neutral-text-secondary">{subtitle}</span>
+          <span className="truncate text-meta text-neutral-text-tertiary">{subtitle}</span>
         )}
       </span>
       {variant === "value" && value !== undefined && (
@@ -87,12 +88,15 @@ export function ListItem({
         </span>
       )}
       {trailing && (
-        <span className="flex shrink-0 items-center text-caption text-neutral-text-secondary">
+        <span
+          data-list-item-trailing=""
+          className="flex shrink-0 items-center text-right text-meta text-neutral-text-tertiary tabular-nums"
+        >
           {trailing}
         </span>
       )}
       {variant === "navigational" && (
-        <FiChevronRight aria-hidden="true" className="shrink-0 text-neutral-text-secondary" />
+        <FiChevronRight aria-hidden="true" className="shrink-0 text-neutral-text-disabled" />
       )}
     </>
   );
@@ -100,7 +104,7 @@ export function ListItem({
   const look = cx(
     ROW,
     interactive &&
-      "motion-colors focus-ring cursor-pointer hover:bg-neutral-bg-layout no-underline",
+      "motion-press focus-ring cursor-pointer rounded-sm hover:bg-neutral-bg-subtle no-underline",
     className,
   );
 

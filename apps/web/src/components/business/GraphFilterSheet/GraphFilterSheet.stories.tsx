@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Taxonomy } from "../../../contracts/taxonomy.ts";
 import { EMPTY_FILTER, type GraphFilter } from "../../../lib/graphFilter.ts";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { GraphFilterSheet } from "./GraphFilterSheet.tsx";
 
@@ -88,7 +88,7 @@ export const FilterByCategoryAndCloseness: Story = {
     const social = within(categories).getByRole("button", { name: "社会" });
     await userEvent.click(social);
     await expect(social).toHaveAttribute("aria-pressed", "true");
-    await waitFor(() => expect(getComputedStyle(social).backgroundColor).toBe(rgb("#EEF2FF")));
+    await waitFor(() => expect(getComputedStyle(social).backgroundColor).toBe(token("primary-6")));
     await userEvent.click(within(categories).getByRole("button", { name: "亲属" }));
     await expect(current(canvasElement).categories).toEqual(["social", "kin"]);
 
@@ -183,7 +183,7 @@ export const DesktopColumn: Story = {
     const panel = await canvas.findByRole("dialog", { name: "筛选" });
     await expect(canvasElement).toContainElement(panel);
     await expect(panel).not.toHaveAttribute("aria-modal", "true");
-    await expect(panel.getBoundingClientRect().width).toBe(360);
+    await expect(panel.getBoundingClientRect().width).toBe(380);
     await expect(document.querySelector("[data-drawer-mask]")).toBeNull();
     await waitFor(() => expect(panel).toContainElement(document.activeElement as HTMLElement));
 

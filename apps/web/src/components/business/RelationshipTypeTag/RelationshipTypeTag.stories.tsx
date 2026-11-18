@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { RelationshipTypeTag } from "./RelationshipTypeTag.tsx";
 
 const meta = {
@@ -17,8 +17,8 @@ export const Builtin: Story = {
     const tag = canvasElement.querySelector("[data-relationship-type]") as HTMLElement;
     await expect(tag).toHaveTextContent("社会 · 同事");
     const style = getComputedStyle(tag);
-    await expect(style.backgroundColor).toBe(rgb("#FFFFFF"));
-    await expect(style.borderTopColor).toBe(rgb("#DDE1E8"));
+    await expect(style.backgroundColor).toBe(token("neutral-bg-container"));
+    await expect(style.borderTopColor).toBe(token("neutral-border"));
     await expect(style.borderTopLeftRadius).toBe("9999px");
     await expect(within(canvasElement).queryByText("自定义")).toBeNull();
   },

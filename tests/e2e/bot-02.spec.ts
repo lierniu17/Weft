@@ -45,10 +45,10 @@ test("BOT-2 写记录、改草稿、确认、看画像与出处", { tag: "@llm" 
 
   const facts = sheet.getByRole("region", { name: "信息" });
   const relationships = sheet.getByRole("region", { name: "关系变化" });
-  const fishing = facts.locator("li").filter({ hasText: "老张 · 喜欢 钓鱼" });
-  const drinking = facts.locator("li").filter({ hasText: "老张 · 不喜欢 喝酒" });
+  const fishing = facts.locator("li").filter({ hasText: "老张喜欢钓鱼" });
+  const drinking = facts.locator("li").filter({ hasText: "老张不喜欢喝酒" });
   const exam = facts.locator("li").filter({
-    hasText: replayedOr<string | RegExp>(`${DAUGHTER} · 经历 明年高考`, /的女儿 · 经历 .*高考/),
+    hasText: replayedOr<string | RegExp>(`${DAUGHTER}明年高考`, /的女儿.*高考/),
   });
   // 老张 是 老张的女儿 的 父母 (or the same read the other way round: 女儿 是 老张 的 子女)
   const kin = relationships.locator("li").filter({ hasText: DAUGHTER });
@@ -60,11 +60,11 @@ test("BOT-2 写记录、改草稿、确认、看画像与出处", { tag: "@llm" 
     }),
   ).toBeVisible();
   for (const item of [fishing, drinking, exam, kin]) {
-    await expect(item.getByRole("button", { name: /^可信度：/ })).toBeVisible();
+    await expect(item.getByRole("button", { name: /（可信度，点按修改）$/ })).toBeVisible();
   }
-  await expect(sheet.getByRole("button", { name: /可信度：/ })).toHaveCount(itemCount);
+  await expect(sheet.getByRole("button", { name: /（可信度，点按修改）/ })).toHaveCount(itemCount);
   if (!REMOTE) {
-    await expect(sheet.getByRole("button", { name: /可信度：本人说/ })).toHaveCount(4);
+    await expect(sheet.getByRole("button", { name: /本人说（可信度/ })).toHaveCount(4);
   }
   // 确认前人物列表里没有老张（也没有老张的女儿）
   const before = await (await page.request.get("/api/persons?q=老张")).json();
@@ -72,9 +72,9 @@ test("BOT-2 写记录、改草稿、确认、看画像与出处", { tag: "@llm" 
   await shot(page, "BOT-2-step2-draft");
 
   // 3. 把“迷上钓鱼”的可信度从“本人说”改为“亲历”。
-  await fishing.getByRole("button", { name: /可信度：本人说/ }).click();
+  await fishing.getByRole("button", { name: /本人说（可信度/ }).click();
   await page.getByRole("menuitemradio", { name: "亲历" }).click();
-  await expect(fishing.getByRole("button", { name: /可信度：亲历/ })).toBeVisible();
+  await expect(fishing.getByRole("button", { name: /亲历（可信度/ })).toBeVisible();
 
   // 4. 删掉“老张的女儿 · 明年高考”这一条，以及老张与老张的女儿之间的关系这一条。
   await exam.getByRole("button", { name: /删除/ }).click();
@@ -94,7 +94,7 @@ test("BOT-2 写记录、改草稿、确认、看画像与出处", { tag: "@llm" 
 
   // 6. 打开老张的画像页，点开“喜欢钓鱼”这一条。
   await card.getByRole("button", { name: "老张", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "老张", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "老张", level: 1 })).toBeVisible();
   const likes = page.locator('[data-profile-section="tags"]').filter({ hasText: "喜好与厌恶" });
   await expect(likes).toContainText("钓鱼");
   await expect(likes).toContainText("不喝酒");

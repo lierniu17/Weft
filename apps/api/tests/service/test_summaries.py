@@ -2,20 +2,28 @@
 
 from __future__ import annotations
 
+import json
+import re
+from datetime import UTC, datetime
+
 import pytest
 
 from tests.conftest import FakeClock
 from tests.support import scenarios as sc
 from tests.support.graph import pair_of, person_named, profile_of
 from tests.support.llm_script import LLMScript
+from tests.support.seeded import seeded_user
 from tests.support.users import new_user
 from weft.domain.tenancy import tenant_scope
 from weft.infra import Infra
+from weft.routes.schemas import ProfileOut
 from weft.services import persons, summaries
+from weft.services._uow import graph
 from weft.services.results import Ok
 
 pytestmark = pytest.mark.service
 
+INTERNAL_NAME = re.compile(r"[A-Z]+_[A-Z_]+")
 LAOZHANG_SUMMARY = "老张最近迷上了钓鱼，不喝酒。"
 
 
@@ -113,3 +121,22 @@ async def test_a_failed_generation_stays_stale_for_the_next_refresh(
         retried = await summaries.refresh_stale(infra)
     assert failed == summaries.Refreshed(persons=0, relationships=0, failed=1)
     assert retried.persons == 1
+
+
+async def test_a_summary_never_shows_an_internal_fact_name(infra: Infra) -> None:
+    """Style refresh AC-9: the model is handed Chinese labels (「两人之间的事」, never
+    RELATED_EVENT), and a 综合描述 that still holds an internal name is shown in Chinese."""
+    seeded = await seeded_user(infra)
+    zhang = await profile_of(infra, seeded.user, "张伟")
+    assert any(f.predicate == "RELATED_EVENT" for f in zhang.facts)  # the seed has one
+
+    payload = json.dumps(summaries._person_payload(zhang), ensure_ascii=False)
+    assert "两人之间的事" in payload
+    assert not INTERNAL_NAME.search(payload)
+
+    with tenant_scope(seeded.user.tenant):
+        await graph(infra).set_person_summary(
+            zhang.person.id, "张伟：据说RELATED_EVENT小李；LIKES钓鱼。", datetime.now(UTC)
+        )
+    shown = ProfileOut.of(await profile_of(infra, seeded.user, "张伟")).summary
+    assert shown is not None and shown.text == "张伟：据说两人之间的事小李；喜欢钓鱼。"

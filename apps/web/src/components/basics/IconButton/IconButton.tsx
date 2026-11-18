@@ -16,9 +16,17 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "chi
   ref?: Ref<HTMLButtonElement>;
 };
 
+/** filled = the round ink send button; plain = neutral grey icon, bg-muted on hover. */
 const VARIANTS: Record<IconButtonVariant, string> = {
   filled: "bg-primary-6 text-on-primary enabled:hover:bg-primary-5 enabled:active:bg-primary-7",
-  plain: "bg-transparent text-neutral-text-secondary enabled:hover:bg-neutral-bg-layout",
+  plain:
+    "bg-transparent text-neutral-text-secondary enabled:hover:bg-neutral-bg-muted enabled:hover:text-neutral-text-primary",
+};
+
+/** Disabled: the filled send button fades to 25% (DESIGN.md §2); plain icons go grey. */
+const DISABLED: Record<IconButtonVariant, string> = {
+  filled: "disabled:cursor-not-allowed disabled:opacity-25",
+  plain: "disabled:cursor-not-allowed disabled:text-neutral-text-disabled",
 };
 
 const SIZES: Record<IconButtonSize, string> = {
@@ -43,12 +51,10 @@ export function IconButton({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cx(
-        "motion-colors focus-ring inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full",
+        "motion-press focus-ring inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full",
         VARIANTS[variant],
         SIZES[size],
-        // Disabled has its own look rather than dimming (DESIGN.md IconButton.states).
-        !loading &&
-          "disabled:cursor-not-allowed disabled:bg-neutral-divider disabled:text-neutral-text-disabled",
+        !loading && DISABLED[variant],
         loading && "cursor-progress",
         className,
       )}

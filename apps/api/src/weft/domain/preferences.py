@@ -1,5 +1,5 @@
 """User preferences (graph-viz AC-18): account-level settings that follow the user across
-devices. For now only the graph's appearance: 清蓝 (light, default) or 星空 (starfield)."""
+devices. For now only the graph's appearance: 浅色 (light, default) or 星空 (starfield)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from enum import StrEnum
 
 
 class GraphTheme(StrEnum):
-    LIGHT = "light"  # 清蓝
+    LIGHT = "light"  # 浅色
     STARFIELD = "starfield"  # 星空
 
 

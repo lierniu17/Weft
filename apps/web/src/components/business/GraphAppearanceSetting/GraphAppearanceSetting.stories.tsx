@@ -20,12 +20,14 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** AC-18: 清蓝 by default; picking 星空 reports it. */
+/** AC-18 (style refresh AC-11): the options read 浅色 / 星空, 浅色 by default; 星空 reports it. */
 export const Default: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("radiogroup", { name: "图谱外观" })).toBeVisible();
-    await expect(canvas.getByRole("radio", { name: "清蓝" })).toHaveAttribute(
+    await expect(canvas.getAllByRole("radio").map((r) => r.textContent)).toEqual(["浅色", "星空"]);
+    await expect(canvas.queryByText("清蓝")).toBeNull();
+    await expect(canvas.getByRole("radio", { name: "浅色" })).toHaveAttribute(
       "aria-checked",
       "true",
     );
@@ -48,7 +50,7 @@ export const Keyboard: Story = {
     await expect(star).toHaveAttribute("aria-checked", "true");
     star.focus();
     await userEvent.keyboard("{ArrowLeft}");
-    await expect(canvas.getByRole("radio", { name: "清蓝" })).toHaveAttribute(
+    await expect(canvas.getByRole("radio", { name: "浅色" })).toHaveAttribute(
       "aria-checked",
       "true",
     );

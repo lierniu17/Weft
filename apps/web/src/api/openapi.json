@@ -2087,7 +2087,7 @@
     "properties": {
      "graph_theme": {
       "$ref": "#/components/schemas/GraphTheme",
-      "description": "图谱外观: light = 清蓝 (default), starfield = 星空"
+      "description": "图谱外观: light = 浅色 (default), starfield = 星空"
      }
     },
     "required": [

@@ -32,6 +32,7 @@ from weft.domain.answer import (
 )
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
+from weft.domain.graph_write import humanize
 
 NO_ANSWER_TEXT = "图谱里没有相关信息。"
 MAX_FOLLOW_UPS = 3
@@ -199,6 +200,8 @@ def build_answer(
         if not text:
             continue
         indices, cited = citations.cite(seg.evidence)
+        # the model reads predicates like RELATED_EVENT; the user never does (style AC-9)
+        text = humanize(text)
         segments.append(AnswerSegment(text=hedge(text, cited), citations=tuple(indices)))
 
     def refs(handles: list[str]) -> list[PersonRef]:
@@ -215,7 +218,7 @@ def build_answer(
                 person_id=ref.person_id,
                 name=ref.name,
                 is_self=ref.is_self,
-                subtitle=(item.subtitle or "").strip() or None,
+                subtitle=humanize((item.subtitle or "").strip()) or None,
                 citations=indices,
             )
         )

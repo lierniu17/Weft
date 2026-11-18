@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Avatar } from "./Avatar.tsx";
 
 const meta = {
@@ -17,7 +17,7 @@ export const Initial: Story = {
     const avatar = within(canvasElement).getByRole("img", { name: "张伟" });
     await expect(avatar).toHaveTextContent("张");
     await expect(getComputedStyle(avatar).borderRadius).toBe("9999px");
-    await expect(getComputedStyle(avatar).backgroundColor).toBe(rgb("#E6F6F4"));
+    await expect(getComputedStyle(avatar).backgroundColor).toBe(token("neutral-bg-muted"));
   },
 };
 
@@ -26,7 +26,7 @@ export const Self: Story = {
   play: async ({ canvasElement }) => {
     const avatar = within(canvasElement).getByRole("img", { name: "小明（我）" });
     await expect(avatar).toHaveTextContent("我");
-    await expect(getComputedStyle(avatar).backgroundColor).toBe(rgb("#EEF2FF"));
+    await expect(getComputedStyle(avatar).backgroundColor).toBe(token("neutral-bg-muted"));
   },
 };
 

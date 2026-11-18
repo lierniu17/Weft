@@ -104,7 +104,7 @@ export function GraphLegend({ theme = "light", defaultCollapsed, className }: Gr
       aria-labelledby={id}
       data-graph-legend=""
       className={cx(
-        "flex flex-col gap-xs rounded-md border p-sm text-caption shadow-card",
+        "flex flex-col gap-xs rounded-md border p-sm text-caption shadow-md",
         dark
           ? "border-graph-dark-panel-border bg-graph-dark-panel text-graph-dark-text"
           : "border-neutral-divider bg-neutral-bg-container text-neutral-text-secondary",

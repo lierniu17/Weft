@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { FiMap, FiMessageSquare, FiUser, FiUsers } from "react-icons/fi";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import type { NavItem } from "../TabBar/TabBar.tsx";
 import { SideNav, type SideNavProps } from "./SideNav.tsx";
 
@@ -46,18 +46,24 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Desktop D1–D3: 220px, 对话 / 人物 / 全景图 / 我的, then 最近提到. */
+/** Desktop D1–D3: 232px on bg-subtle, 对话 / 人物 / 全景图 / 我的, then 最近提到. */
 export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const nav = canvas.getByRole("navigation", { name: "主导航" });
-    await expect(nav.getBoundingClientRect().width).toBe(220);
-    await expect(getComputedStyle(nav).backgroundColor).toBe(rgb("#F5F6F8"));
+    await expect(nav.getBoundingClientRect().width).toBe(232);
+    await expect(getComputedStyle(nav).backgroundColor).toBe(token("neutral-bg-subtle"));
 
     const active = canvas.getByRole("button", { name: "对话" });
     await expect(active).toHaveAttribute("aria-current", "page");
-    await expect(getComputedStyle(active).backgroundColor).toBe(rgb("#EEF2FF"));
-    await expect(getComputedStyle(active).color).toBe(rgb("#4338CA"));
+    // The current item: a white pill, ink text, shadow.sm.
+    await expect(getComputedStyle(active).backgroundColor).toBe(token("neutral-bg-container"));
+    await expect(getComputedStyle(active).color).toBe(token("primary-6"));
+    await expect(getComputedStyle(active).boxShadow).toContain(
+      "rgba(0, 0, 0, 0.04) 0px 1px 2px 0px",
+    );
+    const other = canvas.getByRole("button", { name: "人物" });
+    await expect(getComputedStyle(other).color).toBe(token("neutral-text-secondary"));
 
     await userEvent.click(canvas.getByRole("button", { name: "全景图" }));
     await expect(canvas.getByRole("button", { name: "全景图" })).toHaveAttribute(

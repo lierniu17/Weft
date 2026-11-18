@@ -47,3 +47,13 @@ export function useSidePanel() {
 export function useToday(): Date {
   return new Date();
 }
+
+/**
+ * The page content column (style refresh AC-5): full width with spacing.md gutters on a
+ * phone, at most 720px and centred from the desktop up. Every page puts its scrolling
+ * content in one; the NavBar above it spans the main area.
+ */
+export const CONTENT_COLUMN = "mx-auto w-full max-w-[720px] px-md";
+
+/** The desktop right column beside a page (chat: 当前人物 / review / 出处; person: graph). */
+export const RIGHT_COLUMN = "w-[380px] shrink-0";

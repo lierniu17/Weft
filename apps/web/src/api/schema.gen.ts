@@ -1223,7 +1223,7 @@ export interface components {
         Precision: "year" | "month" | "day";
         /** PreferencesOut */
         PreferencesOut: {
-            /** @description 图谱外观: light = 清蓝 (default), starfield = 星空 */
+            /** @description 图谱外观: light = 浅色 (default), starfield = 星空 */
             graph_theme: components["schemas"]["GraphTheme"];
         };
         /**

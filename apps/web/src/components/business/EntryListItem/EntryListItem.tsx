@@ -60,7 +60,7 @@ export function EntryListItem({
       type="button"
       onClick={onClick}
       className={cx(
-        "motion-colors focus-ring flex w-full cursor-pointer items-start gap-sm px-md py-sm text-left hover:bg-neutral-bg-layout",
+        "motion-colors focus-ring flex w-full cursor-pointer items-start gap-sm px-md py-sm text-left hover:bg-neutral-bg-subtle",
         className,
       )}
     >

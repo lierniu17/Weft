@@ -37,9 +37,11 @@ describe("业务枚举的中文文案", () => {
     expect(profileFieldLabel("hometown")).toBe("籍贯");
   });
 
-  it("known predicates read as Chinese, unknown ones pass through", () => {
+  it("every predicate and the event between two persons reads as Chinese (style AC-9)", () => {
     expect(predicateLabel("WORKS_AT")).toBe("工作单位");
     expect(predicateLabel("LIKES")).toBe("喜欢");
-    expect(predicateLabel("SOMETHING_NEW")).toBe("SOMETHING_NEW");
+    expect(predicateLabel("RELATED_EVENT")).toBe("两人之间的事");
+    // an unknown internal name never reaches the UI
+    expect(predicateLabel("SOMETHING_NEW")).toBe("信息");
   });
 });

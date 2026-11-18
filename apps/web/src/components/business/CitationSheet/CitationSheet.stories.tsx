@@ -119,7 +119,7 @@ export const SidePanel: Story = {
   play: async ({ canvasElement }) => {
     await open(canvasElement);
     const panel = await screen.findByRole("dialog", { name: "出处 [2]" });
-    await expect(panel.getBoundingClientRect().width).toBe(360);
+    await expect(panel.getBoundingClientRect().width).toBe(380);
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   },

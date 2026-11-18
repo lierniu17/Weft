@@ -22,13 +22,13 @@ test("BOT-3 需选择候选人与别名", { tag: "@llm" }, async ({ page }) => {
   await submitRecord(page, "老张今天升职了");
   const card = draftCardOf(page, "老张今天升职了");
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
-  await expect(card).toContainText("老张 → ？需选择");
+  await expect(card).toContainText("老张 是谁？需选择");
 
   // 2. 在草稿里看到老张为需选择，先不选，尝试确认。
   await card.getByRole("button", { name: "查看并确认" }).click();
   const sheet = page.getByRole("dialog", { name: "确认草稿" });
   const ambiguous = sheet.locator('[data-person-match="ambiguous"]');
-  await expect(ambiguous).toContainText("老张 → 选择是谁");
+  await expect(ambiguous).toContainText("老张 是谁？");
   await expect(ambiguous.getByRole("button", { name: "张伟（同事）" })).toBeVisible();
   await expect(ambiguous.getByRole("button", { name: "张强（邻居）" })).toBeVisible();
   const confirm = sheet.getByRole("button", { name: "确认入图谱" });
@@ -39,7 +39,7 @@ test("BOT-3 需选择候选人与别名", { tag: "@llm" }, async ({ page }) => {
   // 3. 选择张伟，确认。
   await ambiguous.getByRole("button", { name: "张伟（同事）" }).click();
   await expect(
-    sheet.locator('[data-person-match="matched"]').filter({ hasText: "老张 → 张伟" }),
+    sheet.locator('[data-person-match="matched"]').filter({ hasText: "老张 是 张伟" }),
   ).toBeVisible();
   await expect(confirm).toBeEnabled();
   await confirm.click();
@@ -51,10 +51,10 @@ test("BOT-3 需选择候选人与别名", { tag: "@llm" }, async ({ page }) => {
   await submitRecord(page, "老张请大家喝奶茶");
   const second = draftCardOf(page, "老张请大家喝奶茶");
   await expect(second.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
-  await expect(second).toContainText("老张 → 张伟");
+  await expect(second).toContainText("老张 是 张伟");
   await second.getByRole("button", { name: "查看并确认" }).click();
   await expect(
-    sheet.locator('[data-person-match="matched"]').filter({ hasText: "老张 → 张伟" }),
+    sheet.locator('[data-person-match="matched"]').filter({ hasText: "老张 是 张伟" }),
   ).toContainText("已匹配");
   await shot(page, "BOT-3-step4-matched");
   await sheet.getByRole("button", { name: "确认入图谱" }).click();

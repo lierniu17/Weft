@@ -6,13 +6,25 @@ export type TextAreaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "r
   minRows?: number;
   /** DESIGN.md TextArea.max-rows — beyond this the box scrolls. */
   maxRows?: number;
+  /**
+   * `bare`: no box of its own — for a composer that draws the box around it (ChatComposer:
+   * rounded.xl + shadow.md around the textarea and its controls).
+   */
+  variant?: "default" | "bare";
   ref?: Ref<HTMLTextAreaElement>;
+};
+
+const LOOKS = {
+  default:
+    "rounded-md border border-neutral-border bg-neutral-bg-container px-md py-sm focus:border-neutral-text-tertiary disabled:bg-neutral-bg-subtle",
+  bare: "border-0 bg-transparent p-[0]",
 };
 
 /** Multi-line input that grows with its content (1 → 6 rows, then scrolls). */
 export function TextArea({
   minRows = 1,
   maxRows = 6,
+  variant = "default",
   className,
   onInput,
   value,
@@ -55,9 +67,10 @@ export function TextArea({
         onInput?.(e);
       }}
       className={cx(
-        "motion-colors block w-full resize-none rounded-md border border-neutral-border bg-neutral-bg-container px-sm py-sm text-body-md text-neutral-text-primary outline-none",
-        "placeholder:text-neutral-text-disabled focus:border-primary-6",
-        "disabled:cursor-not-allowed disabled:bg-neutral-bg-layout disabled:text-neutral-text-disabled",
+        "motion-colors block w-full resize-none text-body-md text-neutral-text-primary outline-none",
+        LOOKS[variant],
+        "placeholder:text-neutral-text-disabled",
+        "disabled:cursor-not-allowed disabled:text-neutral-text-disabled",
         className,
       )}
       {...rest}

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { motionMs } from "../../../lib/motion.ts";
+import { token } from "../../../test/color.ts";
 import { Avatar } from "../../basics/Avatar/Avatar.tsx";
 import { ListItem } from "./ListItem.tsx";
 
@@ -98,7 +99,7 @@ export const LongTitleTruncates: Story = {
     await expect(Array.from(LONG).length).toBeGreaterThanOrEqual(20);
     await expect(getComputedStyle(title).textOverflow).toBe("ellipsis");
     await expect(title.scrollWidth).toBeGreaterThan(title.clientWidth);
-    await expect(title.getBoundingClientRect().height).toBe(22); // one line
+    await expect(title.getBoundingClientRect().height).toBe(24); // one line (body-md 15/24)
     await userEvent.hover(within(canvasElement).getByRole("button"));
     await expect(await screen.findByRole("tooltip")).toHaveTextContent(LONG);
   },
@@ -123,6 +124,42 @@ export const Loading: Story = {
     await expect(row.querySelectorAll("[data-skeleton]")).toHaveLength(3);
     await expect(
       getComputedStyle(row.querySelector("[data-skeleton]") as Element).backgroundColor,
-    ).toBe(rgb("#EBEEF2"));
+    ).toBe(token("neutral-bg-muted"));
+  },
+};
+
+/**
+ * AC-10 / AC-15: the row turns bg-subtle on hover within motion.fast, scales to 0.98 when
+ * pressed, and its trailing meta is 13px tertiary grey, right-aligned in tabular figures.
+ */
+export const HoverPressAndMeta: Story = {
+  args: {
+    variant: "navigational",
+    title: "我的记录",
+    subtitle: undefined,
+    trailing: "34 条",
+    onClick: fn(),
+  },
+  parameters: { motion: true },
+  play: async ({ canvasElement }) => {
+    const row = within(canvasElement).getByRole("button", { name: /我的记录/ });
+    const s = getComputedStyle(row);
+    await expect(s.transitionProperty).toContain("background-color");
+    await expect(s.transitionProperty).toContain("transform");
+    await expect(s.transitionDuration.split(", ")[0]).toBe(`${motionMs("fast") / 1000}s`);
+    await expect(row.className).toContain("hover:bg-neutral-bg-subtle");
+    await expect(row.className).toContain("motion-press");
+
+    const meta = row.querySelector("[data-list-item-trailing]") as HTMLElement;
+    const ms = getComputedStyle(meta);
+    await expect(ms.fontSize).toBe("13px");
+    await expect(ms.color).toBe(token("neutral-text-tertiary"));
+    await expect(ms.fontVariantNumeric).toBe("tabular-nums");
+    await expect(ms.textAlign).toBe("right");
+    // The meta sits at the right edge, just before the chevron.
+    const chevron = row.querySelector("svg") as SVGElement;
+    await expect(chevron.getBoundingClientRect().left).toBeGreaterThan(
+      meta.getBoundingClientRect().right - 1,
+    );
   },
 };

@@ -37,7 +37,10 @@ export function TabBar({ items, value, onValueChange, className }: TabBarProps) 
             onClick={() => onValueChange(item.value)}
             className={cx(
               "motion-colors focus-ring relative flex h-[56px] flex-1 cursor-pointer flex-col items-center justify-center gap-xs text-caption",
-              active ? "font-semibold text-primary-6" : "text-neutral-text-secondary",
+              // The current tab is the ink colour; the others recede to the tertiary grey.
+              active
+                ? "font-semibold text-primary-6"
+                : "text-neutral-text-tertiary hover:text-neutral-text-primary",
             )}
           >
             <span className="relative flex text-h2">

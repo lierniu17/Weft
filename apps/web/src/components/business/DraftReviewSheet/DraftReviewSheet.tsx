@@ -8,7 +8,7 @@ import type {
 } from "../../../contracts/draft.ts";
 import type { Taxonomy } from "../../../contracts/taxonomy.ts";
 import { formatOccurredOn, type OccurredOn } from "../../../lib/datePrecision.ts";
-import { canConfirm, describeItem, displayName, unresolvedPersons } from "../../../lib/draft.ts";
+import { canConfirm, itemSentence, unresolvedPersons } from "../../../lib/draft.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { Drawer, type DrawerVariant } from "../../basics/Drawer/Drawer.tsx";
 import { Modal } from "../../basics/Modal/Modal.tsx";
@@ -47,7 +47,7 @@ export type DraftReviewSheetProps = {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="flex flex-col pt-md">
+    <section aria-labelledby={id} className="flex flex-col gap-xs pt-lg first:pt-sm">
       <SectionHeader id={id} title={title} level={3} />
       <ul className="flex flex-col">{children}</ul>
     </section>
@@ -82,12 +82,12 @@ export function DraftReviewSheet({
   const unresolved = unresolvedPersons(draft).length;
   const confirmable = canConfirm(draft);
 
-  const item = (it: DraftItem, children?: ReactNode, title = describeItem(draft, it)) => {
+  const item = (it: DraftItem, children?: ReactNode) => {
     const conflict = "conflict" in it ? it.conflict : null;
     return (
       <DraftFactItem
         key={it.id}
-        title={title}
+        title={itemSentence(draft, it).text}
         variant={conflict?.action ?? "add"}
         conflictOld={conflict?.old}
         newValue={"object" in it ? it.object : undefined}
@@ -163,7 +163,6 @@ export function DraftReviewSheet({
                   taxonomy={taxonomy}
                   onChange={(i, t) => onRelationshipTypeChange(r.id, i, t)}
                 />,
-                `${displayName(draft, r.pair[0])} 与 ${displayName(draft, r.pair[1])}`,
               ),
             )}
           </Section>
@@ -171,6 +170,7 @@ export function DraftReviewSheet({
         {draft.feelings.length > 0 && (
           <Section title="感受变化">{draft.feelings.map((f) => item(f))}</Section>
         )}
+        <p className="pt-sm pb-md text-meta text-neutral-text-tertiary">点一条可以改可信度</p>
       </Drawer>
       <Modal
         open={discarding}
