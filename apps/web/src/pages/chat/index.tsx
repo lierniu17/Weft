@@ -11,6 +11,7 @@ import { keys } from "../../api/keys.ts";
 import {
   chronological,
   type Message,
+  useClarify,
   useMessages,
   useReroute,
   useSendMessage,
@@ -33,7 +34,12 @@ import { EmptyState } from "../../components/composites/EmptyState/EmptyState.ts
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
 import type { Answer, Citation } from "../../contracts/answer.ts";
 import { cx } from "../../lib/cx.ts";
-import { composerQuota, type MessageActionTarget, problemText } from "../../lib/messages.ts";
+import {
+  composerQuota,
+  type MessageActionTarget,
+  optionPart,
+  problemText,
+} from "../../lib/messages.ts";
 import { draftCardLabels } from "../../lib/pageModels.ts";
 import { PanoramaBody } from "../panorama/PanoramaView.tsx";
 import { CurrentPersonPanel } from "./CurrentPersonPanel.tsx";
@@ -56,6 +62,7 @@ export function ChatPage() {
   const usage = useUsage();
   const send = useSendMessage();
   const reroute = useReroute();
+  const clarify = useClarify();
 
   const [text, setText] = useState("");
   const [reviewing, setReviewing] = useState<{ draftId: string; occurredOn: string } | null>(null);
@@ -94,6 +101,7 @@ export function ChatPage() {
   const labels = draftCardLabels(entries, today);
   const sending = send.isPending ? send.variables : null;
   const rerouting = reroute.isPending ? reroute.variables : null;
+  const clarifying = clarify.isPending ? clarify.variables : null;
   const firstUse = chat.isSuccess && messages.length === 0 && sending === null;
   const latestConfirmed = [...entries].reverse().find((e) => e.draft?.status === "confirmed");
 
@@ -138,6 +146,33 @@ export function ChatPage() {
           // 409: the message changed meanwhile (its draft was confirmed): show it as it is.
           if (e.status === 409) void qc.invalidateQueries({ queryKey: keys.messages });
           setToast(problemText({ part: target, error: e.code, message: e.message }, usage.data));
+        },
+      },
+    );
+  };
+
+  // A 反问 option (intent clarify AC-3): the message is handled by it and replaced in place.
+  // A used-up quota leaves the 反问 open and says so like the composer does (AC-7).
+  const onClarify = (message: Message, option: number) => {
+    clarify.mutate(
+      { id: message.message_id, option },
+      {
+        onError: (e) => {
+          if (!(e instanceof ApiError)) {
+            setToast("操作失败，请稍后再试");
+            return;
+          }
+          // 409: answered or clicked meanwhile (another tab): show it as it is.
+          if (e.status === 409) void qc.invalidateQueries({ queryKey: keys.messages });
+          const chosen = message.clarify?.options[option];
+          setToast(
+            chosen
+              ? problemText(
+                  { part: optionPart(chosen, e.body.kind), error: e.code, message: e.message },
+                  usage.data,
+                )
+              : e.message,
+          );
         },
       },
     );
@@ -229,6 +264,8 @@ export function ChatPage() {
                     onPersonClick={openPerson}
                     onReroute={(target) => onReroute(m, target)}
                     rerouting={rerouting?.id === m.message_id ? rerouting.as : null}
+                    onClarify={(option) => onClarify(m, option)}
+                    clarifying={clarifying?.id === m.message_id ? clarifying.option : null}
                     answerProps={answerProps}
                   />
                 ))}
