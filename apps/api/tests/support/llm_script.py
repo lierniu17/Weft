@@ -216,15 +216,19 @@ class LLMScript:
 
         ``requires_custom``: only answer if that subtype is in the vocabulary sent to the
         model (the user's custom subtypes take part in classification, AC-32).
-        ``written_on``: only answer if the Entry is sent with that day of writing (its
-        occurred date was read from a message, intent-routing AC-8).
+        ``written_on``: only answer if the Entry is sent with that day of writing as its
+        reference date and its occurred date as ``event_occurred`` (read from a message,
+        intent-routing AC-8).
         """
 
         def matches(body: dict[str, Any]) -> bool:
             task = _weft_task(body)
             if task is None or task["task"] != "enrich" or task["entry"]["text"] != text:
                 return False
-            if written_on is not None and task["entry"].get("written_on") != written_on:
+            entry = task["entry"]
+            if written_on is not None and (
+                "event_occurred" not in entry or entry["occurred"] != written_on
+            ):
                 return False
             if requires_custom is None:
                 return True
