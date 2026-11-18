@@ -12,8 +12,9 @@ import { useTaxonomy } from "../../api/graph.ts";
 import { useSheetVariant, useToday } from "../../app/layout.ts";
 import { DraftReviewSheet } from "../../components/business/DraftReviewSheet/DraftReviewSheet.tsx";
 import type { Draft } from "../../contracts/draft.ts";
-import { parsePartialDate } from "../../lib/datePrecision.ts";
+import { type OccurredOn, parsePartialDate } from "../../lib/datePrecision.ts";
 import { choosePerson, removeItem, setConfidence, setRelationshipType } from "../../lib/draft.ts";
+import { toPartialDate } from "../../lib/pageModels.ts";
 
 export type DraftReviewProps = {
   draftId: string | null;
@@ -34,6 +35,8 @@ export function DraftReview({ draftId, occurredOn, onClose, onError, modal }: Dr
   const variant = useSheetVariant();
   const today = useToday();
   const [edited, setEdited] = useState<Draft | null>(null);
+  /** The 发生日期 as moved in this sheet (the server re-timed the draft for it). */
+  const [moved, setMoved] = useState<string | null>(null);
 
   const original = (draft.data as DraftOut | undefined)?.content ?? null;
   // Local edits start from the API copy; the parent keys this component by draft id.
@@ -47,6 +50,20 @@ export function DraftReview({ draftId, occurredOn, onClose, onError, modal }: Dr
   if (!draftId || !value || draft.data?.status !== "pending") return null;
 
   const fail = (e: unknown) => onError(e instanceof ApiError ? e.message : "操作失败，请稍后再试");
+
+  // AC-9: a new 发生日期 is saved at once with the current edits; the server re-times the
+  // draft's relative dates, and the re-timed draft replaces the local copy.
+  const onOccurredOnChange = async (next: OccurredOn) => {
+    const occurred_on = toPartialDate(next);
+    if (occurred_on === (moved ?? occurredOn)) return;
+    try {
+      await update.mutateAsync({ id: draftId, content: value, occurred_on });
+      setEdited(null);
+      setMoved(occurred_on);
+    } catch (e) {
+      fail(e);
+    }
+  };
 
   const onConfirm = async () => {
     try {
@@ -67,7 +84,10 @@ export function DraftReview({ draftId, occurredOn, onClose, onError, modal }: Dr
       variant={variant}
       modal={modal}
       draft={value}
-      occurredOn={parsePartialDate(occurredOn)}
+      occurredOn={parsePartialDate(moved ?? occurredOn)}
+      onOccurredOnChange={onOccurredOnChange}
+      retiming={update.isPending}
+      retimed={moved !== null}
       today={today}
       taxonomy={taxonomy.data ?? []}
       onChoosePerson={(id, choice) => edit((d) => choosePerson(d, id, choice))}

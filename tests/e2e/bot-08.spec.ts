@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ask, personId, pinClock, recordConfirmed, registerUser, shot } from "./support/bot.ts";
+import { personId, pinClock, recordConfirmed, registerUser, say, shot } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
 /** BOT-8 〔AC-4〕 user B can't see user A's persons, Entries, answers or panorama. */
@@ -27,7 +27,7 @@ test("BOT-8 两个账户交叉访问", { tag: "@llm" }, async ({ browser }) => {
 
   // 2. 在 B 的问答里问“老张是什么样的人？”。
   await page.goto("/");
-  await ask(page, "老张是什么样的人？");
+  await say(page, "老张是什么样的人？");
   const answer = page.getByRole("article", { name: "回答" });
   await expect(answer).toContainText("热心", { timeout: LLM_WAIT });
   await answer.locator("[data-citation-mark]").first().click();

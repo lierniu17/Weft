@@ -19,7 +19,7 @@ export type AnswerCardProps = {
   onCitationOpen: (index: number) => void;
   onPersonClick: (person: PersonRef) => void;
   onFollowUp: (question: string) => void;
-  /** no_answer: 「去记一笔」 switches the composer back to record. */
+  /** no_answer: 「去记一笔」 puts the user back in the composer. */
   onRecord: () => void;
   /** 「在图上查看」 (graph-viz AC-16): shown when the answer is about people. */
   onShowOnGraph?: () => void;
@@ -176,7 +176,9 @@ export function AnswerCard({
 
       {noAnswer && (
         <div className="flex flex-col items-start gap-sm">
-          <p className="text-meta text-neutral-text-tertiary">知道的话，切到“记录”记一笔。</p>
+          <p className="text-meta text-neutral-text-tertiary">
+            知道的话，直接告诉我，我帮你记下来。
+          </p>
           <Button variant="secondary" onClick={onRecord}>
             去记一笔
           </Button>

@@ -6,39 +6,33 @@ import {
   pinClock,
   registerUser,
   replayedOr,
+  say,
   shot,
-  submitRecord,
+  threadOf,
 } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
-const TEXT = "读大学时在社团认识了小李";
+const TEXT = "2015 年读大学时在社团认识了小李";
 
-/** BOT-12 〔AC-7〕 a year-precision 发生日期; future days can't be picked. */
+/**
+ * BOT-12 〔AC-7〕 a year-precision 发生日期; future days can't be picked. Intent routing:
+ * the date is said in the message (no date chip); 「发生在」 in the review picks dates.
+ */
 test("BOT-12 只精确到年的补记与未来日期不可选", { tag: "@llm" }, async ({ page }) => {
   await pinClock(page);
   await registerUser(page);
   await page.goto("/");
 
-  // 1. 写记录，把发生日期设为只精确到年的 2015 年，提交并确认。
-  await page.getByRole("button", { name: "发生日期：今天" }).click();
-  const picker = page.getByRole("dialog", { name: "发生日期" });
-  await picker.getByRole("radio", { name: "年" }).click();
-  await picker.getByRole("button", { name: "2015 年" }).click();
-  await picker.getByRole("button", { name: "确定" }).click();
-  await expect(page.getByRole("button", { name: "发生日期：2015 年" })).toBeVisible();
-  await submitRecord(page, TEXT);
+  // 1. 写记录（时间说在话里：只精确到年的 2015 年），提交并确认。
+  await say(page, TEXT);
   const card = draftCardOf(page, TEXT);
-  await expect(page.locator("[data-entry-thread]").filter({ hasText: TEXT })).toContainText(
-    "记录 · 2015 年",
-  );
+  await expect(threadOf(page, TEXT)).toContainText("记录 · 2015 年");
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   await card.getByRole("button", { name: "查看并确认" }).click();
   const sheet = page.getByRole("dialog", { name: "确认草稿" });
-  await expect(sheet).toContainText("2015 年");
+  await expect(sheet.getByRole("button", { name: "发生在：2015 年" })).toBeVisible();
   await sheet.getByRole("button", { name: "确认入图谱" }).click();
   await expect(card.getByRole("status")).toHaveText(/已入图谱/);
-  // 下一条记录的日期回到今天
-  await expect(page.getByRole("button", { name: "发生日期：今天" })).toBeVisible();
 
   // 2. 打开本人与小李的关系页。
   await page.goto(`/people/${await personId(page, "小李")}`);
@@ -51,9 +45,14 @@ test("BOT-12 只精确到年的补记与未来日期不可选", { tag: "@llm" },
   );
   await shot(page, "BOT-12-step2-relationship");
 
-  // 3. 再写一条记录时，尝试把发生日期设为明天。
+  // 3. 再写一条记录时（没说时间，即今天），尝试把发生日期设为明天。
   await page.goto("/");
-  await page.getByRole("button", { name: "发生日期：今天" }).click();
+  await say(page, "老张是个急性子。");
+  const next = draftCardOf(page, "老张是个急性子。");
+  await expect(next.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
+  await next.getByRole("button", { name: "查看并确认" }).click();
+  await sheet.getByRole("button", { name: "发生在：今天" }).click();
+  const picker = page.getByRole("dialog", { name: "发生日期" });
   await expect(picker.getByRole("radio", { name: "日" })).toBeChecked();
   // Local: today 2026-11-16, tomorrow 11-17. Remote runs on the real date; tomorrow is only
   // in this month's grid when it is in the same month.

@@ -10,7 +10,6 @@ import { Skeleton } from "../components/basics/Skeleton/Skeleton.tsx";
 import type { RecentPerson } from "../components/composites/SideNav/SideNav.tsx";
 import { SideNav } from "../components/composites/SideNav/SideNav.tsx";
 import { type NavItem, TabBar } from "../components/composites/TabBar/TabBar.tsx";
-import { ChatSessionProvider } from "./chatSession.tsx";
 import { useLayout } from "./layout.ts";
 
 const PENDING = "有待确认的草稿";
@@ -107,39 +106,37 @@ export function AppShell() {
   const go = (value: string) => navigate(PATHS[value]);
 
   return (
-    <ChatSessionProvider>
-      <div className="flex h-dvh flex-col overflow-hidden bg-neutral-bg-layout">
-        <div className="flex min-h-[0] w-full flex-1">
-          {layout !== "mobile" && (
-            <SideNav
-              items={[chat, people, graph, mine]}
-              value={current}
-              onValueChange={go}
-              collapsed={layout === "tablet"}
-              recent={recent}
-              onRecentClick={(id) => navigate(`/people/${enc(id)}`)}
-            />
-          )}
-          <main className="flex min-w-[0] flex-1 flex-col overflow-hidden bg-neutral-bg-layout">
-            {/* Page enter (AC-12): keyed on the route so each page fades + rises in once;
-                navigation is never held back for an exit animation. */}
-            <div
-              key={pageKey(location.pathname)}
-              data-page=""
-              className="motion-page-enter flex min-h-[0] flex-1 flex-col"
-            >
-              <Outlet />
-            </div>
-          </main>
-        </div>
-        {layout === "mobile" && (
-          <TabBar
-            items={[chat, people, mine]}
-            value={current === "graph" ? "people" : current}
+    <div className="flex h-dvh flex-col overflow-hidden bg-neutral-bg-layout">
+      <div className="flex min-h-[0] w-full flex-1">
+        {layout !== "mobile" && (
+          <SideNav
+            items={[chat, people, graph, mine]}
+            value={current}
             onValueChange={go}
+            collapsed={layout === "tablet"}
+            recent={recent}
+            onRecentClick={(id) => navigate(`/people/${enc(id)}`)}
           />
         )}
+        <main className="flex min-w-[0] flex-1 flex-col overflow-hidden bg-neutral-bg-layout">
+          {/* Page enter (AC-12): keyed on the route so each page fades + rises in once;
+                navigation is never held back for an exit animation. */}
+          <div
+            key={pageKey(location.pathname)}
+            data-page=""
+            className="motion-page-enter flex min-h-[0] flex-1 flex-col"
+          >
+            <Outlet />
+          </div>
+        </main>
       </div>
-    </ChatSessionProvider>
+      {layout === "mobile" && (
+        <TabBar
+          items={[chat, people, mine]}
+          value={current === "graph" ? "people" : current}
+          onValueChange={go}
+        />
+      )}
+    </div>
   );
 }

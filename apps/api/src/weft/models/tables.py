@@ -1,5 +1,5 @@
-"""Postgres table definitions (ADR-0003: users, invites, Entries, Drafts, custom subtypes, usage,
-preferences).
+"""Postgres table definitions (ADR-0003: users, invites, Entries, Drafts, messages, custom
+subtypes, usage, preferences).
 
 Definitions only; migrations come with the Docker-backed part of batch 1. Every business
 table carries ``user_id`` and repositories inject it from the session (tenant isolation).
@@ -13,20 +13,30 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
+)
+from sqlalchemy import (
+    text as sql_text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from weft.domain.dates import ISO_PATTERN
+from weft.domain.intent import Intent
+
+INTENTS_SQL = "(" + ", ".join(f"'{i.value}'" for i in Intent) + ")"
 
 
 class Base(DeclarativeBase):
@@ -93,6 +103,10 @@ class Entry(Base):
     occurred_on: Mapped[str] = mapped_column(String(10))  # PartialDate ISO: YYYY[-MM[-DD]]
     occurred_precision: Mapped[str] = mapped_column(String(5))
     kind: Mapped[str] = mapped_column(String(16), default="user")
+    # The Beijing day the text was written, when its occurred date was read from the text
+    # itself (a message, intent-routing spec AC-8): relative times such as 「上周末」 are
+    # relative to this day, not to the occurred date. NULL for Entries dated by hand.
+    written_on: Mapped[date | None] = mapped_column(Date)
     created_at: Mapped[datetime] = _now()
 
 
@@ -122,6 +136,53 @@ class DraftRow(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MessageRow(Base):
+    """A message (消息) the user sent in the chat, and how it was handled (ADR 0005).
+
+    ``intent`` is the current handling (after any 改为记录 / 改为提问);
+    ``recognized_intent`` and ``confidence`` are what recognition said (NULL for messages
+    migrated from Entries, which were never recognized). ``answer`` is the ``Answer`` JSON
+    (contracts/answer.schema.json); ``problems`` lists parts that could not be done
+    (quota, Q&A failure) as ``[{part, error, message, resets_at?}]``.
+    """
+
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint(f"intent IN {INTENTS_SQL}", name="message_intent_enum"),
+        CheckConstraint(
+            f"recognized_intent IS NULL OR recognized_intent IN {INTENTS_SQL}",
+            name="message_recognized_intent_enum",
+        ),
+        CheckConstraint(
+            f"occurred_on IS NULL OR occurred_on ~ '{ISO_PATTERN}'", name="message_occurred_iso"
+        ),
+        Index("ix_messages_user_created", "user_id", "created_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    text: Mapped[str] = mapped_column(Text)
+    intent: Mapped[str] = mapped_column(String(16))
+    recognized_intent: Mapped[str | None] = mapped_column(String(16))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    uncertain: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    occurred_on: Mapped[str | None] = mapped_column(String(10))  # recognized, PartialDate ISO
+    record_text: Mapped[str | None] = mapped_column(Text)
+    question: Mapped[str | None] = mapped_column(Text)
+    entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("entries.id", ondelete="SET NULL"), index=True
+    )
+    answer: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    reply: Mapped[str | None] = mapped_column(Text)
+    problems: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default=sql_text("'[]'::jsonb")
+    )
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class CustomSubtype(Base):
@@ -182,6 +243,7 @@ __all__ = [
     "DraftRow",
     "Entry",
     "InviteCode",
+    "MessageRow",
     "Session",
     "UsageCounter",
     "User",

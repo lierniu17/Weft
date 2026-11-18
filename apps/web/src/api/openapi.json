@@ -1853,6 +1853,16 @@
     "title": "IdentityOut",
     "type": "object"
    },
+   "Intent": {
+    "enum": [
+     "record",
+     "ask",
+     "record_ask",
+     "chitchat"
+    ],
+    "title": "Intent",
+    "type": "string"
+   },
    "LearnedAliasOut": {
     "additionalProperties": false,
     "properties": {
@@ -1929,6 +1939,186 @@
      "self_person_id"
     ],
     "title": "MeResponse",
+    "type": "object"
+   },
+   "MessageEntryOut": {
+    "additionalProperties": false,
+    "description": "The Entry a message became (记录), with its Draft.",
+    "properties": {
+     "draft": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DraftOut"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     },
+     "occurred_on": {
+      "description": "The Entry's 发生日期, with precision",
+      "examples": [
+       "2015",
+       "2015-06",
+       "2026-11-16"
+      ],
+      "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+      "title": "Occurred On",
+      "type": "string"
+     },
+     "precision": {
+      "$ref": "#/components/schemas/Precision"
+     },
+     "text": {
+      "description": "The Entry text (for record_ask: only the new information)",
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "text",
+     "occurred_on",
+     "precision",
+     "draft"
+    ],
+    "title": "MessageEntryOut",
+    "type": "object"
+   },
+   "MessageOut": {
+    "additionalProperties": false,
+    "properties": {
+     "answer": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Answer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "ask / record_ask: the answer, with citations"
+     },
+     "confidence": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Recognition confidence 0..1; null if none",
+      "title": "Confidence"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "entry": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MessageEntryOut"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "record / record_ask: the Entry + Draft"
+     },
+     "intent": {
+      "$ref": "#/components/schemas/Intent",
+      "description": "How the message is handled now (after any re-route)"
+     },
+     "message_id": {
+      "format": "uuid",
+      "title": "Message Id",
+      "type": "string"
+     },
+     "problems": {
+      "items": {
+       "$ref": "#/components/schemas/ProblemOut"
+      },
+      "title": "Problems",
+      "type": "array"
+     },
+     "recognized_intent": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Intent"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "What recognition said; null for messages migrated from earlier Entries"
+     },
+     "reply": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "chitchat: the short reply",
+      "title": "Reply"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "uncertain": {
+      "description": "拿不准: recognition was below the threshold",
+      "title": "Uncertain",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "message_id",
+     "text",
+     "created_at",
+     "intent",
+     "recognized_intent",
+     "confidence",
+     "uncertain",
+     "entry",
+     "answer",
+     "reply",
+     "problems"
+    ],
+    "title": "MessageOut",
+    "type": "object"
+   },
+   "MessagePage": {
+    "additionalProperties": false,
+    "properties": {
+     "has_more": {
+      "description": "Older messages exist: pass the first message_id as before",
+      "title": "Has More",
+      "type": "boolean"
+     },
+     "messages": {
+      "description": "Oldest first; the newest message is last",
+      "items": {
+       "$ref": "#/components/schemas/MessageOut"
+      },
+      "title": "Messages",
+      "type": "array"
+     }
+    },
+    "required": [
+     "messages",
+     "has_more"
+    ],
+    "title": "MessagePage",
     "type": "object"
    },
    "PairEdited": {
@@ -2113,6 +2303,49 @@
      }
     },
     "title": "PreferencesPatch",
+    "type": "object"
+   },
+   "ProblemOut": {
+    "additionalProperties": false,
+    "description": "A part of the message that could not be done; the other part still was (AC-7).",
+    "properties": {
+     "error": {
+      "description": "quota_exceeded | ask_failed | question_too_long | ...",
+      "title": "Error",
+      "type": "string"
+     },
+     "message": {
+      "title": "Message",
+      "type": "string"
+     },
+     "part": {
+      "enum": [
+       "record",
+       "ask"
+      ],
+      "title": "Part",
+      "type": "string"
+     },
+     "resets_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "quota_exceeded: the next 00:00 Beijing time",
+      "title": "Resets At"
+     }
+    },
+    "required": [
+     "part",
+     "error",
+     "message"
+    ],
+    "title": "ProblemOut",
     "type": "object"
    },
    "ProfileEdited": {
@@ -2516,6 +2749,40 @@
     "title": "RelationshipTypeOut",
     "type": "object"
    },
+   "RerouteRequest": {
+    "additionalProperties": false,
+    "properties": {
+     "as": {
+      "description": "改为记录 (record) / 改为提问 (ask)",
+      "enum": [
+       "record",
+       "ask"
+      ],
+      "title": "As",
+      "type": "string"
+     }
+    },
+    "required": [
+     "as"
+    ],
+    "title": "RerouteRequest",
+    "type": "object"
+   },
+   "SendMessageRequest": {
+    "additionalProperties": false,
+    "properties": {
+     "text": {
+      "maxLength": 5000,
+      "title": "Text",
+      "type": "string"
+     }
+    },
+    "required": [
+     "text"
+    ],
+    "title": "SendMessageRequest",
+    "type": "object"
+   },
    "SetIdentityOp": {
     "additionalProperties": false,
     "properties": {
@@ -2705,6 +2972,25 @@
     "properties": {
      "content": {
       "$ref": "#/components/schemas/Draft"
+     },
+     "occurred_on": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Move the Entry's 发生日期 (not in the future; YYYY, YYYY-MM or YYYY-MM-DD). The Draft's dates anchored on the old date are re-timed; nothing is re-extracted.",
+      "title": "Occurred On"
      }
     },
     "required": [
@@ -3522,6 +3808,162 @@
     "summary": "Update Preferences",
     "tags": [
      "preferences"
+    ]
+   }
+  },
+  "/api/messages": {
+   "get": {
+    "operationId": "list_messages_api_messages_get",
+    "parameters": [
+     {
+      "description": "Only messages older than this message",
+      "in": "query",
+      "name": "before",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "format": "uuid",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "Only messages older than this message",
+       "title": "Before"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 50,
+       "maximum": 200,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MessagePage"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Messages",
+    "tags": [
+     "messages"
+    ]
+   },
+   "post": {
+    "operationId": "send_message_api_messages_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SendMessageRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MessageOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Send Message",
+    "tags": [
+     "messages"
+    ]
+   }
+  },
+  "/api/messages/{message_id}/reroute": {
+   "post": {
+    "operationId": "reroute_message_api_messages__message_id__reroute_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "message_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Message Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RerouteRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MessageOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reroute Message",
+    "tags": [
+     "messages"
     ]
    }
   },

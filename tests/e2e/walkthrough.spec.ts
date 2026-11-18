@@ -13,8 +13,9 @@ import {
   pinClock,
   recordConfirmed,
   registerUser,
+  say,
   seedGraph,
-  submitRecord,
+  threadOf,
 } from "./support/bot.ts";
 import { ROOT, SCREENSHOTS } from "./support/env.ts";
 
@@ -179,29 +180,21 @@ test("AC-UI walkthrough", async ({ page }) => {
 
   // --- 375: chat with a draft + answer (AC-UI-1, 2, 9, 10) ----------------------------
   await page.goto("/");
-  await submitRecord(page, "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。");
+  await say(page, "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。");
   const card = draftCardOf(page, "迷上了钓鱼");
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: 60_000 });
-  results["AC-UI-10 one draft card per entry"] = await page
-    .locator("[data-entry-thread]")
-    .filter({ hasText: "迷上了钓鱼" })
+  results["AC-UI-10 one draft card per entry"] = await threadOf(page, "迷上了钓鱼")
     .locator("[data-draft-card]")
     .count();
   results["AC-UI-9 draft status is a live region"] = await card
     .getByRole("status")
     .getAttribute("aria-live");
-  results["AC-UI-1 composer: record|ask + date chip (record)"] = {
-    modes: await page
-      .getByRole("radiogroup", { name: "输入类型" })
-      .getByRole("radio")
-      .allTextContents(),
-    dateChipInRecord: await page.getByRole("button", { name: /发生日期/ }).isVisible(),
+  // Intent routing AC-1 (replaces the record | ask switch and the date chip).
+  results["AC-1 composer: no switch, no date chip"] = {
+    switches: await page.locator("[data-composer]").getByRole("radio").count(),
+    dateChip: await page.getByRole("button", { name: /发生日期/ }).count(),
+    placeholder: await page.getByRole("textbox", { name: "消息内容" }).getAttribute("placeholder"),
   };
-  await page.getByRole("radio", { name: "提问" }).click();
-  results["AC-UI-1 date chip hidden in ask"] = !(await page
-    .getByRole("button", { name: /发生日期/ })
-    .isVisible());
-  await page.getByRole("radio", { name: "记录" }).click();
   results["AC-UI-1 记录 entry top-right"] = await page
     .locator("header")
     .getByRole("button", { name: "记录" })
@@ -259,14 +252,10 @@ test("AC-UI walkthrough", async ({ page }) => {
   await expect(sheet).toBeHidden();
 
   // ask with the keyboard
-  await page.getByRole("radio", { name: "提问" }).click();
-  await page.getByRole("textbox", { name: "提问内容" }).fill("老张和小李是什么关系？");
+  await page.getByRole("textbox", { name: "消息内容" }).fill("老张和小李是什么关系？");
   await page.keyboard.press("Control+Enter");
   const answer = page.getByRole("article", { name: "回答" }).last();
   await expect(answer).toContainText("室友", { timeout: 60_000 });
-  results["AC-UI-1 back to 记录 after asking"] = await page
-    .getByRole("radio", { name: "记录" })
-    .isChecked();
   await answer.scrollIntoViewIfNeeded();
   await snap(page, "375-chat-answer");
   await answer.locator("[data-citation-mark]").first().click();
@@ -419,7 +408,7 @@ test("AC-UI walkthrough", async ({ page }) => {
         focusBack: false,
       };
       if (width >= 1200) {
-        const box = page.getByRole("textbox", { name: "记录内容" });
+        const box = page.getByRole("textbox", { name: "消息内容" });
         await box.click();
         await box.fill("面板开着也能写");
         panel.chatInteractive =

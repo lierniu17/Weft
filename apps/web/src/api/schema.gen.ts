@@ -258,6 +258,41 @@ export interface paths {
         patch: operations["update_preferences_api_me_preferences_patch"];
         trace?: never;
     };
+    "/api/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Messages */
+        get: operations["list_messages_api_messages_get"];
+        put?: never;
+        /** Send Message */
+        post: operations["send_message_api_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{message_id}/reroute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reroute Message */
+        post: operations["reroute_message_api_messages__message_id__reroute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/persons": {
         parameters: {
             query?: never;
@@ -1133,6 +1168,11 @@ export interface components {
             /** Value */
             value: string;
         };
+        /**
+         * Intent
+         * @enum {string}
+         */
+        Intent: "record" | "ask" | "record_ask" | "chitchat";
         /** LearnedAliasOut */
         LearnedAliasOut: {
             /** Alias */
@@ -1165,6 +1205,85 @@ export interface components {
             self_person_id: string;
             /** Username */
             username: string;
+        };
+        /**
+         * MessageEntryOut
+         * @description The Entry a message became (记录), with its Draft.
+         */
+        MessageEntryOut: {
+            draft: components["schemas"]["DraftOut"] | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred On
+             * @description The Entry's 发生日期, with precision
+             * @example 2015
+             * @example 2015-06
+             * @example 2026-11-16
+             */
+            occurred_on: string;
+            precision: components["schemas"]["Precision"];
+            /**
+             * Text
+             * @description The Entry text (for record_ask: only the new information)
+             */
+            text: string;
+        };
+        /** MessageOut */
+        MessageOut: {
+            /** @description ask / record_ask: the answer, with citations */
+            answer: components["schemas"]["Answer"] | null;
+            /**
+             * Confidence
+             * @description Recognition confidence 0..1; null if none
+             */
+            confidence: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** @description record / record_ask: the Entry + Draft */
+            entry: components["schemas"]["MessageEntryOut"] | null;
+            /** @description How the message is handled now (after any re-route) */
+            intent: components["schemas"]["Intent"];
+            /**
+             * Message Id
+             * Format: uuid
+             */
+            message_id: string;
+            /** Problems */
+            problems: components["schemas"]["ProblemOut"][];
+            /** @description What recognition said; null for messages migrated from earlier Entries */
+            recognized_intent: components["schemas"]["Intent"] | null;
+            /**
+             * Reply
+             * @description chitchat: the short reply
+             */
+            reply: string | null;
+            /** Text */
+            text: string;
+            /**
+             * Uncertain
+             * @description 拿不准: recognition was below the threshold
+             */
+            uncertain: boolean;
+        };
+        /** MessagePage */
+        MessagePage: {
+            /**
+             * Has More
+             * @description Older messages exist: pass the first message_id as before
+             */
+            has_more: boolean;
+            /**
+             * Messages
+             * @description Oldest first; the newest message is last
+             */
+            messages: components["schemas"]["MessageOut"][];
         };
         /** PairEdited */
         PairEdited: {
@@ -1233,6 +1352,29 @@ export interface components {
         PreferencesPatch: {
             /** @description Omit to keep */
             graph_theme?: components["schemas"]["GraphTheme"] | null;
+        };
+        /**
+         * ProblemOut
+         * @description A part of the message that could not be done; the other part still was (AC-7).
+         */
+        ProblemOut: {
+            /**
+             * Error
+             * @description quota_exceeded | ask_failed | question_too_long | ...
+             */
+            error: string;
+            /** Message */
+            message: string;
+            /**
+             * Part
+             * @enum {string}
+             */
+            part: "record" | "ask";
+            /**
+             * Resets At
+             * @description quota_exceeded: the next 00:00 Beijing time
+             */
+            resets_at?: string | null;
         };
         /** ProfileEdited */
         ProfileEdited: {
@@ -1344,6 +1486,20 @@ export interface components {
             /** Subtype */
             subtype: string;
         };
+        /** RerouteRequest */
+        RerouteRequest: {
+            /**
+             * As
+             * @description 改为记录 (record) / 改为提问 (ask)
+             * @enum {string}
+             */
+            as: "record" | "ask";
+        };
+        /** SendMessageRequest */
+        SendMessageRequest: {
+            /** Text */
+            text: string;
+        };
         /** SetIdentityOp */
         SetIdentityOp: {
             field: components["schemas"]["ProfileField"];
@@ -1433,6 +1589,11 @@ export interface components {
         /** UpdateDraftRequest */
         UpdateDraftRequest: {
             content: components["schemas"]["Draft"];
+            /**
+             * Occurred On
+             * @description Move the Entry's 发生日期 (not in the future; YYYY, YYYY-MM or YYYY-MM-DD). The Draft's dates anchored on the old date are re-timed; nothing is re-extracted.
+             */
+            occurred_on?: string | null;
         };
         /** UpdateFactOp */
         UpdateFactOp: {
@@ -1988,6 +2149,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreferencesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_api_messages_get: {
+        parameters: {
+            query?: {
+                /** @description Only messages older than this message */
+                before?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessagePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_api_messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reroute_message_api_messages__message_id__reroute_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RerouteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"];
                 };
             };
             /** @description Validation Error */

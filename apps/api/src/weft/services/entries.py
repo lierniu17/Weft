@@ -41,11 +41,13 @@ class EntryDetail:
 
 
 async def submit_entry(
-    infra: Infra, *, text: str, occurred: PartialDate | None
+    infra: Infra, *, text: str, occurred: PartialDate | None, dated_from_text: bool = False
 ) -> Result[Submitted]:
     """Store the Entry and an 抽取中 Draft and count one entry against today's quota.
 
     Extraction itself runs afterwards (``drafts.run_extraction``), as a background job.
+    ``dated_from_text``: the occurred date was read from the text itself (a message), so
+    the text's relative times are relative to today; the Entry remembers today for that.
     """
     body = text.strip()
     if not body:
@@ -71,7 +73,7 @@ async def submit_entry(
                 {"kind": kind.value, "resets_at": next_reset(now).isoformat()},
             )
         entry = await EntryRepository(session, scope).create(
-            text=body, occurred=occurred, kind="user"
+            text=body, occurred=occurred, kind="user", written_on=today if dated_from_text else None
         )
         draft = await DraftRepository(session, scope).create_extracting(entry.id)
     return Ok(Submitted(entry=entry, draft=draft))

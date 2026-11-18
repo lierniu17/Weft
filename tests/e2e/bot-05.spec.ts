@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ask, pinClock, registerUser, seedGraph, shot } from "./support/bot.ts";
+import { pinClock, registerUser, say, seedGraph, shot } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
 /** BOT-5 〔AC-28, AC-36, AC-37〕 ask over the seed graph; citations; the relationship page. */
@@ -10,14 +10,15 @@ test("BOT-5 问答、出处与第三方关系页", { tag: "@llm" }, async ({ pag
   await page.goto("/");
 
   // 1. 问“老张和小李是什么关系？”
-  await ask(page, "老张和小李是什么关系？");
+  await say(page, "老张和小李是什么关系？");
   const answers = page.getByRole("article", { name: "回答" });
   const first = answers.nth(0);
   await expect(first).toContainText("大学室友", { timeout: LLM_WAIT });
   await expect(first).toContainText("借钱");
   await expect(first).toContainText("据小王说");
-  // 提问发送后自动切回记录
-  await expect(page.getByRole("radio", { name: "记录" })).toBeChecked();
+  // 直接说话就是提问：没有草稿卡，输入框里也没有“记录 / 提问”切换
+  await expect(page.locator("[data-draft-card]")).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "记录" })).toHaveCount(0);
   await first.scrollIntoViewIfNeeded();
   await shot(page, "BOT-5-step1-answer");
 
@@ -29,7 +30,7 @@ test("BOT-5 问答、出处与第三方关系页", { tag: "@llm" }, async ({ pag
   await page.keyboard.press("Escape");
 
   // 3. 问“我是怎么认识小王的？”
-  await ask(page, "我是怎么认识小王的？");
+  await say(page, "我是怎么认识小王的？");
   const second = answers.nth(1);
   const path = second.getByRole("list", { name: "人脉路径" });
   await expect(path).toBeVisible({ timeout: LLM_WAIT });
@@ -38,7 +39,7 @@ test("BOT-5 问答、出处与第三方关系页", { tag: "@llm" }, async ({ pag
   await shot(page, "BOT-5-step3-answer");
 
   // 4. 问“谁喜欢露营？”
-  await ask(page, "谁喜欢露营？");
+  await say(page, "谁喜欢露营？");
   const third = answers.nth(2);
   const list = third.getByRole("list", { name: "人物列表" });
   await expect(list).toBeVisible({ timeout: LLM_WAIT });

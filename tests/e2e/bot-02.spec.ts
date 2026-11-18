@@ -1,12 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
-  draftCardOf,
-  pinClock,
-  registerUser,
-  replayedOr,
-  shot,
-  submitRecord,
-} from "./support/bot.ts";
+import { draftCardOf, pinClock, registerUser, replayedOr, say, shot } from "./support/bot.ts";
 import { LLM_WAIT, REMOTE } from "./support/env.ts";
 
 const TEXT = "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。";
@@ -19,7 +12,7 @@ test("BOT-2 写记录、改草稿、确认、看画像与出处", { tag: "@llm" 
   await page.goto("/");
 
   // 1. 写记录，提交。
-  await submitRecord(page, TEXT);
+  await say(page, TEXT);
   const card = draftCardOf(page, TEXT);
 
   // 2. 等待草稿进入待确认。

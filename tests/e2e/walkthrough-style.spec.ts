@@ -8,15 +8,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, type Page, test } from "@playwright/test";
-import {
-  ask,
-  draftCardOf,
-  personId,
-  pinClock,
-  registerUser,
-  seedGraph,
-  submitRecord,
-} from "./support/bot.ts";
+import { draftCardOf, personId, pinClock, registerUser, say, seedGraph } from "./support/bot.ts";
 import { LLM_WAIT, ROOT, SCREENSHOTS } from "./support/env.ts";
 
 const OUT = resolve(SCREENSHOTS, "style-refresh");
@@ -160,7 +152,7 @@ test("style refresh walkthrough", { tag: "@llm" }, async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
   const TEXT = "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。";
-  await submitRecord(page, TEXT);
+  await say(page, TEXT);
   const card = draftCardOf(page, "迷上了钓鱼");
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   for (const width of [375, 1440] as const) {
@@ -169,7 +161,7 @@ test("style refresh walkthrough", { tag: "@llm" }, async ({ page }) => {
     // then the 出处 and the review sheet / right panel
     await page.goto("/");
     await expect(card.getByRole("status")).toHaveText(/草稿/);
-    await ask(page, "老张和小李是什么关系？");
+    await say(page, "老张和小李是什么关系？");
     await expect(page.getByRole("article", { name: "回答" }).last()).toContainText("室友", {
       timeout: LLM_WAIT,
     });

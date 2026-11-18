@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 from graphiti_core.nodes import EpisodeType, EpisodicNode
@@ -256,6 +256,9 @@ class ExtractionInput:
     occurred: PartialDate
     group_id: str
     taxonomy: Taxonomy
+    # The day the text was written, if its occurred date was read from the text (a message):
+    # then 「上周末」「去年」 are relative to this day, not to the occurred date.
+    written_on: date | None = None
 
 
 # --- prompts -----------------------------------------------------------------------
@@ -368,16 +371,32 @@ def _date(value: str | None, *, entry: PartialDate) -> PartialDate | None:
     return clamp_to_entry_precision(parsed, entry=entry)
 
 
+WRITTEN_ON_NOTE = (
+    "这条记录是 written_on 这天写的，occurred 是记录里的事情发生的日期（从这句话里读出来的）。"
+    "说话当天口吻的相对时间（“昨天”“上周末”“去年”“上个月”）以 written_on 为参照换算；"
+    "相对事情本身的时间（“那年”“第二年”“当时”）以 occurred 为参照换算。"
+    "本条优先于系统说明里“以 entry.occurred 为参照”的规定；精度规则不变。"
+)
+
+
+def _entry_payload(inp: ExtractionInput) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "text": inp.text,
+        "occurred": inp.occurred.isoformat(),
+        "precision": inp.occurred.precision.value,
+    }
+    if inp.written_on is not None and inp.occurred != PartialDate.from_date(inp.written_on):
+        entry["written_on"] = inp.written_on.isoformat()
+        entry["time_note"] = WRITTEN_ON_NOTE
+    return entry
+
+
 def _enrich_payload(
     inp: ExtractionInput, persons: list[str], candidates: list[dict[str, Any]]
 ) -> dict[str, Any]:
     return {
         "task": "enrich",
-        "entry": {
-            "text": inp.text,
-            "occurred": inp.occurred.isoformat(),
-            "precision": inp.occurred.precision.value,
-        },
+        "entry": _entry_payload(inp),
         "writer": SELF_MENTION,
         "persons": persons,
         "candidate_facts": candidates,

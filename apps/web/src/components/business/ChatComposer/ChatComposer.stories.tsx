@@ -1,21 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { TRANSPARENT, token } from "../../../test/color.ts";
 import { tokens } from "../../../tokens.gen.ts";
 
 import { ChatComposer } from "./ChatComposer.tsx";
 
-const today = new Date(2026, 10, 16);
-
 const meta = {
   title: "Business/ChatComposer",
   component: ChatComposer,
-  args: {
-    today,
-    occurredOn: { precision: "day", year: 2026, month: 11, day: 16 },
-    onOccurredOnChange: fn(),
-    onSubmit: fn(),
-  },
+  args: { onSubmit: fn() },
   decorators: [
     (Story) => (
       <div className="w-[375px]">
@@ -32,21 +25,25 @@ const parts = (root: HTMLElement) => {
   const canvas = within(root);
   return {
     canvas,
-    record: canvas.getByRole("radio", { name: "记录" }),
-    ask: canvas.getByRole("radio", { name: "提问" }),
     input: canvas.getByRole("textbox"),
     send: canvas.getByRole("button", { name: "发送" }),
   };
 };
 
-/** Record mode: placeholder, date chip, filled send button; blank cannot be sent (AC-6). */
-export const Record: Story = {
+/**
+ * Intent routing AC-1: only the box and send — no 记录 / 提问 switch, no date; the
+ * placeholder invites both. Blank cannot be sent.
+ */
+export const Default: Story = {
   play: async ({ canvasElement, args }) => {
-    const { canvas, record, input, send } = parts(canvasElement);
-    await expect(record).toHaveAttribute("aria-checked", "true");
-    await expect(input).toHaveAttribute("placeholder", "今天和谁发生了什么？");
-    await expect(input).toHaveAccessibleName("记录内容");
-    await expect(canvas.getByRole("button", { name: "发生日期：今天" })).toBeVisible();
+    const { canvas, input, send } = parts(canvasElement);
+    await expect(input).toHaveAttribute("placeholder", "记点什么，或问点什么……");
+    await expect(input).toHaveAccessibleName("消息内容");
+    await expect(canvas.queryByRole("radiogroup")).toBeNull();
+    await expect(canvas.queryByRole("radio")).toBeNull();
+    await expect(canvas.queryByRole("button", { name: /发生日期/ })).toBeNull();
+    // the send button is the only control
+    await expect(canvas.getAllByRole("button")).toEqual([send]);
     await expect(send).toBeDisabled();
     await userEvent.type(input, "   ");
     await expect(send).toBeDisabled();
@@ -55,20 +52,18 @@ export const Record: Story = {
   },
 };
 
-/** Sends text + mode + 发生日期, then clears the box. */
-export const SubmitRecord: Story = {
+/** Sends the trimmed text (record or question alike), then clears the box. */
+export const Submit: Story = {
   play: async ({ canvasElement, args }) => {
     const { input, send } = parts(canvasElement);
-    await userEvent.type(input, "今天和老张吃饭");
+    await userEvent.type(input, " 老张和小李是什么关系？ ");
     await expect(send).toBeEnabled();
     await expect(getComputedStyle(send).backgroundColor).toBe(token("primary-6"));
     await userEvent.click(send);
-    await expect(args.onSubmit).toHaveBeenCalledWith({
-      mode: "record",
-      text: "今天和老张吃饭",
-      occurredOn: { precision: "day", year: 2026, month: 11, day: 16 },
-    });
+    await expect(args.onSubmit).toHaveBeenCalledWith("老张和小李是什么关系？");
     await expect(input).toHaveValue("");
+    // still no switch after a question: there is nothing to switch back
+    await expect(within(canvasElement).queryByRole("radio")).toBeNull();
   },
 };
 
@@ -80,66 +75,33 @@ export const KeyboardSend: Story = {
     await expect(args.onSubmit).not.toHaveBeenCalled();
     await expect(input).toHaveValue("第一行\n第二行");
     await userEvent.keyboard("{Control>}{Enter}{/Control}");
-    await expect(args.onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: "record", text: "第一行\n第二行" }),
-    );
+    await expect(args.onSubmit).toHaveBeenCalledWith("第一行\n第二行");
   },
 };
 
-/** AC-UI-1: ask mode has no date chip; after the question is sent it switches back to 记录. */
-export const AskThenBackToRecord: Story = {
-  play: async ({ canvasElement, args }) => {
-    const { canvas, ask, input } = parts(canvasElement);
-    await userEvent.click(ask);
-    await expect(ask).toHaveAttribute("aria-checked", "true");
-    await expect(canvas.queryByRole("button", { name: /发生日期/ })).toBeNull();
-    await expect(input).toHaveAttribute("placeholder", "想问关于谁的什么事？");
-    await expect(input).toHaveAccessibleName("提问内容");
-
-    await userEvent.type(input, "老张和小李什么关系？");
-    await userEvent.click(canvas.getByRole("button", { name: "发送" }));
-    await expect(args.onSubmit).toHaveBeenCalledWith({ mode: "ask", text: "老张和小李什么关系？" });
-    await waitFor(() =>
-      expect(canvas.getByRole("radio", { name: "记录" })).toHaveAttribute("aria-checked", "true"),
-    );
-    await expect(canvas.getByRole("button", { name: "发生日期：今天" })).toBeVisible();
-  },
-};
-
-/** The date chip opens the DatePicker sheet (AC-7 component). */
-export const ChangeDate: Story = {
-  parameters: { a11y: { context: "body" } },
-  play: async ({ canvasElement }) => {
-    const { canvas } = parts(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "发生日期：今天" }));
-    await expect(await screen.findByRole("dialog", { name: "发生日期" })).toBeVisible();
-  },
-};
-
-/** AC-UI-3 / AC-40: record quota used up → input and send disabled, warning banner with reset time. */
-export const RecordQuotaExhausted: Story = {
+/** AC-7: one quota used up is a notice; the box still sends (the other kind is unaffected). */
+export const OneQuotaUsedUp: Story = {
   args: {
-    exhausted: { record: "今天的 50 条记录已用完 · 北京时间 0 点重置 · 提问还剩 37 次" },
+    notice: "今日已达上限：今天的 50 条记录已用完，北京时间 0 点重置 · 提问还剩 37 次",
   },
-  play: async ({ canvasElement }) => {
-    const { canvas, input, send, ask } = parts(canvasElement);
+  play: async ({ canvasElement, args }) => {
+    const { canvas, input, send } = parts(canvasElement);
     const banner = canvas.getByRole("status");
     await expect(banner).toHaveTextContent("北京时间 0 点重置");
     await expect(getComputedStyle(banner).backgroundColor).toBe(token("status-warning-1"));
-    await expect(input).toBeDisabled();
-    await expect(send).toBeDisabled();
-    // Asking is judged by its own quota (S5 ③).
-    await userEvent.click(ask);
-    await expect(canvas.queryByRole("status")).toBeNull();
-    await expect(canvas.getByRole("textbox")).toBeEnabled();
+    await expect(input).toBeEnabled();
+    await userEvent.type(input, "老张是什么样的人？");
+    await userEvent.click(send);
+    await expect(args.onSubmit).toHaveBeenCalledWith("老张是什么样的人？");
   },
 };
 
-export const AskQuotaExhausted: Story = {
-  args: { defaultMode: "ask", exhausted: { ask: "今天的 100 次提问已用完 · 北京时间 0 点重置" } },
+/** Both quotas used up: input and send disabled, warning banner with the reset time. */
+export const BothQuotasUsedUp: Story = {
+  args: { blocked: "今日已达上限：今天的记录和提问都已用完，北京时间 0 点重置" },
   play: async ({ canvasElement }) => {
     const { canvas, input, send } = parts(canvasElement);
-    await expect(canvas.getByRole("status")).toHaveTextContent("提问已用完");
+    await expect(canvas.getByRole("status")).toHaveTextContent("都已用完");
     await expect(input).toBeDisabled();
     await expect(send).toBeDisabled();
   },
@@ -157,14 +119,14 @@ export const Sending: Story = {
   },
 };
 
-/** A controlled value lets the page fill the box (first-use examples). */
+/** A controlled value lets the page fill the box (first-use examples, follow-ups). */
 export const Controlled: Story = {
-  args: { value: "读大学时在社团认识了小李", onValueChange: fn() },
+  args: { value: "2015 年读大学时在社团认识了小李", onValueChange: fn() },
   play: async ({ canvasElement, args }) => {
     const { input } = parts(canvasElement);
-    await expect(input).toHaveValue("读大学时在社团认识了小李");
+    await expect(input).toHaveValue("2015 年读大学时在社团认识了小李");
     await userEvent.type(input, "。");
-    await expect(args.onValueChange).toHaveBeenCalledWith("读大学时在社团认识了小李。");
+    await expect(args.onValueChange).toHaveBeenCalledWith("2015 年读大学时在社团认识了小李。");
   },
 };
 

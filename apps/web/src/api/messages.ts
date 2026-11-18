@@ -1,0 +1,105 @@
+/**
+ * Query hooks for 消息 (intent routing, ADR 0005): the chat is the list of messages the user
+ * sent, each handled by its 意图 — a 记录 (Entry + Draft), a 提问 (answer), both, or 无关
+ * (a short reply). One text box sends them all; 改为记录 / 改为提问 re-routes one in place.
+ */
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import type { Answer } from "../contracts/answer.ts";
+import { api, enc, type Schemas } from "./client.ts";
+import type { DraftOut } from "./entries.ts";
+import { keys } from "./keys.ts";
+
+export type MessageEntry = Omit<Schemas["MessageEntryOut"], "draft"> & { draft: DraftOut | null };
+export type Message = Omit<Schemas["MessageOut"], "answer" | "entry"> & {
+  answer: Answer | null;
+  entry: MessageEntry | null;
+};
+export type MessageProblem = Schemas["ProblemOut"];
+export type RerouteTarget = Schemas["RerouteRequest"]["as"];
+type MessagePage = { messages: Message[]; has_more: boolean };
+type Pages = InfiniteData<MessagePage, string | null>;
+
+/** How many messages a page of the chat holds; older ones load on request. */
+export const MESSAGE_PAGE = 20;
+
+/**
+ * The chat, newest page first (`pages[0]`); `before` pages back through older messages.
+ * Use `chronological` for the flat, oldest-first list.
+ */
+export function useMessages() {
+  return useInfiniteQuery({
+    queryKey: keys.messages,
+    queryFn: ({ pageParam }) =>
+      api.get<MessagePage>(
+        `/messages?limit=${MESSAGE_PAGE}${pageParam ? `&before=${enc(pageParam)}` : ""}`,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => (last.has_more ? (last.messages[0]?.message_id ?? null) : null),
+  });
+}
+
+/** All loaded messages, oldest first. */
+export function chronological(data: InfiniteData<MessagePage, unknown> | undefined): Message[] {
+  return [...(data?.pages ?? [])].reverse().flatMap((p) => p.messages);
+}
+
+/** A message's Draft goes into the draft cache, where its card polls it while 抽取中. */
+function seedDraft(qc: ReturnType<typeof useQueryClient>, message: Message) {
+  const draft = message.entry?.draft;
+  if (draft) qc.setQueryData(keys.draft(draft.id), draft);
+}
+
+export function useSendMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.post<Message>("/messages", { text }),
+    onSuccess: (message) => {
+      seedDraft(qc, message);
+      qc.setQueryData<Pages>(keys.messages, (data) => {
+        if (!data || data.pages.length === 0) {
+          return { pages: [{ messages: [message], has_more: false }], pageParams: [null] };
+        }
+        const [newest, ...older] = data.pages;
+        return {
+          ...data,
+          pages: [{ ...newest, messages: [...newest.messages, message] }, ...older],
+        };
+      });
+      if (message.entry) void qc.invalidateQueries({ queryKey: keys.entries });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
+  });
+}
+
+/** Replaces one message wherever it is in the loaded pages. */
+export function replaceMessage(data: Pages | undefined, message: Message): Pages | undefined {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map((p) => ({
+      ...p,
+      messages: p.messages.map((m) => (m.message_id === message.message_id ? message : m)),
+    })),
+  };
+}
+
+/** 改为记录 / 改为提问 (AC-10): the server re-handles the message; it is replaced in place. */
+export function useReroute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, as }: { id: string; as: RerouteTarget }) =>
+      api.post<Message>(`/messages/${enc(id)}/reroute`, { as }),
+    onSuccess: (message) => {
+      seedDraft(qc, message);
+      qc.setQueryData<Pages>(keys.messages, (data) => replaceMessage(data, message));
+      // 改为提问 may have discarded the old Draft; 改为记录 made a new Entry.
+      void qc.invalidateQueries({ queryKey: keys.entries });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
+  });
+}

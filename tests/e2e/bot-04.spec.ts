@@ -7,8 +7,8 @@ import {
   recordConfirmed,
   registerUser,
   replayedOr,
+  say,
   shot,
-  submitRecord,
 } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
@@ -22,7 +22,7 @@ test("BOT-4 冲突更新与待核实", { tag: "@llm" }, async ({ page }) => {
   await page.goto("/");
 
   // 1. 写记录“小李跟我说他上个月跳槽去了阿里”，提交。
-  await submitRecord(page, "小李跟我说他上个月跳槽去了阿里");
+  await say(page, "小李跟我说他上个月跳槽去了阿里");
   const first = draftCardOf(page, "小李跟我说他上个月跳槽去了阿里");
   await expect(first.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
 
@@ -49,7 +49,7 @@ test("BOT-4 冲突更新与待核实", { tag: "@llm" }, async ({ page }) => {
 
   // 4. 写记录“听小王说小李又去了腾讯”，提交。
   await page.goto("/");
-  await submitRecord(page, "听小王说小李又去了腾讯");
+  await say(page, "听小王说小李又去了腾讯");
   const second = draftCardOf(page, "听小王说小李又去了腾讯");
   await expect(second.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
 
