@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Weft · 样式改版原型</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/*
+ * Weft 样式改版原型（2026-11-18）
+ * 方向：简洁、耐用、易用、大大方方。参考豆包：白底、输入框为焦点、回答不套卡片、无多余装饰。
+ * 主色：近黑中性色（只给主按钮与当前态），彩色只用于状态（成功 / 警告 / 错误 / 信息）。
+ * 两个方案：A「对话感」——内容直接铺在白底上，靠留白与字号分层；B「卡片感」——浅灰底 + 白卡片分区。
+ * 动效：页面切换淡入上移、抽屉滑入、列表错开入场、草稿入图谱收起 + 勾画出、按下 0.98、数字滚动；
+ *       “减少动效”开关 / 系统设置开启时全部直接切换。
+ */
+:root{
+  /* ---- 候选 token（定稿后写入 DESIGN.md） ---- */
+  --ink:#18181B;      /* 主色 = 主文字：近黑 */
+  --ink-h:#27272A;    /* 主按钮 hover */
+  --ink-p:#09090B;    /* 主按钮按下 */
+  --t2:#52525B;       /* 次要文字（对白底 7.7:1） */
+  --t3:#71717A;       /* 元信息（对白底 4.8:1，只用于 13px 以上） */
+  --t4:#A1A1AA;       /* 占位符 / 禁用（不用于需阅读的文字） */
+  --bg:#FFFFFF; --bg2:#F7F7F8; --bg3:#F0F0F2; --line:#ECECEF; --line2:#E4E4E7;
+  --ok:#16A34A; --ok1:#F0FDF4; --wa:#B45309; --wa1:#FFFBEB; --er:#DC2626; --er1:#FEF2F2; --in:#2563EB; --in1:#EFF6FF;
+  --r1:8px; --r2:12px; --r3:20px; --rf:999px;
+  --sh1:0 1px 2px rgba(0,0,0,.04); --sh2:0 4px 16px rgba(0,0,0,.06); --sh3:0 12px 32px rgba(0,0,0,.10);
+  --e-std:cubic-bezier(.2,0,0,1); --e-dec:cubic-bezier(0,0,0,1); --e-acc:cubic-bezier(.3,0,1,1);
+  --d1:120ms; --d2:200ms; --d3:250ms; --d4:300ms;
+  --f:'PingFang SC','HarmonyOS Sans SC','Inter','Microsoft YaHei',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);background:#E7E7EA;color:var(--ink);padding:22px 26px 40px;-webkit-font-smoothing:antialiased}
+.reduce *{transition:none!important;animation:none!important}
+h1.cap{font-size:20px;font-weight:600}
+p.cap{font-size:13px;color:var(--t2);margin:4px 0 14px}
+.ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#fff;border-radius:12px;padding:10px 14px;margin-bottom:18px;box-shadow:var(--sh1)}
+.ctl .g{display:flex;gap:6px;align-items:center;padding-right:12px;border-right:1px solid var(--line)}
+.ctl .g:last-child{border:0}
+.ctl label{font-size:12px;color:var(--t3)}
+.seg{display:inline-flex;background:var(--bg3);border-radius:var(--rf);padding:3px}
+.seg button{border:0;background:transparent;font:inherit;font-size:13px;padding:5px 12px;border-radius:var(--rf);color:var(--t2);cursor:pointer;transition:background var(--d2) var(--e-std),color var(--d2)}
+.seg button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:var(--sh1)}
+.stage{display:flex;gap:28px;align-items:flex-start}
+.note{margin-top:18px;background:#fff;border-radius:12px;padding:14px 18px;font-size:13px;line-height:22px;color:var(--t2);max-width:1390px}
+.note b{color:var(--ink)}
+
+/* ---------- 设备外框 ---------- */
+.phone{width:375px;height:780px;border-radius:40px;background:#000;padding:8px;box-shadow:0 18px 40px rgba(0,0,0,.18)}
+.screen{width:100%;height:100%;border-radius:32px;overflow:hidden;background:var(--bg);position:relative;display:flex;flex-direction:column}
+.desk{width:1040px;height:690px;border-radius:14px;overflow:hidden;background:var(--bg);box-shadow:0 18px 40px rgba(0,0,0,.14);display:flex;position:relative}
+.sb{height:34px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font-size:13px;font-weight:600;flex:none}
+
+/* ---------- 应用骨架 ---------- */
+.top{height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;flex:none}
+.top .t{font-size:17px;font-weight:600;flex:1}
+.ib{width:36px;height:36px;border-radius:var(--rf);border:0;background:transparent;display:inline-flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:background var(--d1) var(--e-std),transform var(--d1) var(--e-std)}
+.ib:hover{background:var(--bg3)} .ib:active{transform:scale(.94)}
+.view{flex:1;overflow:auto;position:relative}
+.page{padding:4px 20px 24px}
+.tabs{height:60px;display:flex;justify-content:space-around;align-items:center;flex:none;border-top:1px solid var(--line);background:#fff}
+.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font:inherit;font-size:11px;color:var(--t3);cursor:pointer;width:72px;transition:color var(--d2)}
+.tabs button.on{color:var(--ink);font-weight:600}
+.side{width:232px;background:var(--bg2);padding:16px 12px;flex:none;display:flex;flex-direction:column;gap:2px}
+.side .logo{font-size:17px;font-weight:700;padding:6px 10px 18px;letter-spacing:.5px}
+.side button{border:0;background:transparent;font:inherit;font-size:14px;text-align:left;padding:9px 10px;border-radius:var(--r1);color:var(--t2);display:flex;gap:10px;align-items:center;cursor:pointer;transition:background var(--d1)}
+.side button:hover{background:var(--bg3)} .side button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:var(--sh1)}
+.side .sec{font-size:12px;color:var(--t3);padding:18px 10px 6px}
+.side .rec{font-size:13px;color:var(--t2);padding:7px 10px;border-radius:var(--r1);cursor:pointer}
+.side .rec:hover{background:var(--bg3)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.col{max-width:720px;margin:0 auto;width:100%}
+
+/* ---------- 动效：页面切换 / 列表错开 ---------- */
+.enter{animation:pageIn var(--d2) var(--e-dec) both}
+@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.stag>*{animation:pageIn var(--d2) var(--e-dec) both}
+.stag>*:nth-child(1){animation-delay:0ms}.stag>*:nth-child(2){animation-delay:30ms}.stag>*:nth-child(3){animation-delay:60ms}
+.stag>*:nth-child(4){animation-delay:90ms}.stag>*:nth-child(5){animation-delay:120ms}.stag>*:nth-child(n+6){animation-delay:150ms}
+
+/* ---------- 基础元素 ---------- */
+.btn{height:44px;padding:0 20px;border-radius:var(--rf);font:inherit;font-size:15px;font-weight:600;border:1px solid var(--line2);background:#fff;color:var(--ink);cursor:pointer;transition:background var(--d1) var(--e-std),transform var(--d1) var(--e-std),box-shadow var(--d1)}
+.btn:hover{background:var(--bg2)} .btn:active{transform:scale(.98)}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.pri:hover{background:var(--ink-h)} .btn.pri:active{background:var(--ink-p)}
+.btn:focus-visible,.ib:focus-visible,.seg button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.tag{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:var(--rf);background:var(--bg3);font-size:12.5px;color:var(--t2);gap:4px}
+.tag.ok{background:var(--ok1);color:var(--ok)} .tag.wa{background:var(--wa1);color:var(--wa)} .tag.er{background:var(--er1);color:var(--er)}
+.meta{font-size:13px;color:var(--t3)}
+.h1{font-size:24px;font-weight:600;line-height:32px;letter-spacing:.2px}
+.h2{font-size:13px;font-weight:600;color:var(--t3);letter-spacing:.3px;margin:24px 0 8px}
+.av{width:44px;height:44px;border-radius:var(--rf);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:17px;color:var(--ink);flex:none}
+.av.lg{width:64px;height:64px;font-size:24px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;cursor:pointer;border-radius:var(--r1);transition:background var(--d1)}
+.row:hover{background:var(--bg2)}
+.row .tx{flex:1;min-width:0} .row .tt{font-size:15px} .row .st{font-size:13px;color:var(--t3);margin-top:2px}
+.chev{color:var(--t4)}
+.hr{height:1px;background:var(--line)}
+
+/* ---------- 对话 ---------- */
+.ub{margin:18px 0 6px auto;max-width:82%;width:fit-content;background:var(--bg3);padding:10px 14px;border-radius:18px 18px 6px 18px;font-size:15px;line-height:24px}
+.um{text-align:right;font-size:12px;color:var(--t4);margin-bottom:6px}
+.ans{font-size:15px;line-height:26px;padding:6px 2px}
+.cite{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 4px;border-radius:6px;background:var(--bg3);font-size:11px;color:var(--t2);vertical-align:2px;margin:0 2px;cursor:pointer;transition:background var(--d1)}
+.cite:hover{background:var(--line2)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pchip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 4px;border-radius:var(--rf);border:1px solid var(--line);background:#fff;font-size:13px;cursor:pointer;transition:background var(--d1),transform var(--d1)}
+.pchip:hover{background:var(--bg2)} .pchip:active{transform:scale(.97)}
+.pchip i{width:22px;height:22px;border-radius:var(--rf);background:var(--bg3);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:11px;font-weight:600}
+.pchip.pop{animation:pop var(--d2) var(--e-dec)}
+@keyframes pop{0%{transform:scale(.9)}60%{transform:scale(1.04)}100%{transform:none}}
+.link{font-size:13px;color:var(--t2);background:none;border:0;font:inherit;cursor:pointer;display:inline-flex;gap:4px;align-items:center;padding:6px 0}
+.link:hover{color:var(--ink)}
+/* 草稿卡片：收起 + 勾画出 */
+.draft{margin-top:8px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;transition:background var(--d4) var(--e-std),border-color var(--d4)}
+.draft .bd{padding:14px 16px;display:grid;grid-template-rows:1fr;transition:grid-template-rows var(--d4) var(--e-std),opacity var(--d2),padding var(--d4) var(--e-std)}
+.draft .bd>div{overflow:hidden}
+.draft .hd{display:flex;align-items:center;gap:8px;padding:12px 16px 0;font-size:14px;font-weight:600}
+.draft.done{background:var(--bg2);border-color:transparent}
+.draft.done .bd{grid-template-rows:0fr;opacity:0;padding-top:0;padding-bottom:0}
+.draft.done .hd{padding-bottom:12px}
+.ck{width:20px;height:20px;flex:none}
+.ck circle{fill:var(--ok)} .ck path{stroke:#fff;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:14;stroke-dashoffset:14}
+.draft.done .ck path{animation:draw var(--d4) var(--e-dec) .12s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.dl{font-size:14px;line-height:24px;color:var(--t2)} .dl b{color:var(--ink);font-weight:500}
+/* 输入框：页面焦点 */
+.composer{padding:10px 14px 14px;flex:none;background:linear-gradient(to top,#fff 70%,rgba(255,255,255,0))}
+.box{border:1px solid var(--line2);border-radius:24px;box-shadow:var(--sh2);padding:12px 12px 10px 16px;background:#fff;transition:box-shadow var(--d2),border-color var(--d2)}
+.box:focus-within{border-color:var(--t4);box-shadow:var(--sh3)}
+.box textarea{width:100%;border:0;outline:0;resize:none;font:inherit;font-size:15px;line-height:24px;height:24px;color:var(--ink);background:transparent}
+.box textarea::placeholder{color:var(--t4)}
+.box .bar{display:flex;align-items:center;gap:8px;margin-top:8px}
+.mini{display:inline-flex;background:var(--bg3);border-radius:var(--rf);padding:2px}
+.mini button{border:0;background:transparent;font:inherit;font-size:12.5px;padding:4px 10px;border-radius:var(--rf);color:var(--t2);cursor:pointer;transition:background var(--d2),color var(--d2)}
+.mini button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:var(--sh1)}
+.date{font-size:12.5px;color:var(--t2);padding:4px 10px;border-radius:var(--rf);background:transparent;border:1px solid var(--line);cursor:pointer}
+.send{margin-left:auto;width:34px;height:34px;border-radius:var(--rf);border:0;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform var(--d1),opacity var(--d2)}
+.send:active{transform:scale(.92)} .send:disabled{opacity:.25;cursor:default}
+.sugg{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.sugg button{border:1px solid var(--line);background:#fff;border-radius:var(--rf);padding:7px 14px;font:inherit;font-size:13px;color:var(--t2);cursor:pointer;transition:background var(--d1),transform var(--d1)}
+.sugg button:hover{background:var(--bg2)} .sugg button:active{transform:scale(.97)}
+
+/* ---------- 抽屉 ---------- */
+.scrim{position:absolute;inset:0;background:rgba(9,9,11,.32);opacity:0;pointer-events:none;transition:opacity var(--d3) var(--e-std);z-index:5}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:88%;background:#fff;border-radius:24px 24px 0 0;transform:translateY(100%);transition:transform var(--d3) var(--e-dec);z-index:6;display:flex;flex-direction:column;box-shadow:var(--sh3)}
+.sheet.on{transform:none}
+.sheet.out{transition:transform var(--d2) var(--e-acc)}
+.grab{width:36px;height:4px;border-radius:var(--rf);background:var(--line2);margin:8px auto 4px}
+.sheet .sh{padding:6px 20px 0} .sheet .sc{overflow:auto;padding:0 20px 12px;flex:1}
+.sheet .sf{display:flex;gap:10px;padding:12px 20px 18px;border-top:1px solid var(--line)}
+.sheet .sf .btn{flex:1}
+.sline{display:flex;align-items:center;gap:10px;padding:12px 0;font-size:15px}
+.sline .x{color:var(--t4);cursor:pointer;border:0;background:none;padding:4px;border-radius:6px} .sline .x:hover{color:var(--ink);background:var(--bg3)}
+.panel{width:380px;border-left:1px solid var(--line);flex:none;transform:translateX(100%);transition:transform var(--d3) var(--e-dec),width var(--d3) var(--e-std);background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.panel.on{transform:none}
+.panel.off{width:0;border:0}
+
+/* ---------- 方案 B：卡片感 ---------- */
+.vB .screen,.vB .main{background:var(--bg2)}
+.vB .composer{background:linear-gradient(to top,var(--bg2) 70%,rgba(247,247,248,0))}
+.vB .cardify{background:#fff;border-radius:var(--r2);padding:4px 16px;box-shadow:var(--sh1);margin-top:8px}
+.vB .ans{background:#fff;border-radius:var(--r2);padding:14px 16px;box-shadow:var(--sh1)}
+.vB .draft{background:#fff;border-color:transparent;box-shadow:var(--sh1)}
+.vB .draft.done{background:#fff}
+.vB .ub{background:#fff;box-shadow:var(--sh1)}
+.vB .tabs{background:#fff}
+.vB .side{background:#fff;border-right:1px solid var(--line)}
+.vB .side button.on{background:var(--bg3);box-shadow:none}
+.vB .h2{margin:22px 0 6px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vA .grid,.phone .grid{display:block}
+.fold{font-size:14px;color:var(--t3);padding:10px 0;line-height:22px}
+.fold button{color:var(--ink);font-weight:500;background:none;border:0;font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line2)}
+.num{font-variant-numeric:tabular-nums;display:inline-block;transition:transform var(--d4) var(--e-dec),opacity var(--d2)}
+.num.roll{animation:roll var(--d4) var(--e-dec)}
+@keyframes roll{from{transform:translateY(60%);opacity:0}to{transform:none;opacity:1}}
+.skel{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--bg3),var(--bg2),var(--bg3));background-size:200% 100%;animation:shim 1.6s ease-in-out infinite;margin:8px 0}
+@keyframes shim{0%{background-position:100% 0}100%{background-position:-100% 0}}
+</style>
+</head>
+<body>
+<h1 class="cap">Weft · 样式改版原型</h1>
+<p class="cap">近黑主色、彩色只给状态；参考豆包：白底、输入框为焦点、回答不套卡片。切方案 A / B 对比，切页面体验动效（提交记录 → 确认草稿 → 入图谱；点额度看数字滚动）。</p>
+<div class="ctl">
+  <div class="g"><label>方案</label><div class="seg" id="segV"><button data-v="A" class="on">A · 对话感（豆包式）</button><button data-v="B">B · 卡片感</button></div></div>
+  <div class="g"><label>页面</label><div class="seg" id="segP"><button data-p="chat" class="on">对话</button><button data-p="person">人物</button><button data-p="me">我的</button></div></div>
+  <div class="g"><label>动效</label><div class="seg" id="segM"><button data-m="on" class="on">正常</button><button data-m="off">减少动效</button></div></div>
+  <div class="g"><button class="btn" style="height:32px;font-size:13px;padding:0 14px" id="replay">重放入场动效</button></div>
+</div>
+
+<div class="stage vA" id="stage">
+  <div class="desk" id="desk">
+    <aside class="side">
+      <div class="logo">Weft</div>
+      <button data-p="chat" class="on">${'💬'}</button>
+    </aside>
+  </div>
+  <div class="phone"><div class="screen" id="phone"></div></div>
+</div>
+
+<div class="note">
+  <b>改了什么：</b>① 主色从饱和靛蓝改为近黑 <code>#18181B</code>，只用于主按钮、当前 tab 与焦点；② 标签默认浅灰底无描边，彩色只给状态（活跃 / 转述 / 紧张）；③ 层级靠字号与留白：页标题 24/32，分区标题 13 半粗灰，正文 15/24；④ 桌面内容限宽 720 居中，右栏 380；⑤ 空分区折叠成一行“还可以补充”；⑥ 输入框是对话页的视觉焦点（大圆角 + 柔和阴影），草稿与回答不再层层套框（方案 A）。<br>
+  <b>动效：</b>页面切换淡入上移 200ms；列表错开 30ms；抽屉减速滑入 250ms、加速滑出 200ms；草稿入图谱时卡片收起 + 绿色勾画出 300ms，新人物 chip 轻弹；按钮按下 0.98；额度数字滚动。缓动统一两条：标准 <code>(.2,0,0,1)</code>、减速 <code>(0,0,0,1)</code>。
+</div>
+
+<script>
+"use strict";
+const S={v:"A",p:"chat",confirmed:false,ask:false,mode:"rec",quota:12,sheet:false};
+const ic={
+ chat:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-5 4z"/></svg>',
+ people:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.4"/><path d="M3 19.5c.9-3.4 3.3-5 6-5s5.1 1.6 6 5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.7c1.6.6 2.6 2 3 4.8"/></svg>',
+ graph:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="2.4"/><circle cx="12" cy="12" r="6.5" opacity=".5"/><circle cx="5" cy="6" r="1.6"/><circle cx="19" cy="17" r="1.6"/></svg>',
+ me:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c1-4 3.8-6 7-6s6 2 7 6"/></svg>',
+ send:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+ back:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+ more:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>',
+ chev:'<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
+ x:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+ list:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
+ cal:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5.5" width="16" height="14" rx="3"/><path d="M4 10h16"/></svg>'
+};
+const check='<svg class="ck" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10"/><path d="M5.8 10.4l2.8 2.7 5.6-5.8"/></svg>';
+
+/* ---------- 页面内容（两端共用） ---------- */
+function chatBody(){
+  const dl = S.confirmed ? "" : `<div class="dl"><b>张伟</b>喜欢钓鱼 <span class="tag" style="height:20px;font-size:11.5px">本人说</span></div>
+      <div class="dl"><b>张伟</b>不喝酒 <span class="tag" style="height:20px;font-size:11.5px">本人说</span></div>
+      <div class="dl"><b>老张的女儿</b>明年高考 <span class="tag" style="height:20px;font-size:11.5px">本人说</span></div>
+      <div style="display:flex;gap:10px;margin-top:12px"><button class="btn pri" style="height:38px;font-size:14px" data-act="review">查看并确认</button></div>`;
+  return `<div class="col stag">
+    <div class="ub">今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。</div>
+    <div class="um">记录 · 今天</div>
+    <div class="draft ${S.confirmed?"done":""}" id="draft">
+      <div class="hd">${S.confirmed?check+"已入图谱 · 3 条信息":"草稿 · 2 个人物 · 3 条信息"}</div>
+      <div class="bd"><div>${dl}</div></div>
+    </div>
+    ${S.confirmed?`<div class="chips"><span class="pchip pop"><i>张</i>张伟</span><span class="pchip pop" style="animation-delay:40ms"><i>女</i>老张的女儿</span></div>`:""}
+    <div class="ub">我是怎么认识小王的？</div>
+    <div class="um">提问</div>
+    <div class="ans">你是<b style="font-weight:600">通过老张</b>认识小王的<span class="cite">1</span>。2023 年老张把他的客户小王介绍给你<span class="cite">2</span>。
+      <div class="chips"><span class="pchip"><i>张</i>张伟</span><span class="pchip"><i>王</i>王芳</span></div>
+      <button class="link">${ic.graph} 在图上查看</button>
+    </div>
+  </div>`;
+}
+function composer(){
+  return `<div class="composer"><div class="col"><div class="box">
+    <textarea rows="1" placeholder="${S.mode==="rec"?"今天和谁发生了什么？":"想问关于谁的什么事？"}" id="ta"></textarea>
+    <div class="bar"><div class="mini"><button data-mode="rec" class="${S.mode==="rec"?"on":""}">记录</button><button data-mode="ask" class="${S.mode==="ask"?"on":""}">提问</button></div>
+    ${S.mode==="rec"?`<button class="date">${ic.cal} 今天</button>`:""}
+    <button class="send" id="send" disabled aria-label="发送">${ic.send}</button></div></div></div></div>`;
+}
+function personBody(){
+  const roles = S.v==="A"
+    ? `<div class="row"><div class="tx"><div class="tt">字节跳动</div><div class="st">2018 年 3 月 – 至今 · 同事</div></div>${ic.chev}</div>`
+    : `<div class="row"><div class="tx"><div class="tt">字节跳动</div><div class="st">2018 年 3 月 – 至今 · 同事</div></div>${ic.chev}</div>`;
+  const sec=(t,body)=>`<div><div class="h2">${t}</div><div class="cardify">${body}</div></div>`;
+  return `<div class="col stag">
+    <div style="display:flex;gap:16px;align-items:center;margin-top:8px">
+      <div class="av lg">张</div>
+      <div style="flex:1;min-width:0"><div class="h1">张伟</div><div class="meta" style="margin-top:2px">老张 · 同事、朋友 · 认识 8 年</div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px"><span class="tag ok">活跃</span><span class="tag">至交 · 信任高</span></div>
+    ${sec("综合描述",`<div style="font-size:15px;line-height:26px;padding:10px 0">急性子但讲义气的老同事，最近迷上钓鱼；女儿明年高考。你觉得他靠谱。<div class="meta" style="margin-top:4px">11 月 16 日生成</div></div>`)}
+    <div class="grid">
+      ${sec("社会角色",roles)}
+      ${sec("性格与喜好",`<div class="chips" style="padding:10px 0;margin:0"><span class="tag">急性子</span><span class="tag">讲义气</span><span class="tag">喜欢钓鱼</span><span class="tag">不喝酒</span></div>`)}
+    </div>
+    ${sec("他的关系",`<div class="row"><div class="av" style="width:36px;height:36px;font-size:14px">女</div><div class="tx"><div class="tt">老张的女儿</div><div class="st">父母</div></div>${ic.chev}</div>
+      <div class="hr"></div><div class="row"><div class="av" style="width:36px;height:36px;font-size:14px">李</div><div class="tx"><div class="tt">李明</div><div class="st">室友 · <span style="color:var(--er)">紧张</span> · 据陈静说</div></div>${ic.chev}</div>`)}
+    <div class="fold">还可以补充：<button>生日</button>、<button>籍贯</button>、<button>相处之道</button></div>
+  </div>`;
+}
+function meBody(){
+  const sec=(t,body)=>`<div><div class="h2">${t}</div><div class="cardify">${body}</div></div>`;
+  return `<div class="col stag">
+    <div style="display:flex;gap:14px;align-items:center;margin-top:8px"><div class="av lg">我</div><div><div class="h1">小明</div><div class="meta">账号 xiaoming</div></div></div>
+    ${sec("数据",`<div class="row"><div class="tx"><div class="tt">我的记录</div></div><span class="meta">34 条</span>${ic.chev}</div><div class="hr"></div><div class="row"><div class="tx"><div class="tt">关系类型词表</div></div><span class="meta">自定义 2 个</span>${ic.chev}</div>`)}
+    ${sec("外观",`<div class="row" style="cursor:default"><div class="tx"><div class="tt">图谱外观</div><div class="st">只改变关系图，换设备后仍保持</div></div><div class="mini"><button class="on">清蓝</button><button>星空</button></div></div>`)}
+    ${sec("今日额度",`<div class="row" data-act="quota"><div class="tx"><div class="tt">记录</div></div><span style="font-size:15px"><span class="num" id="q">${S.quota}</span> <span class="meta">/ 50</span></span></div><div class="hr"></div><div class="row" style="cursor:default"><div class="tx"><div class="tt">提问</div></div><span style="font-size:15px">63 <span class="meta">/ 100</span></span></div>`)}
+    <div class="meta" style="margin-top:8px">点“记录”那一行，看数字滚动；北京时间 0 点重置。</div>
+    ${sec("账户",`<div class="row"><div class="tx"><div class="tt">退出登录</div></div>${ic.chev}</div><div class="hr"></div><div class="row"><div class="tx"><div class="tt" style="color:var(--er)">注销账户</div><div class="st">删除全部数据</div></div>${ic.chev}</div>`)}
+  </div>`;
+}
+const titles={chat:"Weft",person:"",me:"我的"};
+function body(){ return S.p==="chat"?chatBody():S.p==="person"?personBody():meBody(); }
+function sheetHtml(){
+  return `<div class="grab"></div><div class="sh"><div style="display:flex;align-items:center"><div style="flex:1"><div style="font-size:18px;font-weight:600">确认草稿</div><div class="meta">今天 · 确认后才会写进图谱</div></div><button class="ib" data-act="close" aria-label="关闭">${ic.x}</button></div></div>
+  <div class="sc">
+    <div class="h2" style="margin-top:14px">涉及的人物</div>
+    <div class="sline"><div class="av" style="width:32px;height:32px;font-size:13px">张</div><div style="flex:1">老张 <span class="meta">是</span> 张伟 <div class="meta">同事 · 已有别名</div></div><span class="tag ok">已匹配</span></div>
+    <div class="sline"><div class="av" style="width:32px;height:32px;font-size:13px">女</div><div style="flex:1">老张的女儿 <div class="meta">新人物</div></div><span class="tag">新</span></div>
+    <div class="h2">将写入</div>
+    <div class="sline"><div style="flex:1">张伟喜欢钓鱼 <span class="meta">· 本人说</span></div><button class="x" aria-label="删掉">${ic.x}</button></div>
+    <div class="sline"><div style="flex:1">张伟不喝酒 <span class="meta">· 本人说</span></div><button class="x" aria-label="删掉">${ic.x}</button></div>
+    <div class="sline"><div style="flex:1">老张的女儿明年高考 <span class="meta">· 本人说</span></div><button class="x" aria-label="删掉">${ic.x}</button></div>
+    <div class="meta" style="margin-top:6px">点一条可改可信度或内容</div>
+  </div>
+  <div class="sf"><button class="btn" data-act="close">放弃</button><button class="btn pri" data-act="confirm">确认入图谱</button></div>`;
+}
+
+/* ---------- 渲染两端 ---------- */
+const desk=document.getElementById("desk"), phone=document.getElementById("phone"), stage=document.getElementById("stage");
+function render(anim=true){
+  stage.className = "stage v"+S.v;
+  const navs=[["chat","对话",ic.chat],["people","人物",ic.people],["graph","全景图",ic.graph],["me","我的",ic.me]];
+  const cur = S.p==="person"?"people":S.p;
+  desk.innerHTML = `<aside class="side"><div class="logo">Weft</div>
+      ${navs.map(([k,l,i])=>`<button data-nav="${k}" class="${cur===k?"on":""}">${i}${l}</button>`).join("")}
+      <div class="sec">最近提到</div><div class="rec" data-nav="people">张伟（老张）</div><div class="rec" data-nav="people">老张的女儿</div><div class="rec" data-nav="people">李明（小李）</div></aside>
+    <div class="main"><div class="top">${S.p==="person"?`<button class="ib" data-nav="people" aria-label="返回">${ic.back}</button>`:""}<div class="t">${titles[S.p]}</div>${S.p==="chat"?`<button class="ib" aria-label="记录">${ic.list}</button>`:S.p==="person"?`<button class="ib" aria-label="更多">${ic.more}</button>`:""}</div>
+      <div class="view"><div class="page ${anim?"enter":""}">${body()}</div></div>${S.p==="chat"?composer():""}</div>
+    <div class="panel ${S.sheet?"on":"off"}" id="dpanel">${S.sheet?sheetHtml().replace('<div class="grab"></div>',''):""}</div>`;
+  phone.innerHTML = `<div class="sb"><span>9:41</span><span>●●● ▮</span></div>
+    <div class="top">${S.p==="person"?`<button class="ib" data-nav="people" aria-label="返回">${ic.back}</button>`:""}<div class="t">${titles[S.p]}</div>${S.p==="chat"?`<button class="ib" aria-label="记录">${ic.list}</button>`:S.p==="person"?`<button class="ib" aria-label="更多">${ic.more}</button>`:""}</div>
+    <div class="view"><div class="page ${anim?"enter":""}">${body()}</div></div>
+    ${S.p==="chat"?composer():""}
+    <nav class="tabs">${[["chat","对话",ic.chat],["people","人物",ic.people],["me","我的",ic.me]].map(([k,l,i])=>`<button data-nav="${k}" class="${cur===k?"on":""}">${i}${l}</button>`).join("")}</nav>
+    <div class="scrim ${S.sheet?"on":""}" data-act="close"></div>
+    <div class="sheet ${S.sheet?"on":""}" id="psheet">${sheetHtml()}</div>`;
+  document.querySelectorAll("textarea").forEach(t=>t.addEventListener("input",e=>{ document.querySelectorAll(".send").forEach(b=>b.disabled=!e.target.value.trim()); }));
+}
+function closeSheet(){
+  const sh=document.getElementById("psheet"); sh.classList.add("out"); sh.classList.remove("on");
+  document.querySelectorAll(".scrim").forEach(s=>s.classList.remove("on"));
+  const dp=document.getElementById("dpanel"); dp.classList.remove("on");
+  setTimeout(()=>{ S.sheet=false; dp.classList.add("off"); }, 200);
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-nav],[data-act],[data-mode],[data-v],[data-p],[data-m]"); if(!t) return;
+  if(t.dataset.v){ S.v=t.dataset.v; setSeg("segV",t); return render(false); }
+  if(t.dataset.p){ S.p=t.dataset.p; S.sheet=false; setSeg("segP",t); return render(); }
+  if(t.dataset.m){ document.body.classList.toggle("reduce",t.dataset.m==="off"); setSeg("segM",t); return; }
+  if(t.dataset.nav){ const k=t.dataset.nav; S.p = k==="people"?"person":k==="graph"?"person":k; S.sheet=false;
+    document.querySelectorAll("#segP button").forEach(b=>b.classList.toggle("on",b.dataset.p===S.p)); return render(); }
+  if(t.dataset.mode){ S.mode=t.dataset.mode; return render(false); }
+  const a=t.dataset.act;
+  if(a==="review"){ S.sheet=true; render(false); requestAnimationFrame(()=>{}); return; }
+  if(a==="close"){ return closeSheet(); }
+  if(a==="confirm"){ closeSheet(); setTimeout(()=>{ S.confirmed=true; render(false); }, 220); return; }
+  if(a==="quota"){ S.quota++; document.querySelectorAll("#q").forEach(q=>{ q.textContent=S.quota; q.classList.remove("roll"); void q.offsetWidth; q.classList.add("roll"); }); }
+});
+function setSeg(id,btn){ document.querySelectorAll("#"+id+" button").forEach(b=>b.classList.toggle("on",b===btn)); }
+document.getElementById("replay").onclick=()=>{ S.confirmed=false; S.sheet=false; render(); };
+if(matchMedia("(prefers-reduced-motion: reduce)").matches){ document.body.classList.add("reduce"); setSeg("segM",document.querySelector('[data-m="off"]')); }
+render();
+</script>
+</body>
+</html>
