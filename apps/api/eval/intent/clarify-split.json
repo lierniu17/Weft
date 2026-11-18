@@ -1,0 +1,38 @@
+{
+  "seed": 42,
+  "dev_per_category": 2,
+  "dev": [
+    "vague-01",
+    "vague-05",
+    "ask-02",
+    "ask-03",
+    "rec-02",
+    "rec-05",
+    "topic-01",
+    "topic-05",
+    "never-04",
+    "never-05",
+    "more-01",
+    "more-05"
+  ],
+  "heldout": [
+    "rec-01",
+    "rec-03",
+    "rec-04",
+    "ask-01",
+    "ask-04",
+    "ask-05",
+    "more-02",
+    "more-03",
+    "more-04",
+    "topic-02",
+    "topic-03",
+    "topic-04",
+    "vague-02",
+    "vague-03",
+    "vague-04",
+    "never-01",
+    "never-02",
+    "never-03"
+  ]
+}

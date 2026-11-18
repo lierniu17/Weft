@@ -1,9 +1,12 @@
-"""消息 routes (intent routing, ADR 0005): send a message, list the chat, re-route a message.
+"""消息 routes (intent routing, ADR 0005): send a message, list the chat, re-route a message,
+click an option of a 反问 (intent clarify).
 
 ``POST /api/messages`` recognizes the message and records it, answers it, or both
 (``weft.services.messages``); a new Draft is extracted in the background, exactly like
 ``POST /api/entries``. Parts that hit a used-up quota come back as ``problems`` (201);
-re-routing is a single action, so its quota error is a 429 and nothing changes.
+re-routing is a single action, so its quota error is a 429 and nothing changes; the same
+holds for clicking a 反问 option. A typed answer to a 反问 is just the next
+``POST /api/messages``.
 """
 
 from __future__ import annotations
@@ -17,7 +20,13 @@ from weft.domain.intent import Intent
 from weft.domain.tenancy import tenant_scope
 from weft.routes.deps import InfraDep, SessionDep, unwrap
 from weft.routes.entries import extraction_job
-from weft.routes.schemas import MessageOut, MessagePage, RerouteRequest, SendMessageRequest
+from weft.routes.schemas import (
+    ClarifyRequest,
+    MessageOut,
+    MessagePage,
+    RerouteRequest,
+    SendMessageRequest,
+)
 from weft.services import messages
 
 router = APIRouter(tags=["messages"])
@@ -27,6 +36,18 @@ REROUTE_ERRORS = {
     "not_found": 404,
     "not_reroutable": 409,
     "already_confirmed": 409,
+    "blank_question": 422,
+    "question_too_long": 422,
+    "blank_text": 422,
+    "text_too_long": 422,
+    "quota_exceeded": 429,
+    "ask_failed": 503,
+}
+CLARIFY_ERRORS = {
+    "not_found": 404,
+    "no_clarification": 409,
+    "already_resolved": 409,
+    "no_such_option": 422,
     "blank_question": 422,
     "question_too_long": 422,
     "blank_text": 422,
@@ -75,6 +96,22 @@ async def reroute_message(
         handled = unwrap(
             await messages.reroute(infra, message_id, Intent(body.as_)), REROUTE_ERRORS
         )
+    if handled.new_draft_id is not None:
+        background.add_task(extraction_job, infra, session.tenant, handled.new_draft_id)
+    return MessageOut.of(handled.view)
+
+
+@router.post("/messages/{message_id}/clarify", response_model=MessageOut)
+async def clarify_message(
+    message_id: uuid.UUID,
+    body: ClarifyRequest,
+    session: SessionDep,
+    infra: InfraDep,
+    background: BackgroundTasks,
+) -> MessageOut:
+    """Click option ``option`` of the message's 反问; returns the updated message."""
+    with tenant_scope(session.tenant):
+        handled = unwrap(await messages.clarify(infra, message_id, body.option), CLARIFY_ERRORS)
     if handled.new_draft_id is not None:
         background.add_task(extraction_job, infra, session.tenant, handled.new_draft_id)
     return MessageOut.of(handled.view)

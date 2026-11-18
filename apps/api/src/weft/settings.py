@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     # --- intent recognition (intent-routing spec AC-2) ---------------------
     # Below this confidence a message is 无关 (chitchat), flagged 拿不准.
     intent_confidence_threshold: float = 0.7
+    # 反问 (intent-clarify AC-4): how long a 拿不准 message takes a typed answer.
+    clarify_answer_window_minutes: int = 30
 
     # --- sessions ---------------------------------------------------------
     session_secret: SecretStr = SecretStr("dev-only-change-me")
@@ -74,7 +76,7 @@ class Settings(BaseSettings):
             raise ValueError("the intent confidence threshold must be within 0..1")
         return value
 
-    @field_validator("daily_entry_limit", "daily_ask_limit")
+    @field_validator("daily_entry_limit", "daily_ask_limit", "clarify_answer_window_minutes")
     @classmethod
     def _non_negative(cls, value: int) -> int:
         if value < 0:

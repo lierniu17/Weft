@@ -355,14 +355,22 @@ components:
       radius: "rounded.bubble"
       variants: { record: { meta: "记录 · 发生日期" }, question: { meta: "提问" }, both: { meta: "记录 · 发生日期 · 提问" }, plain: { meta: "无" } }
     MessageActions:
-      description: "消息下方的低调文字按钮行（意图纠正，intent-routing AC-6 / AC-10）。用户气泡下：已按记录处理且草稿未确认 → “改为提问”；已按提问处理 → “改为记录”；记录 + 提问 → 不显示。无关消息的回应下：“记下来 / 帮我查”。点击后原消息按另一种方式重新处理并原地替换。不上色、不加框，永远比消息本身安静。"
+      description: "消息下方的低调文字按钮行（意图纠正，intent-routing AC-6 / AC-10）。用户气泡下：已按记录处理且草稿未确认 → “改为提问”；已按提问处理 → “改为记录”；记录 + 提问 → 不显示。无关消息的回应下：“记下来 / 帮我查”；反问下：候选（见 ClarifyReply，长文字可换行）。点击后原消息按另一种方式重新处理并原地替换。不上色、不加框，永远比消息本身安静。"
       button: "Button.ghost sm（28px、caption 字号、neutral.text-secondary，悬停 bg-muted + text-primary）"
       layout: "气泡下：与元信息同一行、右对齐；无关回应下：左对齐"
       states:
         pending: { clicked: "Button loading（转圈）", others: "disabled" }
         error: { feedback: "Toast.error（409 已确认 / 不能改、429 额度用完、503 问答不可用）" }
     ChitchatReply:
-      description: "对无关消息（寒暄、道谢、拿不准）的简短回应：像回答一样不套卡片，一句 body-md 正文直接排在白底上；拿不准时固定为“我没确定你是想记下来还是查询”；下方 MessageActions “记下来 / 帮我查”。不建记录、不查图谱、不扣额度。"
+      description: "对无关消息（寒暄、道谢、拿不准）的简短回应：像回答一样不套卡片，一句 body-md 正文直接排在白底上；拿不准且没有可用反问时固定为“我没确定你是想记下来还是查询”（有反问时换成 ClarifyReply）；下方 MessageActions “记下来 / 帮我查”。不建记录、不查图谱、不扣额度。"
+    ClarifyReply:
+      description: "对拿不准消息的反问（intent-clarify AC-1 / AC-3）：占无关回应的位置，同样不套卡片——一句 body-md 正文写出具体的反问（带上原话里的人和事），下方 MessageActions 列出 1–3 个候选（“记下：…”“查：…”），按钮名即候选原文。用户点候选，或直接在输入框里打字回答（不需要专门入口）。已解决（点过候选，或被下一条消息回答）后只留反问这句话，候选隐藏；点过候选的消息照常显示处理结果（草稿卡 / 回答）和纠正按钮。反问本身不扣额度。"
+      layout: "左对齐，按钮行 -ml-md 与正文对齐；候选文字较长时按钮换行（h-auto、左对齐），375px 下不溢出"
+      states:
+        open: { question: "body-md neutral.text-primary", options: "Button.ghost sm（同 MessageActions）" }
+        pending: { clicked: "Button loading（转圈）", others: "disabled", below: "查类候选显示“正在图谱里查找…”骨架" }
+        resolved: { question: "保留", options: "隐藏" }
+        error: { feedback: "Toast.error（429 额度用完：同输入框的额度文案，反问保持未解决；409 已处理：刷新消息；503 问答不可用）" }
     DraftCard:
       description: "对话里的草稿卡片，一条记录一张，状态变化原地更新（同一 DOM 节点）。白底 + divider 细边 + rounded.md，无阴影；信息行为自然语句 + 行尾灰色可信度（“**张伟**喜欢钓鱼 · 本人说”）。"
       variants:
@@ -518,6 +526,7 @@ components:
 - 输入框是视觉焦点：`rounded.xl`、`border`、`shadow.md`，聚焦 `shadow.lg`；只有输入区和圆形近黑发送按钮（空内容时 25% 不透明）。没有“记录 | 提问”切换和日期：系统按意图分发（ADR 0005），占位“记点什么，或问点什么……”。
 - 用户消息：`bg-muted` 气泡，`rounded.bubble`，右对齐，下方 12px 元信息（怎么处理的）+ 低调的纠正文字按钮（改为提问 / 改为记录）。
 - 无关消息的回应：一句正文，不套卡片，下方“记下来 / 帮我查”两个低调文字按钮。
+- 拿不准时的反问：同样一句正文，写出具体问题，下方 1–3 个候选（“记下：…”“查：…”）做低调文字按钮；处理后候选消失，问题保留。
 - 回答：**不套卡片**，正文直接排在白底上；出处 `[n]` 为 `bg-muted` 小方块；相关人物为头像 chip；“在图上查看”为中性文字按钮。
 - 草稿卡：白底 + `divider` 细边 + `rounded.md`；确认后变 `bg-subtle` 无边、内容收起，只剩“✓ 已入图谱 · N 条信息”。
 

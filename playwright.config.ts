@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { E2E, REMOTE, REMOTE_BASE_URL, TODAY } from "./tests/e2e/support/env.ts";
 
-// e2e:bot — the specs' BOTs (MVP BOT-1…BOT-13, GRAPH / STYLE / INTENT BOTs) against the real stack (FastAPI + Postgres + Neo4j +
+// e2e:bot — the specs' BOTs (MVP BOT-1…BOT-13, GRAPH / STYLE / INTENT / CLARIFY BOTs) against the real stack (FastAPI + Postgres + Neo4j +
 // Vite), LLM calls replayed from tests/e2e/fixtures/llm/. `globalSetup` boots everything
 // and tears it down, so `pnpm e2e:bot` needs nothing running beyond the docker databases.
 //
@@ -13,7 +13,13 @@ export default defineConfig({
   testMatch:
     process.env.WEFT_E2E_SUITE === "walkthrough"
       ? "**/walkthrough*.spec.ts"
-      : ["**/bot-*.spec.ts", "**/graph-*.spec.ts", "**/style-*.spec.ts", "**/intent-*.spec.ts"],
+      : [
+          "**/bot-*.spec.ts",
+          "**/graph-*.spec.ts",
+          "**/style-*.spec.ts",
+          "**/intent-*.spec.ts",
+          "**/clarify-*.spec.ts",
+        ],
   globalSetup: REMOTE ? "./tests/e2e/global-setup.remote.ts" : "./tests/e2e/global-setup.ts",
   // One shared database and Neo4j; BOTs create their own users, but run them in order.
   workers: 1,

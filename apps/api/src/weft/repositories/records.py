@@ -10,7 +10,7 @@ from weft.domain.answer import Answer
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
 from weft.domain.draft import Draft, DraftStatus
-from weft.domain.intent import Intent
+from weft.domain.intent import Clarification, Intent
 from weft.domain.message import Problem
 
 
@@ -66,6 +66,9 @@ class MessageRecord:
     reply: str | None
     problems: tuple[Problem, ...]
     created_at: datetime
+    clarify: Clarification | None = None  # 反问 and its options (拿不准 messages)
+    clarification_of: uuid.UUID | None = None  # an answer: the message whose 反问 it answers
+    clarification_resolved_at: datetime | None = None  # the 反问 was settled
 
 
 @dataclass(frozen=True)

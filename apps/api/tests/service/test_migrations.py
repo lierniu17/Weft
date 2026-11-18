@@ -1,8 +1,10 @@
-"""Migration 0003 (intent routing): existing Entries become 'record' messages.
+"""Migrations 0003 (intent routing: existing Entries become 'record' messages) and 0004
+(intent clarify: the 反问 columns, nothing else).
 
 Migrates a throwaway database to 0002, writes Entries the old way, then upgrades: every
 Entry the user wrote becomes a message — same text, same time, linked to the Entry, never
-re-recognized — and manual profile edits do not (spec 「不在范围内」, ADR 0005).
+re-recognized — and manual profile edits do not (spec 「不在范围内」, ADR 0005). 0004 leaves
+those messages exactly as they were and can be rolled back.
 """
 
 from __future__ import annotations
@@ -128,3 +130,41 @@ def test_the_migration_can_be_rolled_back(fresh_database: str) -> None:
     config.set_main_option("sqlalchemy.url", fresh_database)
     command.downgrade(config, "0002")
     assert "messages" not in asyncio.run(_tables(fresh_database))
+
+
+async def _columns(url: str) -> set[str]:
+    conn = await _connect(url)
+    try:
+        rows = await conn.fetch(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'messages'"
+        )
+    finally:
+        await conn.close()
+    return {r["column_name"] for r in rows}
+
+
+CLARIFY_COLUMNS = {"clarify_json", "clarification_of", "clarification_resolved_at"}
+
+
+def test_migration_0004_only_adds_the_clarification_columns(fresh_database: str) -> None:
+    migrate(fresh_database, revision="0002")
+    asyncio.run(_seed_old_schema(fresh_database))
+    migrate(fresh_database, revision="0003")
+    before = asyncio.run(_messages(fresh_database))
+
+    migrate(fresh_database)
+
+    after = asyncio.run(_messages(fresh_database))
+    assert [{k: v for k, v in m.items() if k not in CLARIFY_COLUMNS} for m in after] == before
+    assert all(m[c] is None for m in after for c in CLARIFY_COLUMNS)
+
+    from alembic import command
+    from alembic.config import Config
+
+    from weft.settings import API_DIR
+
+    config = Config(str(API_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", fresh_database)
+    command.downgrade(config, "0003")
+    assert not asyncio.run(_columns(fresh_database)) & CLARIFY_COLUMNS
+    assert len(asyncio.run(_messages(fresh_database))) == len(before)

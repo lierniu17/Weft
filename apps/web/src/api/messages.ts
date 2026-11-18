@@ -71,6 +71,9 @@ export function useSendMessage() {
         };
       });
       if (message.entry) void qc.invalidateQueries({ queryKey: keys.entries });
+      // A typed answer to a 反问 resolves it unless a part was refused (AC-4, AC-7): reload
+      // the original as the server has it now, so its options go once it is resolved.
+      if (message.clarification_of) void qc.invalidateQueries({ queryKey: keys.messages });
     },
     onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
   });
@@ -99,6 +102,25 @@ export function useReroute() {
       qc.setQueryData<Pages>(keys.messages, (data) => replaceMessage(data, message));
       // 改为提问 may have discarded the old Draft; 改为记录 made a new Entry.
       void qc.invalidateQueries({ queryKey: keys.entries });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
+  });
+}
+
+/**
+ * Clicking an option of a 反问 (intent clarify AC-3): the server handles the message by the
+ * option (记下 records the original text, 查 answers the option's question); it is replaced
+ * in place, its 反问 resolved. A used-up quota (429) changes nothing: the 反问 stays open.
+ */
+export function useClarify() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, option }: { id: string; option: number }) =>
+      api.post<Message>(`/messages/${enc(id)}/clarify`, { option }),
+    onSuccess: (message) => {
+      seedDraft(qc, message);
+      qc.setQueryData<Pages>(keys.messages, (data) => replaceMessage(data, message));
+      if (message.entry) void qc.invalidateQueries({ queryKey: keys.entries });
     },
     onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
   });

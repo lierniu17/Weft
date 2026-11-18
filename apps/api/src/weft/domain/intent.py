@@ -9,6 +9,13 @@ The model reads the message (``weft.services.intent``) and answers with an
   future (AC-8); anything unusable means "today";
 * a 记录 keeps the user's whole text; ``record_ask`` carries the two parts separately (AC-5).
 
+反问 (intent-clarify spec): the same reading may carry a ``clarify`` — one concrete question
+and up to 3 options. It is used only below the threshold (AC-1, AC-2); an invalid one falls
+back to the fixed ``UNCERTAIN_REPLY`` and 「记下来 / 帮我查」. When the message may be the
+answer to a pending 反问 (a ``ClarifyContext``), the reading says whether it is
+(``answers_clarification``) and carries the merged ``record_text`` / ``question``; an answer
+is never asked back a second time (AC-4, AC-5).
+
 ``fast_path`` answers clear single-clause questions without a model call (spec 「意图识别」).
 """
 
@@ -17,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -26,6 +34,9 @@ UNCERTAIN_REPLY = "我没确定你是想记下来还是查询"
 DEFAULT_REPLY = "嗯嗯，有想记下的事或想查的人随时告诉我。"
 MAX_REPLY_LENGTH = 60
 FAST_PATH_CONFIDENCE = 0.95
+MAX_CLARIFY_OPTIONS = 3
+MAX_CLARIFY_QUESTION_LENGTH = 80
+MAX_OPTION_LABEL_LENGTH = 30
 
 
 class Intent(StrEnum):
@@ -46,6 +57,13 @@ class IntentReading(BaseModel):
     record_text: str | None = None
     question: str | None = None
     reply: str | None = None
+    clarify: Any = None  # checked by ``clarification``: a bad one must not sink the reading
+    answers_clarification: bool | None = None  # only asked when a 反问 is pending
+
+    @field_validator("answers_clarification", mode="before")
+    @classmethod
+    def _flag(cls, value: object) -> bool | None:
+        return value if isinstance(value, bool) else None
 
     @field_validator("confidence", mode="before")
     @classmethod
@@ -55,6 +73,53 @@ class IntentReading(BaseModel):
         except (TypeError, ValueError) as exc:
             raise ValueError(f"confidence is not a number: {value!r}") from exc
         return min(max(number, 0.0), 1.0)
+
+
+OPTION_INTENTS = (Intent.RECORD, Intent.ASK, Intent.RECORD_ASK)
+
+
+@dataclass(frozen=True, slots=True)
+class ClarifyOption:
+    """A 候选 under a 反问: what clicking it does (记下 the original text / 查 ``question``)."""
+
+    label: str  # 「记下：…」「查：…」
+    intent: Intent  # record | ask | record_ask
+    question: str | None = None  # ask / record_ask: the question to answer
+
+    def to_json(self) -> dict[str, Any]:
+        out: dict[str, Any] = {"label": self.label, "intent": self.intent.value}
+        if self.question is not None:
+            out["question"] = self.question
+        return out
+
+
+@dataclass(frozen=True, slots=True)
+class Clarification:
+    """反问: one concrete question about the message and 1–3 options (AC-1)."""
+
+    question: str
+    options: tuple[ClarifyOption, ...]
+
+    def to_json(self) -> dict[str, Any]:
+        return {"question": self.question, "options": [o.to_json() for o in self.options]}
+
+    @classmethod
+    def from_json(cls, data: dict[str, Any]) -> Clarification:
+        return cls(
+            question=data["question"],
+            options=tuple(
+                ClarifyOption(o["label"], Intent(o["intent"]), o.get("question"))
+                for o in data["options"]
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ClarifyContext:
+    """A pending 反问 the next message may be answering (sent along with it, AC-4)."""
+
+    original: str  # the 拿不准 message
+    clarify_question: str  # what was asked back (the fixed reply if there was no 反问)
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,11 +132,63 @@ class Recognition:
     question: str | None = None  # what is asked (ask / record_ask)
     reply: str | None = None  # the short answer to 无关
     fast_path: bool = False
+    clarify: Clarification | None = None  # 拿不准 only: the 反问 and its options
+    answers_clarification: bool = False  # the message answers the pending 反问
 
 
-def _clean(value: str | None) -> str | None:
-    value = (value or "").strip()
-    return value or None
+def _clean(value: object) -> str | None:
+    text = (value if isinstance(value, str) else "").strip()
+    return text or None
+
+
+def _option(raw: object) -> ClarifyOption | None:
+    if not isinstance(raw, dict):
+        return None
+    label = _clean(raw.get("label"))
+    try:
+        intent = Intent(str(raw.get("intent")))
+    except ValueError:
+        return None
+    if label is None or intent not in OPTION_INTENTS:
+        return None
+    question = _clean(raw.get("question"))
+    if intent is Intent.RECORD:
+        question = None
+    elif question is None:
+        return None  # a 查 option must say what it asks
+    return ClarifyOption(label[:MAX_OPTION_LABEL_LENGTH], intent, question)
+
+
+def clarification(raw: object) -> Clarification | None:
+    """The model's ``clarify``, checked: a question and its valid options (at most 3, labels
+    cut short, unknown kinds and repeated labels dropped); None if nothing usable is left."""
+    if not isinstance(raw, dict):
+        return None
+    question = _clean(raw.get("question"))
+    if question is None or question == UNCERTAIN_REPLY:
+        return None
+    options: list[ClarifyOption] = []
+    raw_options = raw.get("options")
+    for item in raw_options if isinstance(raw_options, list) else []:
+        option = _option(item)
+        if option is not None and all(option.label != o.label for o in options):
+            options.append(option)
+        if len(options) == MAX_CLARIFY_OPTIONS:
+            break
+    if not options:
+        return None
+    return Clarification(question[:MAX_CLARIFY_QUESTION_LENGTH], tuple(options))
+
+
+_JOINED = frozenset("。！？!?…；;，,、～~ ")
+
+
+def merge_text(original: str, answer: str) -> str:
+    """原话 + 回答 as one text (what 「记下来 / 帮我查」 act on after a second 拿不准, AC-5)."""
+    first, second = original.strip(), answer.strip()
+    if not first or not second:
+        return first or second
+    return f"{first}{'' if first[-1] in _JOINED else '，'}{second}"
 
 
 def occurred_date(value: str | None, *, today: date) -> PartialDate | None:
@@ -87,12 +204,32 @@ def occurred_date(value: str | None, *, today: date) -> PartialDate | None:
     return parsed
 
 
-def decide(reading: IntentReading, *, text: str, threshold: float, today: date) -> Recognition:
-    """Turn the model's reading of ``text`` into the routing decision."""
+def decide(
+    reading: IntentReading,
+    *,
+    text: str,
+    threshold: float,
+    today: date,
+    context: ClarifyContext | None = None,
+) -> Recognition:
+    """Turn the model's reading of ``text`` into the routing decision.
+
+    ``context``: a 反问 is pending and ``text`` may answer it. If the model says it does, the
+    message is handled by the merged meaning and never asked back again; otherwise ``text``
+    is an ordinary message (AC-4..AC-6).
+    """
     occurred = occurred_date(reading.occurred, today=today)
+    if context is not None and reading.answers_clarification:
+        return _decide_answer(reading, text, threshold, occurred, context)
     if reading.confidence < threshold:
+        asked = clarification(reading.clarify)  # the reply is the 反问 itself, if usable
         return Recognition(
-            Intent.CHITCHAT, reading.confidence, True, occurred=occurred, reply=UNCERTAIN_REPLY
+            Intent.CHITCHAT,
+            reading.confidence,
+            True,
+            occurred=occurred,
+            reply=UNCERTAIN_REPLY if asked is None else asked.question,
+            clarify=asked,
         )
     body = text.strip()
     intent = reading.intent
@@ -117,6 +254,52 @@ def decide(reading: IntentReading, *, text: str, threshold: float, today: date) 
         return Recognition(Intent.ASK, reading.confidence, False, occurred, question=body)
     reply = (_clean(reading.reply) or DEFAULT_REPLY)[:MAX_REPLY_LENGTH]
     return Recognition(Intent.CHITCHAT, reading.confidence, False, occurred, reply=reply)
+
+
+def _decide_answer(
+    reading: IntentReading,
+    text: str,
+    threshold: float,
+    occurred: PartialDate | None,
+    ctx: ClarifyContext,
+) -> Recognition:
+    """``text`` answers the pending 反问: handle 原话 + 回答 together, without a second 反问.
+
+    The merged ``record_text`` / ``question`` come from the model; the plain concatenation
+    stands in for a missing one (and is what 「记下来 / 帮我查」 act on if still 拿不准).
+    """
+    merged = merge_text(ctx.original, text)
+    record_text = _clean(reading.record_text) or merged
+    question = _clean(reading.question) or merged
+    confidence = reading.confidence
+    if confidence < threshold:
+        return Recognition(
+            Intent.CHITCHAT,
+            confidence,
+            True,
+            occurred,
+            record_text=record_text,
+            question=question,
+            reply=UNCERTAIN_REPLY,
+            answers_clarification=True,
+        )
+    intent = reading.intent
+    if intent is Intent.RECORD_ASK and _clean(reading.question) is None:
+        intent = Intent.RECORD
+    if intent is Intent.CHITCHAT:  # 「算了」: nothing to do any more
+        reply = (_clean(reading.reply) or DEFAULT_REPLY)[:MAX_REPLY_LENGTH]
+        return Recognition(
+            Intent.CHITCHAT, confidence, False, occurred, reply=reply, answers_clarification=True
+        )
+    return Recognition(
+        intent,
+        confidence,
+        False,
+        occurred,
+        record_text=record_text,
+        question=question,
+        answers_clarification=True,
+    )
 
 
 def unrecognized() -> Recognition:
@@ -214,12 +397,20 @@ def fast_path(text: str) -> Recognition | None:
 __all__ = [
     "DEFAULT_REPLY",
     "FAST_PATH_CONFIDENCE",
+    "MAX_CLARIFY_OPTIONS",
+    "MAX_CLARIFY_QUESTION_LENGTH",
+    "MAX_OPTION_LABEL_LENGTH",
     "UNCERTAIN_REPLY",
+    "Clarification",
+    "ClarifyContext",
+    "ClarifyOption",
     "Intent",
     "IntentReading",
     "Recognition",
+    "clarification",
     "decide",
     "fast_path",
+    "merge_text",
     "occurred_date",
     "unrecognized",
 ]

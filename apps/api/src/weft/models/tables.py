@@ -179,6 +179,13 @@ class MessageRow(Base):
     problems: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, default=list, server_default=sql_text("'[]'::jsonb")
     )
+    # 反问 (intent-clarify): {question, options: [{label, intent, question?}]} on a 拿不准
+    # message; an answer typed to it points at it (clarification_of); resolved once settled.
+    clarify_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    clarification_of: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL")
+    )
+    clarification_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

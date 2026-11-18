@@ -303,12 +303,19 @@ class LLMScript:
         record_text: str | None = None,
         question: str | None = None,
         reply: str | None = None,
+        clarify: Any = None,
     ) -> LLMScript:
-        """The model's reading of a chat message (``weft.services.intent``)."""
+        """The model's reading of a chat message (``weft.services.intent``), sent without a
+        pending 反问. ``clarify``: the 反问 the model writes (any JSON, to test the checks)."""
 
         def matches(body: dict[str, Any]) -> bool:
             task = _weft_task(body)
-            return task is not None and task["task"] == "intent" and task["text"] == text
+            return (
+                task is not None
+                and task["task"] == "intent"
+                and task["text"] == text
+                and "context" not in task
+            )
 
         return self._add(
             f"intent[{text[:12]}]",
@@ -320,13 +327,64 @@ class LLMScript:
                 "record_text": record_text,
                 "question": question,
                 "reply": reply,
+                "clarify": clarify,
+                "answers_clarification": None,
+            },
+        )
+
+    def intent_after(
+        self,
+        original: str,
+        clarify_question: str,
+        text: str,
+        intent: str,
+        *,
+        answers: bool,
+        confidence: float = 0.93,
+        occurred: str | None = None,
+        record_text: str | None = None,
+        question: str | None = None,
+        reply: str | None = None,
+        clarify: Any = None,
+    ) -> LLMScript:
+        """The model's reading of ``text`` sent right after the 拿不准 message ``original``,
+        with the 反问 ``clarify_question`` as context (intent clarify AC-4): whether it
+        ``answers`` it, and the merged ``record_text`` / ``question``."""
+
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return (
+                task is not None
+                and task["task"] == "intent"
+                and task["text"] == text
+                and task.get("context")
+                == {"original": original, "clarify_question": clarify_question}
+            )
+
+        return self._add(
+            f"intent-after[{original[:8]}][{text[:12]}]",
+            matches,
+            {
+                "intent": intent,
+                "confidence": confidence,
+                "occurred": occurred,
+                "record_text": record_text,
+                "question": question,
+                "reply": reply,
+                "clarify": clarify,
+                "answers_clarification": answers,
             },
         )
 
     def intent_timeout(self, text: str) -> LLMScript:
         def matches(body: dict[str, Any]) -> bool:
             task = _weft_task(body)
-            return task is not None and task["task"] == "intent" and task["text"] == text
+            return (
+                task is not None
+                and task["task"] == "intent"
+                and task["text"] == text
+                and "context" not in task
+            )
 
         self.rules.append(Rule(f"intent-timeout[{text[:12]}]", matches, None))
         return self

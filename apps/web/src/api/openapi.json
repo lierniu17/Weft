@@ -505,6 +505,90 @@
     "title": "CitationOut",
     "type": "object"
    },
+   "ClarifyOptionOut": {
+    "additionalProperties": false,
+    "properties": {
+     "intent": {
+      "description": "record: the original text becomes a 记录; ask: question is answered",
+      "enum": [
+       "record",
+       "ask",
+       "record_ask"
+      ],
+      "title": "Intent",
+      "type": "string"
+     },
+     "label": {
+      "description": "What clicking does, e.g. 「记下：…」「查：…」",
+      "title": "Label",
+      "type": "string"
+     },
+     "question": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "ask / record_ask: the question that is answered",
+      "title": "Question"
+     }
+    },
+    "required": [
+     "label",
+     "intent",
+     "question"
+    ],
+    "title": "ClarifyOptionOut",
+    "type": "object"
+   },
+   "ClarifyOut": {
+    "additionalProperties": false,
+    "description": "反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options.",
+    "properties": {
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/ClarifyOptionOut"
+      },
+      "title": "Options",
+      "type": "array"
+     },
+     "question": {
+      "title": "Question",
+      "type": "string"
+     },
+     "resolved": {
+      "description": "Settled (clicked, answered, re-routed): hide options",
+      "title": "Resolved",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "question",
+     "options",
+     "resolved"
+    ],
+    "title": "ClarifyOut",
+    "type": "object"
+   },
+   "ClarifyRequest": {
+    "additionalProperties": false,
+    "properties": {
+     "option": {
+      "description": "Index of the clicked option in clarify.options",
+      "minimum": 0.0,
+      "title": "Option",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "option"
+    ],
+    "title": "ClarifyRequest",
+    "type": "object"
+   },
    "ClosenessFeeling": {
     "additionalProperties": false,
     "properties": {
@@ -2004,6 +2088,30 @@
       ],
       "description": "ask / record_ask: the answer, with citations"
      },
+     "clarification_of": {
+      "anyOf": [
+       {
+        "format": "uuid",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "This message was typed as the answer to that message's 反问",
+      "title": "Clarification Of"
+     },
+     "clarify": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ClarifyOut"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "拿不准 with a 反问: shown instead of the fixed reply; null otherwise"
+     },
      "confidence": {
       "anyOf": [
        {
@@ -2092,7 +2200,9 @@
      "entry",
      "answer",
      "reply",
-     "problems"
+     "problems",
+     "clarify",
+     "clarification_of"
     ],
     "title": "MessageOut",
     "type": "object"
@@ -3909,6 +4019,60 @@
      }
     },
     "summary": "Send Message",
+    "tags": [
+     "messages"
+    ]
+   }
+  },
+  "/api/messages/{message_id}/clarify": {
+   "post": {
+    "description": "Click option ``option`` of the message's 反问; returns the updated message.",
+    "operationId": "clarify_message_api_messages__message_id__clarify_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "message_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Message Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ClarifyRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MessageOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Clarify Message",
     "tags": [
      "messages"
     ]

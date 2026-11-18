@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -17,6 +18,7 @@ from tests.support import asks
 from tests.support import scenarios as sc
 from tests.support.llm_script import LLMScript, ScriptGate
 from weft.domain.draft import Draft
+from weft.eval import clarify as clarify_eval
 from weft.eval import extraction as extraction_eval
 from weft.eval import intent as intent_eval
 from weft.eval import qa as qa_eval
@@ -173,3 +175,78 @@ async def test_the_intent_eval_recognizes_each_sample_on_the_eval_day_and_scores
     assert report["accuracy"] == 1.0 and report["time_accuracy"] == 1.0
     assert report["errors"] == {} and report["missing_predictions"] == []
     assert set(report["splits"]) <= {"dev", "heldout"}
+
+
+def clarify_group(group_id: str) -> dict[str, Any]:
+    for line in clarify_eval.GROUPS_PATH.read_text(encoding="utf-8").splitlines():
+        row = json.loads(line)
+        if row["id"] == group_id:
+            return dict(row)
+    raise LookupError(group_id)
+
+
+def test_the_clarify_eval_needs_only_the_deepseek_key(capsys: pytest.CaptureFixture[str]) -> None:
+    keyless = Settings(_env_file=None)
+    assert eval_main(["clarify"], settings=keyless) == 2
+    assert "missing: DEEPSEEK_API_KEY\n" in capsys.readouterr().err
+
+
+async def test_the_clarify_eval_runs_both_rounds_of_each_group_and_scores_them(
+    settings: Settings, llm: LLMScript
+) -> None:
+    more = clarify_group("more-04")  # 蓉蓉好像出事了 / 昨天骑车摔了，腿骨折了
+    never = clarify_group("never-01")  # 小田好像回老家了吧 / 算了，不用了
+    vague = {**intent_sample("ambig-09"), "split": "dev"}  # 林可
+    asked = {
+        "question": "你是想记下蓉蓉出了什么事，还是想查蓉蓉的近况？",
+        "options": [
+            {"label": "查：蓉蓉最近怎么样", "intent": "ask", "question": "蓉蓉最近怎么样？"}
+        ],
+    }
+    llm.intent(more["original"], "record", confidence=0.4, clarify=asked)
+    llm.intent_after(
+        more["original"],
+        more["clarify_question"],
+        more["reply"],
+        "record",
+        answers=True,
+        record_text="蓉蓉昨天骑车摔了，腿骨折了",
+        occurred="2026-11-15",
+    )
+    llm.intent(never["original"], "record", confidence=0.5)  # no 反问: not a valid one
+    llm.intent_after(
+        never["original"],
+        never["clarify_question"],
+        never["reply"],
+        "chitchat",
+        answers=True,
+        reply="好的",
+    )
+    llm.intent(
+        str(vague["text"]),
+        "chitchat",
+        confidence=0.3,
+        clarify={
+            "question": "你想查林可的什么？",
+            "options": [{"label": "查：林可是谁", "intent": "ask", "question": "林可是谁？"}],
+        },
+    )
+
+    http = httpx.AsyncClient(transport=ScriptGate(llm))
+    infra = build_infra(settings, http=http, clock=clarify_eval.eval_clock)
+    try:
+        predictions, report = await clarify_eval.run(infra, [more, never], [vague])
+    finally:
+        await infra.aclose()
+
+    by_id = {p["id"]: p for p in predictions}
+    assert (by_id["more-04"]["answers"], by_id["more-04"]["intent"]) == (True, "record")
+    assert by_id["more-04"]["record_text"] == "蓉蓉昨天骑车摔了，腿骨折了"
+    assert by_id["more-04"]["occurred"] == "2026-11-15"  # the eval day is 2026-11-16
+    assert by_id["more-04"]["round1"]["valid_clarify"]
+    assert by_id["never-01"]["round1"] == {**by_id["never-01"]["round1"], "valid_clarify": False}
+    assert report["merged_intent_accuracy"] == 1.0 and report["answers_accuracy"] == 1.0
+    assert report["valid_clarify_rate"] == pytest.approx(2 / 3)
+    assert report["counts"]["invalid_clarify"] == ["never-01"]
+    assert report["errors"] == {} and report["missing_predictions"] == []
+    assert set(report["splits"]) == {"heldout"}  # both groups are held out

@@ -290,6 +290,15 @@ async def _reroute(w: World) -> None:
         assert_not_found(response)
 
 
+@case("POST", "/api/messages/{message_id}/clarify")
+async def _clarify(w: World) -> None:
+    for option in (0, 1):
+        response = await w.b.client.post(
+            f"/api/messages/{w.a_message}/clarify", json={"option": option}, params=smuggled(w)
+        )
+        assert_not_found(response)
+
+
 # --- persons / relationships ------------------------------------------------------------
 
 

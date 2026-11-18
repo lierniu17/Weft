@@ -3,22 +3,35 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from weft.domain.answer import Answer
 from weft.domain.dates import PartialDate
-from weft.domain.intent import Intent
+from weft.domain.intent import Clarification, Intent
 from weft.domain.message import Problem
 from weft.domain.tenancy import TenantContext, tenant_scoped
 from weft.models.tables import DraftRow, Entry, MessageRow
 from weft.repositories.entries import draft_record, entry_record
 from weft.repositories.records import DraftRecord, EntryRecord, MessageRecord
 
-# Columns a re-route (or the second half of handling) may change.
-HANDLING_FIELDS = frozenset({"intent", "entry_id", "answer", "reply", "problems", "uncertain"})
+# Columns a re-route, a clicked 反问 option (or the second half of handling) may change.
+HANDLING_FIELDS = frozenset(
+    {
+        "intent",
+        "entry_id",
+        "answer",
+        "reply",
+        "problems",
+        "uncertain",
+        "record_text",
+        "question",
+        "clarification_resolved_at",
+    }
+)
 
 
 def _message(row: MessageRow) -> MessageRecord:
@@ -37,6 +50,9 @@ def _message(row: MessageRow) -> MessageRecord:
         reply=row.reply,
         problems=tuple(Problem.from_json(p) for p in row.problems or []),
         created_at=row.created_at,
+        clarify=None if row.clarify_json is None else Clarification.from_json(row.clarify_json),
+        clarification_of=row.clarification_of,
+        clarification_resolved_at=row.clarification_resolved_at,
     )
 
 
@@ -75,6 +91,8 @@ class MessageRepository:
         answer: Answer | None = None,
         reply: str | None = None,
         problems: tuple[Problem, ...] = (),
+        clarify: Clarification | None = None,
+        clarification_of: uuid.UUID | None = None,
     ) -> MessageRecord:
         row = MessageRow(
             user_id=self.tenant.user_id,
@@ -84,6 +102,8 @@ class MessageRepository:
             occurred_on=None if occurred is None else occurred.isoformat(),
             record_text=record_text,
             question=question,
+            clarify_json=None if clarify is None else clarify.to_json(),
+            clarification_of=clarification_of,
             **_column_values(
                 {
                     "intent": intent,
@@ -108,6 +128,20 @@ class MessageRepository:
             )
         )
         return None if row is None else _message(row)
+
+    @tenant_scoped
+    async def latest(self) -> tuple[MessageRecord | None, datetime]:
+        """The user's newest message (if any) and the database's current time, which is the
+        clock ``created_at`` was stamped with."""
+        row = await self._s.scalar(
+            select(MessageRow)
+            .where(MessageRow.user_id == self.tenant.user_id)
+            .order_by(MessageRow.created_at.desc(), MessageRow.id.desc())
+            .limit(1)
+        )
+        now = await self._s.scalar(select(func.now()))
+        assert now is not None
+        return (None if row is None else _message(row)), now
 
     @tenant_scoped
     async def update_handling(self, message_id: uuid.UUID, **values: Any) -> MessageRecord | None:
