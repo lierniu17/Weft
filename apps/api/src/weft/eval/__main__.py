@@ -5,6 +5,8 @@
     uv run python -m weft.eval qa         [--questions PATH] [--out DIR] [--record DIR]
     uv run python -m weft.eval intent     [--samples PATH] [--split dev|heldout] [--limit N]
                                           [--out DIR] [--record DIR]
+    uv run python -m weft.eval clarify    [--groups PATH] [--split dev|heldout] [--limit N]
+                                          [--out DIR] [--record DIR]
 
 * ``extraction`` (AC-42): the real pipeline over ``eval/extraction/samples.jsonl``, scored
   by ``eval/extraction/score.py`` (person F1 ≥ 0.9, relationship-type and confidence
@@ -14,10 +16,14 @@
 * ``intent`` (intent-routing AC-11): message recognition over ``eval/intent/samples.jsonl``,
   scored by ``eval/intent/score.py`` (accuracy ≥ 0.95, record miss rate ≤ 0.02, false
   record rate ≤ 0.05, time accuracy ≥ 0.90; decided on the held-out split).
+* ``clarify`` (intent-clarify AC-9): 反问 over ``eval/intent/clarify.jsonl`` — a vague
+  message, the 反问 and the user's typed reply — scored by ``eval/intent/clarify_score.py``
+  (merged intent accuracy ≥ 0.90, answer judgement ≥ 0.90, false records on 换话题 / 算了 /
+  仍然含糊 ≤ 0.05, valid 反问 on 拿不准 originals ≥ 0.90; decided on the held-out split).
 
 ``extraction`` and ``qa`` need ``DEEPSEEK_API_KEY`` and ``DASHSCOPE_API_KEY`` (environment
-or ``apps/api/.env``) and the docker compose Postgres + Neo4j; ``intent`` needs only
-``DEEPSEEK_API_KEY``. ``--record DIR`` also saves every model response
+or ``apps/api/.env``) and the docker compose Postgres + Neo4j; ``intent`` and
+``clarify`` need only ``DEEPSEEK_API_KEY``. ``--record DIR`` also saves every model response
 as replay fixtures. Reports go to ``--out`` (default ``eval/out``); exit 1 if a threshold
 is missed, 2 if the run cannot start.
 """
@@ -33,6 +39,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from weft.eval import clarify as clarify_eval
 from weft.eval import extraction, qa
 from weft.eval import intent as intent_eval
 from weft.eval.qa_score import QUESTIONS_PATH, load_questions, to_json
@@ -42,6 +49,7 @@ from weft.repositories.graph_schema import ensure_graph_schema
 from weft.settings import API_DIR, Settings, get_settings
 
 OUT_DIR = API_DIR / "eval" / "out"
+RECOGNITION_ONLY = frozenset({"intent", "clarify"})  # no database, no embeddings
 
 NO_KEYS = """\
 The {which} eval calls the real models and needs API keys; nothing was run.
@@ -73,7 +81,13 @@ def _parser() -> argparse.ArgumentParser:
         "--split", choices=("dev", "heldout"), default=None, help="only that split's samples"
     )
     intent_cmd.add_argument("--limit", type=int, default=None, help="only the first N samples")
-    for cmd in (ext, qa_cmd, intent_cmd):
+    clarify_cmd = sub.add_parser("clarify", help="反问 quality (intent-clarify AC-9)")
+    clarify_cmd.add_argument("--groups", type=Path, default=clarify_eval.GROUPS_PATH)
+    clarify_cmd.add_argument(
+        "--split", choices=("dev", "heldout"), default=None, help="only that split's groups"
+    )
+    clarify_cmd.add_argument("--limit", type=int, default=None, help="only the first N groups")
+    for cmd in (ext, qa_cmd, intent_cmd, clarify_cmd):
         cmd.add_argument("--out", type=Path, default=OUT_DIR)
         cmd.add_argument("--record", type=Path, default=None, help="save replay fixtures here")
     return parser
@@ -83,7 +97,7 @@ def _missing_keys(settings: Settings, which: str = "extraction") -> list[str]:
     missing = []
     if not settings.deepseek_api_key.get_secret_value():
         missing.append("DEEPSEEK_API_KEY")
-    if which != "intent" and not settings.dashscope_api_key.get_secret_value():
+    if which not in RECOGNITION_ONLY and not settings.dashscope_api_key.get_secret_value():
         missing.append("DASHSCOPE_API_KEY")
     return missing
 
@@ -101,13 +115,29 @@ async def _run(args: argparse.Namespace, settings: Settings) -> int:
         settings = settings.model_copy(
             update={"llm_replay_mode": ReplayMode.RECORD, "llm_fixtures_dir": args.record}
         )
-    clocks = {"qa": qa.eval_clock, "intent": intent_eval.eval_clock}
+    clocks = {
+        "qa": qa.eval_clock,
+        "intent": intent_eval.eval_clock,
+        "clarify": clarify_eval.eval_clock,
+    }
     clock = clocks.get(args.which)
     infra = build_infra(settings, clock=clock) if clock else build_infra(settings)
     try:
-        if args.which != "intent":  # recognition touches no database
+        if args.which not in RECOGNITION_ONLY:  # recognition touches no database
             await ensure_graph_schema(infra.neo4j)
-        if args.which == "intent":
+        if args.which == "clarify":
+            lines = args.groups.read_text(encoding="utf-8").splitlines()
+            groups = [json.loads(line) for line in lines if line.strip()]
+            groups = clarify_eval.load_scorer().select(groups, args.split)[: args.limit]
+            vague = [
+                s
+                for s in clarify_eval.vague_samples()
+                if args.split is None or s["split"] == args.split
+            ][: args.limit]
+            predictions, report = await clarify_eval.run(infra, groups, vague)
+            report["predictions"] = predictions
+            passed = bool(report["passed"]) and not report["errors"]
+        elif args.which == "intent":
             lines = args.samples.read_text(encoding="utf-8").splitlines()
             samples = [json.loads(line) for line in lines if line.strip()]
             samples = intent_eval.load_scorer().select(samples, args.split)[: args.limit]
@@ -127,7 +157,7 @@ async def _run(args: argparse.Namespace, settings: Settings) -> int:
     finally:
         await infra.aclose()
     path = _write(args.out, args.which, report)
-    hidden = {"details", "predictions", "mistakes"}
+    hidden = {"details", "predictions", "mistakes", "round1_vague"}
     summary = {k: v for k, v in report.items() if k not in hidden}
     if "splits" in summary:
         summary["splits"] = {

@@ -276,6 +276,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/{message_id}/clarify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clarify Message
+         * @description Click option ``option`` of the message's 反问; returns the updated message.
+         */
+        post: operations["clarify_message_api_messages__message_id__clarify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/messages/{message_id}/reroute": {
         parameters: {
             query?: never;
@@ -663,6 +683,48 @@ export interface components {
              * @example 2026-11-16
              */
             occurred_on: string;
+        };
+        /** ClarifyOptionOut */
+        ClarifyOptionOut: {
+            /**
+             * Intent
+             * @description record: the original text becomes a 记录; ask: question is answered
+             * @enum {string}
+             */
+            intent: "record" | "ask" | "record_ask";
+            /**
+             * Label
+             * @description What clicking does, e.g. 「记下：…」「查：…」
+             */
+            label: string;
+            /**
+             * Question
+             * @description ask / record_ask: the question that is answered
+             */
+            question: string | null;
+        };
+        /**
+         * ClarifyOut
+         * @description 反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options.
+         */
+        ClarifyOut: {
+            /** Options */
+            options: components["schemas"]["ClarifyOptionOut"][];
+            /** Question */
+            question: string;
+            /**
+             * Resolved
+             * @description Settled (clicked, answered, re-routed): hide options
+             */
+            resolved: boolean;
+        };
+        /** ClarifyRequest */
+        ClarifyRequest: {
+            /**
+             * Option
+             * @description Index of the clicked option in clarify.options
+             */
+            option: number;
         };
         /** ClosenessFeeling */
         ClosenessFeeling: {
@@ -1236,6 +1298,13 @@ export interface components {
         MessageOut: {
             /** @description ask / record_ask: the answer, with citations */
             answer: components["schemas"]["Answer"] | null;
+            /**
+             * Clarification Of
+             * @description This message was typed as the answer to that message's 反问
+             */
+            clarification_of: string | null;
+            /** @description 拿不准 with a 反问: shown instead of the fixed reply; null otherwise */
+            clarify: components["schemas"]["ClarifyOut"] | null;
             /**
              * Confidence
              * @description Recognition confidence 0..1; null if none
@@ -2210,6 +2279,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clarify_message_api_messages__message_id__clarify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClarifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
