@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { registerUser, seedGraph } from "./support/bot.ts";
 import { SCREENSHOTS } from "./support/env.ts";
-import { graphReady, graphView } from "./support/graph.ts";
+import { enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
 /** Frames per second the page managed while `interact` ran (requestAnimationFrame count). */
 async function fps(page: Page, interact: () => Promise<void>): Promise<number> {
@@ -66,6 +66,7 @@ test.use({
  */
 test("GRAPH BOT-5 300 人拖动缩放帧率与减少动效", async ({ page }) => {
   test.setTimeout(240_000);
+  await enableGraphHook(page);
   const user = await registerUser(page);
   seedGraph(user.username, 300);
   // 星空 is the heavier theme (glow, stars, flowing dots): measure that.

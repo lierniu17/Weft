@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url";
 import { expect, type Page, test } from "@playwright/test";
 import { ask, pinClock, registerUser, seedGraph } from "./support/bot.ts";
 import { ROOT, SCREENSHOTS } from "./support/env.ts";
-import { graphReady, graphView } from "./support/graph.ts";
+import { enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
 const OUT = resolve(SCREENSHOTS, "walkthrough");
 mkdirSync(OUT, { recursive: true });
@@ -46,6 +46,7 @@ test.afterAll(() => {
 test("graph-viz walkthrough", { tag: "@llm" }, async ({ page }) => {
   test.setTimeout(300_000);
   await pinClock(page);
+  await enableGraphHook(page);
   const user = await registerUser(page);
   seedGraph(user.username);
   const settledGraph = async () => {
