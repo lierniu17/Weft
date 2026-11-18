@@ -51,6 +51,7 @@ async def snapshot(user: ApiUser, **ids: str) -> dict[str, Any]:
         "persons": (await c.get("/api/persons")).json(),
         "taxonomy": (await c.get("/api/taxonomy")).json(),
         "usage": (await c.get("/api/usage")).json(),
+        "preferences": (await c.get("/api/me/preferences")).json(),
         **{
             name: (await c.get(url)).json()
             for name, url in {
@@ -94,6 +95,7 @@ async def world(register: Register, llm: LLMScript) -> World:
     pending = (await a.client.post("/api/entries", json={"text": sc.FLAKY})).json()
     failed = (await a.client.post("/api/entries", json={"text": sc.GARBLED})).json()
     await a.client.post("/api/taxonomy/subtypes", json={"category": "social", "name": "饭搭子"})
+    await a.client.patch("/api/me/preferences", json={"graph_theme": "starfield"})
     found = (await a.client.get("/api/persons", params={"q": "老张"})).json()
     [a_person] = [p for p in found if p["name"] == "老张"]  # not 老张的女儿
     profile = (await a.client.get(f"/api/persons/{a_person['id']}")).json()
@@ -376,6 +378,30 @@ async def _usage(w: World) -> None:
     assert_no_a_data(w, response)
     b_entries = [e for e in (await w.b.client.get("/api/entries")).json() if e["kind"] == "user"]
     assert response.json()["entry"]["used"] == len(b_entries)
+
+
+# --- preferences (graph-viz AC-18) --------------------------------------------------------
+
+
+@case("GET", "/api/me/preferences")
+async def _preferences(w: World) -> None:
+    response = await w.b.client.get("/api/me/preferences", params=smuggled(w))
+    assert_no_a_data(w, response)
+    assert response.json() == {"graph_theme": "light"}  # A chose starfield
+
+
+@case("PATCH", "/api/me/preferences")
+async def _edit_preferences(w: World) -> None:
+    for params in (smuggled(w), {}):
+        response = await w.b.client.patch(
+            "/api/me/preferences", json={"graph_theme": "light"}, params=params
+        )
+        assert_no_a_data(w, response)
+    smuggling = await w.b.client.patch(
+        "/api/me/preferences", json={"graph_theme": "light", "user_id": str(w.a.id)}
+    )
+    assert smuggling.status_code == 422
+    assert (await w.a.client.get("/api/me/preferences")).json() == {"graph_theme": "starfield"}
 
 
 # --- the tests ---------------------------------------------------------------------------

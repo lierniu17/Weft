@@ -1,9 +1,10 @@
 import { Fragment } from "react";
-import { FiChevronRight } from "react-icons/fi";
+import { FiChevronRight, FiShare2 } from "react-icons/fi";
 import type { Answer, AnswerListItem, Citation, PersonRef } from "../../../contracts/answer.ts";
 import { confidenceLabel } from "../../../lib/confidence.ts";
 import { cx } from "../../../lib/cx.ts";
 import { formatPartialDate } from "../../../lib/datePrecision.ts";
+import { answerHighlight } from "../../../lib/graph/answerHighlight.ts";
 import { useTruncated } from "../../../lib/useTruncated.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { Chip } from "../../basics/Chip/Chip.tsx";
@@ -21,6 +22,8 @@ export type AnswerCardProps = {
   onFollowUp: (question: string) => void;
   /** no_answer: 「去记一笔」 switches the composer back to record. */
   onRecord: () => void;
+  /** 「在图上查看」 (graph-viz AC-16): shown when the answer is about people. */
+  onShowOnGraph?: () => void;
   className?: string;
 };
 
@@ -105,9 +108,12 @@ export function AnswerCard({
   onPersonClick,
   onFollowUp,
   onRecord,
+  onShowOnGraph,
   className,
 }: AnswerCardProps) {
   const noAnswer = answer.kind === "no_answer";
+  // 我 may be in the path chain, never a related-person chip
+  const related = answer.persons.filter((p) => !p.is_self);
   const segments =
     noAnswer && answer.segments.length === 0 ? [{ text: "图谱里没有相关信息。" }] : answer.segments;
 
@@ -176,9 +182,9 @@ export function AnswerCard({
         </div>
       )}
 
-      {answer.persons.length > 0 && (
+      {related.length > 0 && (
         <ul aria-label="相关人物" className="flex flex-wrap gap-xs">
-          {answer.persons.map((p) => (
+          {related.map((p) => (
             <li key={p.person_id}>
               <Chip onClick={() => onPersonClick(p)} aria-label={`查看${p.name}`}>
                 <span className="inline-flex items-center gap-xs">
@@ -189,6 +195,13 @@ export function AnswerCard({
             </li>
           ))}
         </ul>
+      )}
+
+      {onShowOnGraph && answerHighlight(answer).kind !== "none" && (
+        <Button variant="secondary" size="sm" onClick={onShowOnGraph} className="self-start">
+          <FiShare2 aria-hidden="true" />
+          在图上查看
+        </Button>
       )}
 
       {answer.follow_ups.length > 0 && (

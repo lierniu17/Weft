@@ -156,6 +156,24 @@ def test_a_path_answer_lists_the_chain_of_known_persons() -> None:
     assert answer.path == [ME, ZHANG, WANG]
 
 
+def test_self_is_never_a_related_person_chip() -> None:
+    """我 stays in the path chain (「我 → 老张 → 小王」) but is not a chip of its own."""
+    answer = build_answer(
+        FinalAnswer.model_validate(
+            {
+                "kind": "path",
+                "segments": [{"text": "你是通过老张认识小王的。", "evidence": ["E2"]}],
+                "path": ["P1", "P2", "P4"],
+                "persons": ["P1", "P2"],
+            }
+        ),
+        EVIDENCE,
+        PERSONS,
+    )
+    assert answer.path == [ME, ZHANG, WANG]
+    assert answer.persons == [ZHANG, WANG]
+
+
 def test_a_path_with_fewer_than_two_known_persons_falls_back_to_text() -> None:
     answer = build_answer(
         FinalAnswer.model_validate(

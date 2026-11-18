@@ -27,6 +27,37 @@ colors:
     warning: { 1: "#FFF7E6", 6: "#B45309", 7: "#92400E" }
     error: { 1: "#FEF2F2", 6: "#C81E1E", 7: "#A51A1A" }
     info: { 1: "#EFF6FF", 6: "#2563EB", 7: "#1D4ED8" }
+  # 关系图谱按关系大类着色（线、节点外环、扇区名、群体光晕）。亮色复用主色 / 辅色 / 状态色，只有“情感”新增一色。
+  graph:
+    kin: "#0B7A6E"          # 亲属 = secondary.6
+    romance: "#DB2777"      # 情感（新增）
+    social: "#4F46E5"       # 社会 = primary.6
+    interest: "#B45309"     # 利益 = status.warning.6
+    hostile: "#C81E1E"      # 敌对 = status.error.6
+    tense: "#C81E1E"        # 关系紧张的连线
+    path: "#F59E0B"         # 问答路径点亮
+    ring: "rgba(91, 100, 117, 0.12)"   # 亲密度同心环
+    fade: "0.15"            # 聚焦 / 问答时非相关元素的不透明度
+  # 星空主题：只作用于图谱区域。深底上的颜色取更亮的同色系，发光用同色 shadow。
+  graph-dark:
+    bg-inner: "#121A38"
+    bg-outer: "#05070F"
+    star: "rgba(200, 210, 255, 0.8)"
+    ring: "rgba(140, 160, 230, 0.14)"
+    text: "#C7D2FE"
+    text-muted: "#9AA6C8"
+    node-fill: "#0E1430"
+    self-fill: "#312E81"
+    self-stroke: "#A5B4FC"
+    kin: "#2DD4BF"
+    romance: "#F472B6"
+    social: "#818CF8"
+    interest: "#FBBF24"
+    hostile: "#FB7185"
+    tense: "#FB7185"
+    path: "#FDE68A"
+    panel: "rgba(14, 20, 40, 0.92)"
+    panel-border: "#24304F"
 
 typography:
   font-family: "'PingFang SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif"
@@ -345,12 +376,41 @@ components:
     FactTimeline:
       description: "两人之间事实的时间线，复用 Timeline 的 current / invalidated / unverified 变体，每条带 ConfidenceBadge。"
     RelationGraph:
-      description: "关系图。基于 Cytoscape.js 整体使用，不拆分其内部节点 / 边为自定义组件；只定义主题（节点 = Avatar 样式，本人节点 = Avatar.self，边粗细 = 亲密度）。"
-      library: "cytoscape (整体组件)"
+      description: "以“我”为中心的关系星图。基于 Sigma.js（WebGL）+ graphology 整体使用，不拆分其内部节点 / 边为自定义组件；位置由纯函数布局计算（不用力导向），同心环、扇区线、群体光晕、流动光点画在自定义图层上。交互真源：docs/prototypes/2026-11-17-graph-viz.html。"
+      library: "sigma + graphology (整体组件)"
+      layout: "5 个亲密度环（至交 → 疏远，由内到外）+ 第 6 环“间接认识”；圆周按关系大类分扇区，宽度 ∝ 人数并保留最小宽度；同环同扇区成员均匀铺满扇区"
+      encoding:
+        edge-width: "随亲密度单调递增；两端分别取“我对他”“他对我”，不对称时画成锥形"
+        edge-color: "colors.graph.<大类>（星空：colors.graph-dark.<大类>）"
+        edge-dash: "转述 = 虚线 6/5，推测 = 点线 1.5/4，亲历 / 本人说 = 实线"
+        tense: "colors.graph.tense"
+        node: "Avatar 样式（姓氏首字），外环 = 主类型颜色，其余类型 = 外圈多色短弧；有转述信息时右上角 warning 色小圆点"
+        group-halo: "同群体 ≥ 2 人时成员背后的径向渐变光晕 + 群体名；< 768px 不画"
       variants:
         local: { hops: "1 | 2", max-nodes: 50, height: "200px（移动端）" }
-        panorama: { center: "本人", filter: "GraphFilterSheet", gestures: "单指拖动、双指缩放" }
-      states: { truncated: { banner: "已省略 N 人，仅显示亲密度最高的 50 人" } }
+        panorama: { center: "本人", filter: "GraphFilterSheet", timeline: "GraphTimeline", legend: "GraphLegend", list: "GraphListView", gestures: "单指拖动、双指缩放、滚轮缩放" }
+      themes:
+        light: "colors.graph + DESIGN.md 中性色，白底"
+        starfield: "colors.graph-dark：径向渐变深底、闪烁星点、节点与连线同色发光、亲近及以上连线上缓慢流动的光点（< 768px 不画光点）"
+      states:
+        focused: { rule: "点人物：他、本人、直接相连的人与连线保持，其余淡到 colors.graph.fade，200ms 过渡；同时显示人物卡片（Card + Chip）" }
+        answer-highlight: { path: "按顺序逐段点亮，每段约 0.7s，光点沿路径流动，颜色 colors.graph.path", list: "命中人物脉冲光圈", pair: "点亮两人连线并标出关系" }
+        filtered: { modes: "淡化不符合的人 | 只显示符合的人" }
+        time-travel: { rule: "只显示该时间点已认识的人，落在那时的亲密度环；变化时沿径向平滑移动" }
+        truncated: { banner: "已省略 N 人，仅显示亲密度最高的 50 人（local）；超过 500 人提示先筛选（panorama）" }
+        reduced-motion: { rule: "所有过渡、路径动画、脉冲、星点闪烁、流动光点改为直接切换或静止" }
+      labels: "缩放低于阈值只显示亲近及以上人名（手机：至交）；超过 7 字截断 + Tooltip"
+      a11y: "画布有可读名称；始终配套 GraphListView 作为可键盘浏览的替代"
+    GraphTimeline:
+      description: "全景图底部时间轴：范围从最早认识时间到今天；Slider + 播放 / 暂停 IconButton + 当前年份（数字右对齐）。播放约每秒 1.5 年，到今天自动停止；减少动效时逐年跳转。"
+      states: { playing: { icon: "pause" }, paused: { icon: "play" }, at-today: { label: "今天" } }
+    GraphLegend:
+      description: "图例：线粗 = 亲密度、颜色 = 关系大类、虚线 = 转述、点线 = 推测、红色 = 紧张、两端粗细不同 = 感受不对称、光晕 = 群体。可收起。"
+      variants: { expanded: {}, collapsed: { trigger: "Chip 图例" } }
+    GraphListView:
+      description: "图谱的列表替代视图：按环（亲密度）与扇区（大类）分组列出人物与关系，复用 ListItem / PersonRow；聚焦与问答高亮在列表中同步体现；键盘可达。"
+    GraphAppearanceSetting:
+      description: "“我的”页设置项：图谱外观 清蓝 / 星空（SegmentedControl），保存到账户。"
     GraphFilterSheet:
       description: "全景图筛选：关系大类 / 小类 Chip 多选 + 亲密度档位单选。"
     EntryListItem:
@@ -399,4 +459,4 @@ components:
 
 ## 5. Do's & Don'ts
 - **DO**：所有来自图谱的说法都能点到出处；同一含义的组件只用一个，用 variants 区分；删除 / 注销按钮与“取消”同等尺寸。
-- **DON'T**：不在一屏放两个 primary；不用颜色作为可信度的唯一区分；不在对话流里为同一条记录追加多张草稿卡片；不把 `RelationGraph`（Cytoscape.js）拆成自定义节点组件。
+- **DON'T**：不在一屏放两个 primary；不用颜色作为可信度的唯一区分；不在对话流里为同一条记录追加多张草稿卡片；不把 `RelationGraph`（Sigma.js）拆成自定义节点组件。

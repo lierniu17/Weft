@@ -15,7 +15,10 @@ Node and edge shapes follow Graphiti's schema so Graphiti's search (batch 2) can
   OPINION facts go from Self to the person.
 * ``(:Episodic {uuid: entry id, ...})-[:MENTIONS]->(:Person)``; ``learned_aliases`` /
   ``learned_alias_persons`` (parallel lists) are the aliases confirming it added (AC-13).
-* ``(:Relationship)`` nodes linked by ``IN_RELATIONSHIP`` (and ``INTRODUCED_BY``).
+* ``(:Relationship)`` nodes linked by ``IN_RELATIONSHIP`` (and ``INTRODUCED_BY``) hold the
+  merged state plus ``history``: one JSON string per write — what that Entry stated (types,
+  status, confidence) and its 发生日期 — so the graph can be shown as it was (graph-viz
+  AC-14). Relationships written before this have no history and read as always current.
 * Feelings: ``(Person)-[:FEELS {dimension, level, confidence, occurred_at, ...}]->(Person)``.
 * Embeddings for Graphiti's hybrid search: ``name_embedding`` on persons and entities,
   ``fact_embedding`` on facts.
@@ -27,7 +30,7 @@ Node and edge shapes follow Graphiti's schema so Graphiti's search (batch 2) can
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from typing import Any, LiteralString
 
@@ -36,7 +39,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncTransaction
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
 from weft.domain.graph_write import AliasAdd, GraphWrite, NewFact
-from weft.domain.taxonomy import OTHER
+from weft.domain.taxonomy import OTHER, RelationshipType
 from weft.domain.tenancy import TenantContext, tenant_scoped
 from weft.repositories.records import (
     EpisodeRecord,
@@ -46,6 +49,7 @@ from weft.repositories.records import (
     PairRecord,
     PersonRecord,
     ProfileRecord,
+    RelationshipChange,
     RelationshipRecord,
     RelationshipTypeRecord,
 )
@@ -138,6 +142,24 @@ def _relationship(node: dict[str, Any], introducer: dict[str, Any] | None) -> Re
         confidence=Confidence(node.get("confidence") or Confidence.WITNESSED.value),
         sources=tuple(node.get("entry_ids") or ()),
         summary_generated_at=_maybe_native(node.get("summary_generated_at")),
+        history=tuple(_change(c) for c in node.get("history") or ()),
+    )
+
+
+def _types(types: Iterable[RelationshipType]) -> list[dict[str, str]]:
+    return [
+        {"category": t.category.value, "subtype": t.subtype, "original": t.original} for t in types
+    ]
+
+
+def _change(text: str) -> RelationshipChange:
+    raw = json.loads(text)
+    return RelationshipChange(
+        occurred=PartialDate.parse(raw["occurred"]),
+        types=tuple(RelationshipTypeRecord(**t) for t in raw.get("types") or ()),
+        status=raw.get("status"),
+        confidence=Confidence(raw.get("confidence") or Confidence.WITNESSED.value),
+        entry_id=raw.get("entry") or "",
     )
 
 
@@ -684,11 +706,16 @@ class GraphRepository(ScopedCypher):
 
         self._step("relationships")
         for rel in w.relationships:
-            types_json = json.dumps(
-                [
-                    {"category": t.category.value, "subtype": t.subtype, "original": t.original}
-                    for t in rel.types
-                ],
+            types_json = json.dumps(_types(rel.types), ensure_ascii=False)
+            said = rel.statement()
+            change = json.dumps(
+                {
+                    "occurred": ep.occurred.isoformat(),
+                    "entry": ep.entry_id,
+                    "types": _types(said.types),
+                    "status": said.status,
+                    "confidence": said.confidence.value,
+                },
                 ensure_ascii=False,
             )
             await self._tx(
@@ -703,7 +730,8 @@ class GraphRepository(ScopedCypher):
                     r.origin = $origin, r.status = $status, r.summary = $summary,
                     r.confidence = $confidence, r.updated_at = $now,
                     r.entry_ids = CASE WHEN $entry IN r.entry_ids THEN r.entry_ids
-                                       ELSE r.entry_ids + $entry END
+                                       ELSE r.entry_ids + $entry END,
+                    r.history = coalesce(r.history, []) + $change
                 MERGE (a)-[:IN_RELATIONSHIP {group_id: $group_id}]->(r)
                 MERGE (b)-[:IN_RELATIONSHIP {group_id: $group_id}]->(r)
                 WITH r
@@ -726,6 +754,7 @@ class GraphRepository(ScopedCypher):
                 confidence=rel.confidence.value,
                 introducer=rel.introduced_by_id,
                 entry=ep.entry_id,
+                change=change,
                 now=now,
             )
 

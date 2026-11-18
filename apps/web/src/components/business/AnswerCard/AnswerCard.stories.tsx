@@ -167,3 +167,69 @@ export const NoAnswerDefaultText: Story = {
     await expect(card(canvasElement)).toHaveTextContent("图谱里没有相关信息。");
   },
 };
+
+/**
+ * graph-viz AC-16: every answer about people (path / list / stat / text) offers
+ * 「在图上查看」; no_answer does not.
+ */
+export const ShowOnGraph: Story = {
+  args: { answer: PATH_ANSWER, onShowOnGraph: fn() },
+  play: async ({ canvasElement, args }) => {
+    const c = within(card(canvasElement));
+    await userEvent.click(c.getByRole("button", { name: "在图上查看" }));
+    await expect(args.onShowOnGraph).toHaveBeenCalledTimes(1);
+  },
+};
+
+function EveryKind() {
+  return (
+    <div className="flex flex-col gap-md">
+      {[TEXT_ANSWER, PATH_ANSWER, LIST_ANSWER, STAT_ANSWER, NO_ANSWER].map((a) => (
+        <AnswerCard
+          key={a.kind}
+          answer={a}
+          today={TODAY}
+          onCitationOpen={() => {}}
+          onPersonClick={() => {}}
+          onFollowUp={() => {}}
+          onRecord={() => {}}
+          onShowOnGraph={() => {}}
+        />
+      ))}
+    </div>
+  );
+}
+
+export const ShowOnGraphByKind: Story = {
+  render: () => <EveryKind />,
+  play: async ({ canvasElement }) => {
+    const cards = within(canvasElement).getAllByRole("article", { name: "回答" });
+    const has = cards.map(
+      (el) => within(el).queryByRole("button", { name: "在图上查看" }) !== null,
+    );
+    await expect(has).toEqual([true, true, true, true, false]);
+  },
+};
+
+/** Self is never a related-person chip (an older answer may still list 我): only in the chain. */
+export const SelfIsNotAChip: Story = {
+  args: {
+    answer: {
+      ...PATH_ANSWER,
+      persons: [
+        { person_id: "me", name: "小明", is_self: true },
+        { person_id: "zw", name: "张伟" },
+        { person_id: "wf", name: "王芳" },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const c = within(card(canvasElement));
+    const related = c.getByRole("list", { name: "相关人物" });
+    const chips = within(related).getAllByRole("button");
+    await expect(chips.map((b) => b.getAttribute("aria-label"))).toEqual(["查看张伟", "查看王芳"]);
+    await expect(
+      within(c.getByRole("list", { name: "人脉路径" })).getAllByRole("button"),
+    ).toHaveLength(3);
+  },
+};

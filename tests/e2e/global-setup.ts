@@ -3,7 +3,9 @@
  *
  *   1. a fresh Postgres database `weft_e2e` (dropped, recreated, migrated);
  *      the dev database is never touched. Neo4j is shared, but every run registers fresh
- *      users, so each run writes into its own tenants (group_id = user id).
+ *      users, so each run writes into its own tenants (group_id = user id), and deletes
+ *      them again: before the reset (the previous run may have crashed) and in teardown
+ *      (support/clean.ts; Neo4j's fulltext statistics are shared with pytest and dev).
  *   2. the API twice, both in LLM replay mode over tests/e2e/fixtures/llm/:
  *        :8765  default limits           (every BOT but BOT-10)
  *        :8766  DAILY_ENTRY_LIMIT=2      (BOT-10)
@@ -13,6 +15,7 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { cleanGraph } from "./support/clean.ts";
 import { E2E, ROOT, STATE_DIR, serverEnv, uvArgs } from "./support/env.ts";
 
 const children: ChildProcess[] = [];
@@ -75,6 +78,7 @@ function kill(child: ChildProcess) {
 
 export default async function globalSetup() {
   mkdirSync(STATE_DIR, { recursive: true });
+  cleanGraph();
   run(uvArgs("db-reset"));
   run(["run", "alembic", "upgrade", "head"], resolve(ROOT, "apps/api"));
   const codes = run(uvArgs("invites", "60")).trim().split(/\s+/);
@@ -100,6 +104,7 @@ export default async function globalSetup() {
   }
   const teardown = async () => {
     for (const child of children) kill(child);
+    cleanGraph();
   };
   try {
     for (const stack of [E2E.main, E2E.limited]) {

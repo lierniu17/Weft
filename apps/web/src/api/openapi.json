@@ -172,7 +172,7 @@
       "title": "Path"
      },
      "persons": {
-      "description": "Related persons, shown as chips",
+      "description": "Related persons, shown as chips (never Self)",
       "items": {
        "$ref": "#/components/schemas/PersonRef"
       },
@@ -1501,7 +1501,10 @@
         "type": "null"
        }
       ],
-      "description": "The closer direction's current level"
+      "description": "The closer direction's level"
+     },
+     "confidence": {
+      "$ref": "#/components/schemas/Confidence"
      },
      "id": {
       "title": "Id",
@@ -1510,6 +1513,17 @@
      "source": {
       "title": "Source",
       "type": "string"
+     },
+     "source_closeness": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ClosenessLevel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "source's closeness to target (感受, this direction)"
      },
      "status": {
       "anyOf": [
@@ -1525,7 +1539,19 @@
       "title": "Target",
       "type": "string"
      },
+     "target_closeness": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ClosenessLevel"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "target's closeness to source (感受, the other direction)"
+     },
      "types": {
+      "description": "types[0] is the primary type",
       "items": {
        "$ref": "#/components/schemas/RelationshipTypeOut"
       },
@@ -1539,21 +1565,37 @@
      "target",
      "types",
      "status",
-     "closeness"
+     "closeness",
+     "confidence",
+     "source_closeness",
+     "target_closeness"
     ],
     "title": "GraphEdgeOut",
     "type": "object"
    },
-   "GraphNodeOut": {
+   "GraphGroupOut": {
     "additionalProperties": false,
+    "description": "群体: a workplace, school or family with two or more members (Self never counted).",
     "properties": {
      "id": {
       "title": "Id",
       "type": "string"
      },
-     "is_self": {
-      "title": "Is Self",
-      "type": "boolean"
+     "kind": {
+      "enum": [
+       "family",
+       "organization",
+       "school"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "member_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Member Ids",
+      "type": "array"
      },
      "name": {
       "title": "Name",
@@ -1563,7 +1605,65 @@
     "required": [
      "id",
      "name",
-     "is_self"
+     "kind",
+     "member_ids"
+    ],
+    "title": "GraphGroupOut",
+    "type": "object"
+   },
+   "GraphNodeOut": {
+    "additionalProperties": false,
+    "properties": {
+     "anchor_person_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Persons with no Relationship to Self (间接认识): the connected person nearest to Self, whose angle they sit near",
+      "title": "Anchor Person Id"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "is_self": {
+      "title": "Is Self",
+      "type": "boolean"
+     },
+     "met_at": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "认识时间: the Relationship with Self's met_at, else the 发生日期 of the first Entry mentioning the person; None for Self or when unknown",
+      "title": "Met At"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "is_self",
+     "met_at",
+     "anchor_person_id"
     ],
     "title": "GraphNodeOut",
     "type": "object"
@@ -1571,6 +1671,25 @@
    "GraphOut": {
     "additionalProperties": false,
     "properties": {
+     "at": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The time point shown; None = now",
+      "title": "At"
+     },
      "center_id": {
       "title": "Center Id",
       "type": "string"
@@ -1580,6 +1699,13 @@
        "$ref": "#/components/schemas/GraphEdgeOut"
       },
       "title": "Edges",
+      "type": "array"
+     },
+     "groups": {
+      "items": {
+       "$ref": "#/components/schemas/GraphGroupOut"
+      },
+      "title": "Groups",
       "type": "array"
      },
      "nodes": {
@@ -1593,15 +1719,73 @@
       "description": "Persons left out by the 50-node cap (AC-33)",
       "title": "Omitted",
       "type": "integer"
+     },
+     "timeline": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/GraphTimelineOut"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Panorama only: the time axis' range"
      }
     },
     "required": [
      "center_id",
      "nodes",
      "edges",
-     "omitted"
+     "omitted",
+     "groups",
+     "timeline",
+     "at"
     ],
     "title": "GraphOut",
+    "type": "object"
+   },
+   "GraphTheme": {
+    "enum": [
+     "light",
+     "starfield"
+    ],
+    "title": "GraphTheme",
+    "type": "string"
+   },
+   "GraphTimelineOut": {
+    "additionalProperties": false,
+    "properties": {
+     "from": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The earliest 认识时间; None when nobody has one",
+      "title": "From"
+     },
+     "to": {
+      "description": "Today",
+      "format": "date",
+      "title": "To",
+      "type": "string"
+     }
+    },
+    "required": [
+     "from",
+     "to"
+    ],
+    "title": "GraphTimelineOut",
     "type": "object"
    },
    "HTTPValidationError": {
@@ -1897,6 +2081,39 @@
     ],
     "title": "Precision",
     "type": "string"
+   },
+   "PreferencesOut": {
+    "additionalProperties": false,
+    "properties": {
+     "graph_theme": {
+      "$ref": "#/components/schemas/GraphTheme",
+      "description": "图谱外观: light = 清蓝 (default), starfield = 星空"
+     }
+    },
+    "required": [
+     "graph_theme"
+    ],
+    "title": "PreferencesOut",
+    "type": "object"
+   },
+   "PreferencesPatch": {
+    "additionalProperties": false,
+    "description": "Only the fields given change; ``null`` is not a value.",
+    "properties": {
+     "graph_theme": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/GraphTheme"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Omit to keep"
+     }
+    },
+    "title": "PreferencesPatch",
+    "type": "object"
    },
    "ProfileEdited": {
     "additionalProperties": false,
@@ -3175,6 +3392,28 @@
        "description": "亲密度至少到这一档",
        "title": "Closeness"
       }
+     },
+     {
+      "description": "时间点（YYYY / YYYY-MM / YYYY-MM-DD，含当期最后一天）：只显示那时已认识的人，亲密度与关系按那时；不传为现在",
+      "in": "query",
+      "name": "at",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "description": "时间点（YYYY / YYYY-MM / YYYY-MM-DD，含当期最后一天）：只显示那时已认识的人，亲密度与关系按那时；不传为现在",
+       "examples": [
+        "2013",
+        "2025-06"
+       ],
+       "title": "At"
+      }
      }
     ],
     "responses": {
@@ -3223,6 +3462,66 @@
     "summary": "Get Health",
     "tags": [
      "health"
+    ]
+   }
+  },
+  "/api/me/preferences": {
+   "get": {
+    "operationId": "get_preferences_api_me_preferences_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PreferencesOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Get Preferences",
+    "tags": [
+     "preferences"
+    ]
+   },
+   "patch": {
+    "operationId": "update_preferences_api_me_preferences_patch",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PreferencesPatch"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PreferencesOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Preferences",
+    "tags": [
+     "preferences"
     ]
    }
   },

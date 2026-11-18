@@ -162,8 +162,9 @@ async def test_filter_by_category_and_closeness(infra: Infra, s: Seeded) -> None
         infra,
         qt.PersonFilter(relationship_category=Category.SOCIAL, min_closeness="close"),
     )
-    assert names(m.person for m in close) == ["张伟", "李明"]
-    assert {m.closeness.level for m in close if m.closeness} == {"close"}
+    # 老张 became 至交 in 2021; 郑凯 is also a friend (社会) since 2025-12
+    assert names(m.person for m in close) == ["张伟", "李明", "郑凯"]
+    assert {m.closeness.level for m in close if m.closeness} == {"intimate", "close"}
 
 
 async def test_count_uses_current_facts_unless_history_is_asked_for(

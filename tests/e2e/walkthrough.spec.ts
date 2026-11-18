@@ -180,11 +180,11 @@ test("AC-UI walkthrough", async ({ page }) => {
   // --- 375: chat with a draft + answer (AC-UI-1, 2, 9, 10) ----------------------------
   await page.goto("/");
   await submitRecord(page, "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。");
-  const card = draftCardOf(page, "女儿明年高考");
+  const card = draftCardOf(page, "迷上了钓鱼");
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: 60_000 });
   results["AC-UI-10 one draft card per entry"] = await page
     .locator("[data-entry-thread]")
-    .filter({ hasText: "女儿明年高考" })
+    .filter({ hasText: "迷上了钓鱼" })
     .locator("[data-draft-card]")
     .count();
   results["AC-UI-9 draft status is a live region"] = await card
