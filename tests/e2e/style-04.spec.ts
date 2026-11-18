@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { draftCardOf, pinClock, registerUser, submitRecord } from "./support/bot.ts";
+import { draftCardOf, pinClock, registerUser, say } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
 const TEXT = "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。";
@@ -24,7 +24,7 @@ test("STYLE BOT-4 减少动态效果时直接切换", { tag: "@llm" }, async ({ 
   await pinClock(page);
   await registerUser(page);
   await page.goto("/");
-  await submitRecord(page, TEXT);
+  await say(page, TEXT);
   const card = draftCardOf(page, TEXT);
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(

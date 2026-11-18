@@ -10,6 +10,7 @@ export const keys = {
   usage: ["usage"] as const,
   taxonomy: ["taxonomy"] as const,
   entries: ["entries"] as const,
+  messages: ["messages"] as const,
   entry: (id: string) => ["entry", id] as const,
   draft: (id: string) => ["draft", id] as const,
   persons: (q: string) => ["persons", q] as const,
@@ -22,6 +23,7 @@ export const keys = {
 
 const GRAPH_SCOPED = new Set([
   "entries",
+  "messages",
   "entry",
   "persons",
   "person",

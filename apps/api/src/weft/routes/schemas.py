@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
+from weft.domain.answer import Answer
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate, Precision
 from weft.domain.draft import (
@@ -25,6 +26,8 @@ from weft.domain.draft import (
 from weft.domain.feelings import DIMENSIONS, by_direction
 from weft.domain.graph_view import GraphView
 from weft.domain.graph_write import humanize
+from weft.domain.intent import Intent
+from weft.domain.message import Problem
 from weft.domain.preferences import GraphTheme, Preferences
 from weft.domain.quota import QuotaDecision
 from weft.domain.taxonomy import Category
@@ -41,6 +44,7 @@ from weft.repositories.records import (
     RelationshipRecord,
     UserRecord,
 )
+from weft.services.messages import MessageView
 
 Stripped = Annotated[str, StringConstraints(strip_whitespace=True)]
 
@@ -472,6 +476,101 @@ class EntryDetailOut(_Out):
 
 class UpdateDraftRequest(_In):
     content: Draft
+    occurred_on: PartialDate | None = Field(
+        default=None,
+        description=(
+            "Move the Entry's 发生日期 (not in the future; YYYY, YYYY-MM or YYYY-MM-DD). "
+            "The Draft's dates anchored on the old date are re-timed; nothing is re-extracted."
+        ),
+    )
+
+
+# --- messages (intent routing) ------------------------------------------------------------
+
+
+class SendMessageRequest(_In):
+    text: Annotated[str, Field(max_length=5000)]
+
+
+class RerouteRequest(_In):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    as_: Literal["record", "ask"] = Field(
+        alias="as", description="改为记录 (record) / 改为提问 (ask)"
+    )
+
+
+class MessageEntryOut(_Out):
+    """The Entry a message became (记录), with its Draft."""
+
+    id: uuid.UUID
+    text: str = Field(description="The Entry text (for record_ask: only the new information)")
+    occurred_on: PartialDate = Field(description="The Entry's 发生日期, with precision")
+    precision: Precision
+    draft: DraftOut | None
+
+
+class ProblemOut(_Out):
+    """A part of the message that could not be done; the other part still was (AC-7)."""
+
+    part: Literal["record", "ask"]
+    error: str = Field(description="quota_exceeded | ask_failed | question_too_long | ...")
+    message: str
+    resets_at: datetime | None = Field(
+        default=None, description="quota_exceeded: the next 00:00 Beijing time"
+    )
+
+    @classmethod
+    def of(cls, p: Problem) -> ProblemOut:
+        return cls(part=p.part, error=p.error, message=p.message, resets_at=p.resets_at)
+
+
+class MessageOut(_Out):
+    message_id: uuid.UUID
+    text: str
+    created_at: datetime
+    intent: Intent = Field(description="How the message is handled now (after any re-route)")
+    recognized_intent: Intent | None = Field(
+        description="What recognition said; null for messages migrated from earlier Entries"
+    )
+    confidence: float | None = Field(description="Recognition confidence 0..1; null if none")
+    uncertain: bool = Field(description="拿不准: recognition was below the threshold")
+    entry: MessageEntryOut | None = Field(description="record / record_ask: the Entry + Draft")
+    answer: Answer | None = Field(description="ask / record_ask: the answer, with citations")
+    reply: str | None = Field(description="chitchat: the short reply")
+    problems: list[ProblemOut]
+
+    @classmethod
+    def of(cls, v: MessageView) -> MessageOut:
+        m = v.message
+        entry = (
+            None
+            if v.entry is None
+            else MessageEntryOut(
+                id=v.entry.id,
+                text=v.entry.text,
+                occurred_on=v.entry.occurred,
+                precision=v.entry.occurred.precision,
+                draft=None if v.draft is None else DraftOut.of(v.draft),
+            )
+        )
+        return cls(
+            message_id=m.id,
+            text=m.text,
+            created_at=m.created_at,
+            intent=m.intent,
+            recognized_intent=m.recognized_intent,
+            confidence=m.confidence,
+            uncertain=m.uncertain,
+            entry=entry,
+            answer=m.answer,
+            reply=m.reply,
+            problems=[ProblemOut.of(p) for p in m.problems],
+        )
+
+
+class MessagePage(_Out):
+    messages: list[MessageOut] = Field(description="Oldest first; the newest message is last")
+    has_more: bool = Field(description="Older messages exist: pass the first message_id as before")
 
 
 # --- graph views / ask -------------------------------------------------------------------
@@ -671,16 +770,22 @@ __all__ = [
     "LearnedAliasOut",
     "LoginRequest",
     "MeResponse",
+    "MessageEntryOut",
+    "MessageOut",
+    "MessagePage",
     "PairEdited",
     "PairOut",
     "PersonOut",
     "PreferencesOut",
     "PreferencesPatch",
+    "ProblemOut",
     "ProfileEditRequest",
     "ProfileEdited",
     "ProfileOut",
     "RegisterRequest",
     "RelationshipEditRequest",
+    "RerouteRequest",
+    "SendMessageRequest",
     "SubmitEntryRequest",
     "SummaryOut",
     "UpdateDraftRequest",

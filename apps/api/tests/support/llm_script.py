@@ -205,23 +205,33 @@ class LLMScript:
     # --- Weft's own calls ---------------------------------------------------
 
     def enrichment(
-        self, text: str, result: dict[str, Any], *, requires_custom: str | None = None
+        self,
+        text: str,
+        result: dict[str, Any],
+        *,
+        requires_custom: str | None = None,
+        written_on: str | None = None,
     ) -> LLMScript:
         """Our relationship / feeling / profile / confidence / time enrichment call.
 
         ``requires_custom``: only answer if that subtype is in the vocabulary sent to the
         model (the user's custom subtypes take part in classification, AC-32).
+        ``written_on``: only answer if the Entry is sent with that day of writing (its
+        occurred date was read from a message, intent-routing AC-8).
         """
 
         def matches(body: dict[str, Any]) -> bool:
             task = _weft_task(body)
             if task is None or task["task"] != "enrich" or task["entry"]["text"] != text:
                 return False
+            if written_on is not None and task["entry"].get("written_on") != written_on:
+                return False
             if requires_custom is None:
                 return True
             return any(requires_custom in names for names in task["relationship_types"].values())
 
         suffix = f"+{requires_custom}" if requires_custom else ""
+        suffix += f"@{written_on}" if written_on else ""
         return self._add(f"enrich[{text[:12]}]{suffix}", matches, result)
 
     def enrichment_raw(self, text: str, content: str) -> LLMScript:
@@ -276,6 +286,46 @@ class LLMScript:
             matches,
             {"decision": decision, "candidate_indices": candidates or []},
         )
+
+    # --- 意图识别 (intent routing) -------------------------------------------------
+
+    def intent(
+        self,
+        text: str,
+        intent: str,
+        *,
+        confidence: float = 0.93,
+        occurred: str | None = None,
+        record_text: str | None = None,
+        question: str | None = None,
+        reply: str | None = None,
+    ) -> LLMScript:
+        """The model's reading of a chat message (``weft.services.intent``)."""
+
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return task is not None and task["task"] == "intent" and task["text"] == text
+
+        return self._add(
+            f"intent[{text[:12]}]",
+            matches,
+            {
+                "intent": intent,
+                "confidence": confidence,
+                "occurred": occurred,
+                "record_text": record_text,
+                "question": question,
+                "reply": reply,
+            },
+        )
+
+    def intent_timeout(self, text: str) -> LLMScript:
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return task is not None and task["task"] == "intent" and task["text"] == text
+
+        self.rules.append(Rule(f"intent-timeout[{text[:12]}]", matches, None))
+        return self
 
     # --- generated summaries ----------------------------------------------------
 

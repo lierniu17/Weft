@@ -32,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from weft.domain.confidence import Confidence, ConflictAction
 from weft.domain.contract_schema import contract_json_schema
-from weft.domain.dates import PartialDate
+from weft.domain.dates import PartialDate, clamp_to_entry_precision
 from weft.domain.taxonomy import Category
 
 NonEmpty = Annotated[str, Field(min_length=1)]
@@ -359,6 +359,35 @@ class Draft(_Model):
         return self.model_copy(update={"persons": persons})
 
 
+def retime(content: Draft, *, old: PartialDate, new: PartialDate) -> Draft:
+    """The Draft after its Entry's occurred date moved from ``old`` to ``new`` (AC-9).
+
+    Only the time fields are touched (no re-extraction). Relative times the user said
+    relative to the day they wrote the message (「去年」「上周末」) do not depend on the
+    occurred date; what does is every date *anchored on* it — a date equal to the old
+    occurred date (the event itself: 「2015 年认识小李」 met_at 2015) moves to the new one.
+    Then every date is cut to the new date's precision (AC-8), and a span whose end now
+    lies before its start loses its end.
+    """
+
+    def moved(value: PartialDate | None) -> PartialDate | None:
+        if value is None:
+            return None
+        value = new if value == old else value
+        return clamp_to_entry_precision(value, entry=new)
+
+    facts: list[DraftFact] = []
+    for f in content.facts:
+        valid_at, valid_to = moved(f.valid_at), moved(f.valid_to)
+        if valid_at and valid_to and valid_to.last_day() < valid_at.first_day():
+            valid_to = None
+        facts.append(f.model_copy(update={"valid_at": valid_at, "valid_to": valid_to}))
+    relationships = [
+        r.model_copy(update={"met_at": moved(r.met_at)}) for r in content.relationships
+    ]
+    return content.model_copy(update={"facts": facts, "relationships": relationships})
+
+
 def draft_json_schema() -> dict[str, Any]:
     """JSON Schema of the Draft contract, consumed by the frontend."""
     return contract_json_schema(Draft, "draft.schema.json")
@@ -385,4 +414,5 @@ __all__ = [
     "RelationshipStatus",
     "TrustLevel",
     "draft_json_schema",
+    "retime",
 ]

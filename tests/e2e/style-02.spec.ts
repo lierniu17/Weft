@@ -4,8 +4,9 @@ import {
   pinClock,
   registerUser,
   replayedOr,
+  say,
   shot,
-  submitRecord,
+  threadOf,
 } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
@@ -31,16 +32,13 @@ test("STYLE BOT-2 草稿自然语句与入图谱动效", { tag: "@llm" }, async 
   await expect(page.locator("[data-composer-box]")).toHaveCSS("border-radius", "24px");
 
   // 1. 写记录并提交。
-  await submitRecord(page, TEXT);
+  await say(page, TEXT);
   const card = draftCardOf(page, TEXT);
   const status = card.getByRole("status");
   await expect(status).toHaveText(/^草稿 · \d+ 个人物 · \d+ 条信息$/, { timeout: LLM_WAIT });
   const items = Number((await status.textContent())?.match(/(\d+) 条信息/)?.[1]);
   // the record bubble is bg-muted, right-aligned
-  const bubble = page
-    .locator("[data-entry-thread]")
-    .filter({ hasText: TEXT })
-    .locator("[data-bubble]");
+  const bubble = threadOf(page, TEXT).locator("[data-bubble]");
   await expect(bubble).toHaveCSS("background-color", "rgb(240, 240, 242)");
 
   // 2. 点“查看并确认”：信息行是自然语句，行尾灰色可信度。

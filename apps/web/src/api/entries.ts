@@ -1,4 +1,4 @@
-/** Query hooks for 记录 and 草稿. */
+/** Query hooks for 记录 and 草稿. Sending goes through 消息 (messages.ts). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Draft } from "../contracts/draft.ts";
 import { api, enc, type Schemas } from "./client.ts";
@@ -37,6 +37,7 @@ export function useDraft(id: string | undefined) {
       const previous = qc.getQueryData<DraftOut>(keys.draft(id ?? ""));
       if (previous && previous.status !== draft.status) {
         void qc.invalidateQueries({ queryKey: keys.entries });
+        void qc.invalidateQueries({ queryKey: keys.messages });
       }
       return draft;
     },
@@ -45,19 +46,12 @@ export function useDraft(id: string | undefined) {
   });
 }
 
-export function useSubmitEntry() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: Schemas["SubmitEntryRequest"]) =>
-      api.post<Schemas["EntrySubmitted"]>("/entries", body),
-    onSuccess: (submitted) => {
-      qc.setQueryData(keys.draft(submitted.draft.id), submitted.draft);
-      qc.setQueryData<Entry[]>(keys.entries, (list) => [submitted.entry, ...(list ?? [])]);
-      void qc.invalidateQueries({ queryKey: keys.entries });
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
-  });
-}
+type DraftActionInput = {
+  id: string;
+  content?: Draft;
+  /** PUT only: move the Entry's 发生日期; the server re-times the Draft's relative dates. */
+  occurred_on?: string;
+};
 
 function useDraftAction(
   path: (id: string) => string,
@@ -66,12 +60,19 @@ function useDraftAction(
 ) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, content }: { id: string; content?: Draft }) =>
-      method === "put" ? api.put<DraftOut>(path(id), { content }) : api.post<DraftOut>(path(id)),
-    onSuccess: (draft) => {
+    mutationFn: ({ id, content, occurred_on }: DraftActionInput) =>
+      method === "put"
+        ? api.put<DraftOut>(path(id), { content, ...(occurred_on ? { occurred_on } : {}) })
+        : api.post<DraftOut>(path(id)),
+    onSuccess: (draft, { occurred_on }) => {
       qc.setQueryData(keys.draft(draft.id), draft);
       afterSuccess?.();
       if (method === "post") void invalidateGraph(qc);
+      // A moved 发生日期 shows on the message and in 记录.
+      if (occurred_on) {
+        void qc.invalidateQueries({ queryKey: keys.messages });
+        void qc.invalidateQueries({ queryKey: keys.entries });
+      }
     },
   });
 }

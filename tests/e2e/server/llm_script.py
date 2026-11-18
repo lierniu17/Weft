@@ -4,7 +4,8 @@
 (``WEFT_E2E_AUTHOR=1``): what an honest DeepSeek answer to that exact request looks like.
 The e2e run itself never imports this module; it replays the saved fixtures.
 
-Each Entry text of a BOT (spec 「端到端验收用例」) maps to its enrichment result below.
+Each message a BOT sends is first read by 意图识别 (``INTENT`` below: what it is, when it
+happened); each Entry text (spec 「端到端验收用例」) then maps to its enrichment result.
 Graphiti's entity step is answered with no entities: every person, fact, relationship and
 feeling comes from Weft's own enrichment call, which is what the Draft is built from.
 """
@@ -124,6 +125,28 @@ ENRICH: dict[str, dict[str, Any]] = {
         relationships=[rel("我", "小李", [("social", "朋友", "好兄弟")], "witnessed")],
         feelings=[feel("小李", "我", "closeness", "casual", "inferred")],
     ),
+    # Intent routing BOT-1 / BOT-12: the year is said in the message, so it is the occurred date.
+    "2015 年读大学时在社团认识了小李": enrichment(
+        relationships=[
+            rel(
+                "我",
+                "小李",
+                [("social", "同学", "社团")],
+                "witnessed",
+                met_at="2015",
+                origin="大学社团",
+                status="active",
+            )
+        ],
+    ),
+    # Intent routing BOT-3: the new-information part of 「老张升职了，他现在在哪个部门？」.
+    "老张升职了": enrichment(facts=[fact("老张", "EXPERIENCED", "升职", "witnessed")]),
+    # Intent routing BOT-4: 拿不准, then 记下来 — a guess, so 推测.
+    "老张最近好像换工作了吧": enrichment(
+        facts=[fact("老张", "EXPERIENCED", "换工作", "inferred")],
+    ),
+    # Intent routing BOT-6: read as a 记录 (scripted), though it carries no new information.
+    "老张喜欢什么": enrichment(),
 }
 
 # Person matching: (mention, candidate names in the order sent) -> decision.
@@ -131,6 +154,52 @@ MATCH: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = {
     ("张强", ("张伟",)): {"decision": "new", "candidate_indices": []},
     ("老张", ("张伟", "张强")): {"decision": "ambiguous", "candidate_indices": [1, 2]},
     ("老张", ("张强", "张伟")): {"decision": "ambiguous", "candidate_indices": [1, 2]},
+}
+
+# --- 意图识别 (intent routing) ---------------------------------------------------------
+# What an honest reading of each message looks like on the e2e day (2026-11-16, a Monday):
+# occurred only when the message says when; 「周末」 is the Saturday just past.
+
+
+def intent(kind: str, confidence: float, occurred: str | None = None, **rest: str) -> dict:
+    return {
+        "intent": kind,
+        "confidence": confidence,
+        "occurred": occurred,
+        "record_text": rest.get("record_text"),
+        "question": rest.get("question"),
+        "reply": rest.get("reply"),
+    }
+
+
+INTENT: dict[str, dict[str, Any]] = {
+    # 记录 sent through the composer by the earlier BOTs
+    "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。": intent("record", 0.95),
+    "老张今天升职了": intent("record", 0.95),
+    "老张请大家喝奶茶": intent("record", 0.9),
+    "小李跟我说他上个月跳槽去了阿里": intent("record", 0.95, "2026-10"),
+    "听小王说小李又去了腾讯": intent("record", 0.9),
+    "周末和小李打球，感觉他最近对我挺冷淡的，我倒还是把他当好兄弟": intent(
+        "record", 0.95, "2026-11-14"
+    ),
+    "老张是个急性子。": intent("record", 0.95),
+    # BOT-13: a test sentence is 无关; the BOT then picks 记下来.
+    "随便写的一句话": intent("chitchat", 0.9, reply="好的，想记点什么随时告诉我。"),
+    # Intent routing BOT-1 / BOT-12
+    "2015 年读大学时在社团认识了小李": intent("record", 0.95, "2015"),
+    # Intent routing BOT-3: new information and a question in one message
+    "老张升职了，他现在在哪个部门？": intent(
+        "record_ask",
+        0.9,
+        record_text="老张升职了",
+        question="老张现在在哪个部门？",
+    ),
+    # Intent routing BOT-4: thanks, then a guess that could be either (拿不准)
+    "谢谢": intent("chitchat", 0.98, reply="不客气，有想记下的事随时告诉我。"),
+    "老张最近好像换工作了吧": intent("record", 0.5),
+    # Intent routing BOT-6: the spec replays this question as a 记录 (a misreading the user
+    # then corrects with 改为提问).
+    "老张喜欢什么": intent("record", 0.8),
 }
 
 # --- 问答 ----------------------------------------------------------------------------
@@ -192,6 +261,35 @@ def _ask_profile(out: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _ask_department(out: dict[str, Any]) -> dict[str, Any]:
+    # The graph knows where 老张 works, not his department; nothing about 升职 (unconfirmed).
+    work = [f["evidence"] for f in out.get("facts", []) if f.get("predicate") == "WORKS_AT"]
+    return {
+        "kind": "text",
+        "subjects": ["老张"],
+        "segments": [
+            {"text": "老张在字节跳动工作，", "evidence": work},
+            {"text": "图谱里没有记他在哪个部门。", "evidence": []},
+        ],
+        "persons": [out["person"]["person"]],
+    }
+
+
+def _ask_temper(out: dict[str, Any]) -> dict[str, Any]:
+    traits = [f["evidence"] for f in out.get("facts", []) if f.get("predicate") == "HAS_TRAIT"]
+    return {
+        "kind": "text",
+        "subjects": ["老张"],
+        "segments": [{"text": "老张是个急性子。", "evidence": traits}],
+        "persons": [out["person"]["person"]],
+    }
+
+
+def _ask_unknown(out: dict[str, Any]) -> dict[str, Any]:
+    # find_person found nobody: 图谱里没有相关信息 (AC-38).
+    return {"kind": "no_answer", "subjects": ["老张"], "segments": []}
+
+
 ASK: dict[str, tuple[tuple[str, dict[str, Any]], Any]] = {
     "老张和小李是什么关系？": (
         ("read_relationship", {"person_a": "老张", "person_b": "小李"}),
@@ -203,6 +301,10 @@ ASK: dict[str, tuple[tuple[str, dict[str, Any]], Any]] = {
         _ask_list,
     ),
     "老张是什么样的人？": (("read_profile", {"person": "老张"}), _ask_profile),
+    # intent routing BOT-3 (the question part), BOT-5, BOT-6 (after 改为提问)
+    "老张现在在哪个部门？": (("read_profile", {"person": "老张"}), _ask_department),
+    "老张是个什么性子？": (("read_profile", {"person": "老张"}), _ask_temper),
+    "老张喜欢什么": (("find_person", {"name": "老张"}), _ask_unknown),
 }
 
 # --- plumbing ----------------------------------------------------------------------------
@@ -283,6 +385,11 @@ def respond(path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     task = _task(body)
     if task is None:
         raise AssertionError(f"no scripted answer for {json.dumps(body, ensure_ascii=False)[:400]}")
+    if task["task"] == "intent":
+        text = task["text"]
+        if text not in INTENT:
+            raise AssertionError(f"no scripted intent for message 「{text}」")
+        return 200, chat(json.dumps(INTENT[text], ensure_ascii=False))
     if task["task"] == "enrich":
         text = task["entry"]["text"]
         if text not in ENRICH:

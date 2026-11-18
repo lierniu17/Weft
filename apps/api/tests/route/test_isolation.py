@@ -38,6 +38,7 @@ class World:
     a_draft_confirmed: str
     a_draft_pending: str
     a_draft_failed: str
+    a_message: str  # A's chitchat message
     a_person: str  # A's 老张
     a_fact: str  # A's 老张 LIKES 钓鱼
     b_person: str  # B's own 老张
@@ -52,6 +53,7 @@ async def snapshot(user: ApiUser, **ids: str) -> dict[str, Any]:
         "taxonomy": (await c.get("/api/taxonomy")).json(),
         "usage": (await c.get("/api/usage")).json(),
         "preferences": (await c.get("/api/me/preferences")).json(),
+        "messages": (await c.get("/api/messages")).json(),
         **{
             name: (await c.get(url)).json()
             for name, url in {
@@ -65,6 +67,7 @@ async def snapshot(user: ApiUser, **ids: str) -> dict[str, Any]:
 
 
 B_QUESTION = "老张喜欢什么？"
+THANKS = "谢谢"
 FOREIGN_GROUP = "u_ffffffffffffffffffffffffffffffff"
 
 
@@ -87,6 +90,7 @@ async def world(register: Register, llm: LLMScript) -> World:
     sc.graphiti_only(llm, sc.GARBLED)
     llm.enrichment_raw(sc.GARBLED, "这不是 JSON")
     b_asks_about_laozhang(llm)
+    llm.intent(THANKS, "chitchat", confidence=0.98, reply="不客气")
     a, b = await register("甲"), await register("乙")
 
     confirmed = (await a.client.post("/api/entries", json={"text": sc.DINNER})).json()
@@ -96,6 +100,7 @@ async def world(register: Register, llm: LLMScript) -> World:
     failed = (await a.client.post("/api/entries", json={"text": sc.GARBLED})).json()
     await a.client.post("/api/taxonomy/subtypes", json={"category": "social", "name": "饭搭子"})
     await a.client.patch("/api/me/preferences", json={"graph_theme": "starfield"})
+    a_message = (await a.client.post("/api/messages", json={"text": THANKS})).json()
     found = (await a.client.get("/api/persons", params={"q": "老张"})).json()
     [a_person] = [p for p in found if p["name"] == "老张"]  # not 老张的女儿
     profile = (await a.client.get(f"/api/persons/{a_person['id']}")).json()
@@ -119,6 +124,7 @@ async def world(register: Register, llm: LLMScript) -> World:
         a_draft_confirmed=draft_id,
         a_draft_pending=ids["pending"],
         a_draft_failed=ids["failed"],
+        a_message=a_message["message_id"],
         a_person=a_person["id"],
         a_fact=a_fact["id"],
         b_person=b_person["id"],
@@ -134,6 +140,7 @@ def a_ids(w: World) -> set[str]:
         w.a_draft_confirmed,
         w.a_draft_pending,
         w.a_draft_failed,
+        w.a_message,
         w.a_person,
         w.a_fact,
     }
@@ -230,8 +237,11 @@ async def _draft(w: World) -> None:
 @case("PUT", "/api/drafts/{draft_id}")
 async def _update_draft(w: World) -> None:
     content = {"persons": [], "facts": [], "relationships": [], "feelings": [], "profile": []}
-    response = await w.b.client.put(f"/api/drafts/{w.a_draft_pending}", json={"content": content})
-    assert_not_found(response)
+    for extra in ({}, {"occurred_on": "2015"}):
+        response = await w.b.client.put(
+            f"/api/drafts/{w.a_draft_pending}", json={"content": content, **extra}
+        )
+        assert_not_found(response)
 
 
 @case("POST", "/api/drafts/{draft_id}/confirm")
@@ -247,6 +257,37 @@ async def _discard(w: World) -> None:
 @case("POST", "/api/drafts/{draft_id}/retry")
 async def _retry(w: World) -> None:
     assert_not_found(await w.b.client.post(f"/api/drafts/{w.a_draft_failed}/retry"))
+
+
+# --- messages (intent routing) -----------------------------------------------------------
+
+
+@case("POST", "/api/messages")
+async def _send_message(w: World) -> None:
+    response = await w.b.client.post("/api/messages", json={"text": THANKS}, params=smuggled(w))
+    assert response.status_code == 201, response.text
+    assert_no_a_data(w, response)
+    smuggling = await w.b.client.post(
+        "/api/messages", json={"text": THANKS, "user_id": str(w.a.id)}
+    )
+    assert smuggling.status_code == 422
+
+
+@case("GET", "/api/messages")
+async def _messages(w: World) -> None:
+    response = await w.b.client.get("/api/messages", params=smuggled(w))
+    assert_no_a_data(w, response)
+    assert all(m["text"] == THANKS for m in response.json()["messages"])
+    assert_not_found(await w.b.client.get("/api/messages", params={"before": w.a_message}))
+
+
+@case("POST", "/api/messages/{message_id}/reroute")
+async def _reroute(w: World) -> None:
+    for target in ("record", "ask"):
+        response = await w.b.client.post(
+            f"/api/messages/{w.a_message}/reroute", json={"as": target}, params=smuggled(w)
+        )
+        assert_not_found(response)
 
 
 # --- persons / relationships ------------------------------------------------------------

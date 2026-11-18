@@ -1,6 +1,5 @@
-/** Query hooks for 人物, 画像, 关系, 图, 词表, 用量 and 问答. */
+/** Query hooks for 人物, 画像, 关系, 图, 词表 and 用量. 问答 goes through 消息 (messages.ts). */
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Answer } from "../contracts/answer.ts";
 import type { Category } from "../contracts/draft.ts";
 import type { Taxonomy } from "../contracts/taxonomy.ts";
 import { api, enc, type Schemas } from "./client.ts";
@@ -141,12 +140,4 @@ export function useAddSubtype() {
 
 export function useUsage() {
   return useQuery({ queryKey: keys.usage, queryFn: () => api.get<Usage>("/usage") });
-}
-
-export function useAsk() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (question: string) => api.post<Answer>("/ask", { question }),
-    onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
-  });
 }
