@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { SectionHeader } from "./SectionHeader.tsx";
 
@@ -17,8 +17,11 @@ export const WithCount: Story = {
   play: async ({ canvasElement }) => {
     const heading = within(canvasElement).getByRole("heading", { level: 2, name: "至交 · 2" });
     const style = getComputedStyle(heading);
-    await expect(style.fontSize).toBe("12px");
-    await expect(style.color).toBe(rgb("#5B6475"));
+    // AC-2: section titles are 13 / 20 semibold in the tertiary grey.
+    await expect(style.fontSize).toBe("13px");
+    await expect(style.lineHeight).toBe("20px");
+    await expect(style.fontWeight).toBe("600");
+    await expect(style.color).toBe(token("neutral-text-tertiary"));
   },
 };
 

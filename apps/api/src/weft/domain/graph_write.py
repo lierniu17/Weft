@@ -13,6 +13,7 @@ Embeddings (``name_embedding`` / ``fact_embedding`` / ``object_embedding``) are 
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -49,6 +50,30 @@ PREDICATE_LABELS: dict[str, str] = {
     "OPINION": "评价",
 }
 
+# Every fact kind a person can see, in Chinese: the extraction predicates plus events
+# between two persons (``RELATED_EVENT``, written by drafts and the seed graph). Anything
+# Weft writes for the user — summaries, answers, manual-edit notes — uses these, so no
+# internal name reaches the UI (style refresh AC-9).
+RELATED_EVENT = "RELATED_EVENT"
+FACT_LABELS: dict[str, str] = {**PREDICATE_LABELS, RELATED_EVENT: "两人之间的事"}
+
+_INTERNAL_NAME = re.compile(
+    r"(?<![A-Za-z_])("
+    + "|".join(sorted(map(re.escape, FACT_LABELS), key=len, reverse=True))
+    + r")(?![A-Za-z_])"
+)
+
+
+def fact_label(predicate: str) -> str:
+    """「喜欢」 for ``LIKES``; an unknown predicate is never shown as its internal name."""
+    return FACT_LABELS.get(predicate, "信息")
+
+
+def humanize(text: str) -> str:
+    """Generated text (a summary, an answer) with every internal fact name replaced by its
+    Chinese label — a model may echo ``RELATED_EVENT`` from its input."""
+    return _INTERNAL_NAME.sub(lambda m: FACT_LABELS[m.group(1)], text)
+
 
 def fact_sentence(subject: str, predicate: str, obj: str) -> str:
     """A readable fact text for Graphiti's ``fact`` field, e.g. 「老张 喜欢 钓鱼」."""
@@ -62,8 +87,9 @@ def fact_sentence(subject: str, predicate: str, obj: str) -> str:
         "EXPERIENCED": "{s}经历了{o}",
         "HAS_ETIQUETTE": "和{s}相处：{o}",
         "OPINION": "我对{s}的评价：{o}",
+        RELATED_EVENT: "{s}和{o}之间的事",
     }
-    template = templates.get(predicate, "{s} " + predicate + " {o}")
+    template = templates.get(predicate, "{s}：{o}")
     return template.format(s=subject, o=obj)
 
 
@@ -141,6 +167,16 @@ class FactDeleted:
 
 
 @dataclass(frozen=True)
+class RelationshipStatement:
+    """What this write's Entry itself said about the pair (kept as the Relationship's history,
+    so the graph can be shown as it was at a point in time)."""
+
+    types: tuple[RelationshipType, ...]
+    status: str | None
+    confidence: Confidence
+
+
+@dataclass(frozen=True)
 class RelationshipUpsert:
     """The merged state of one pair's Relationship node after this write."""
 
@@ -156,6 +192,12 @@ class RelationshipUpsert:
     summary: str | None = None
     exists: bool = False
     summary_from_user: bool = False  # the user wrote ``summary``: do not regenerate it
+    stated: RelationshipStatement | None = None  # None: the Entry stated the merged state
+
+    def statement(self) -> RelationshipStatement:
+        if self.stated is not None:
+            return self.stated
+        return RelationshipStatement(self.types, self.status, self.confidence)
 
 
 @dataclass(frozen=True)
@@ -207,9 +249,11 @@ class GraphWrite:
 
 
 __all__ = [
+    "FACT_LABELS",
     "OPINION",
     "PREDICATE_LABELS",
     "PREDICATE_TARGETS",
+    "RELATED_EVENT",
     "SINGLE_VALUED",
     "AliasAdd",
     "EpisodeWrite",
@@ -221,7 +265,10 @@ __all__ = [
     "NewFact",
     "NewFeeling",
     "NewPerson",
+    "RelationshipStatement",
     "RelationshipUpsert",
     "Vector",
+    "fact_label",
     "fact_sentence",
+    "humanize",
 ]

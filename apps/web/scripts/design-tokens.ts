@@ -31,6 +31,8 @@ type Design = {
     secondary: Record<string, string>;
     neutral: Record<string, string>;
     status: Record<string, Record<string, string>>;
+    graph: Record<string, string>;
+    "graph-dark": Record<string, string>;
   };
   typography: Record<string, string | TypeScale>;
   spacing: Record<string, string>;
@@ -65,6 +67,16 @@ function firstPx(value: string): string {
   return `${n[1]}px`;
 }
 
+/** DESIGN.md motion minus prose-only keys (`reduced` documents a rule, it is not a value). */
+const MOTION_PROSE = new Set(["reduced"]);
+function motionTokens(motion: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(motion)
+      .filter(([k]) => !MOTION_PROSE.has(k))
+      .map(([k, v]) => [k, String(v)]),
+  );
+}
+
 function buildTokens(d: Design) {
   const color: Record<string, string> = {};
   for (const [k, v] of Object.entries(d.colors.primary)) color[`primary-${k}`] = v;
@@ -72,6 +84,15 @@ function buildTokens(d: Design) {
   for (const [k, v] of Object.entries(d.colors.neutral)) color[`neutral-${k}`] = v;
   for (const [status, scale] of Object.entries(d.colors.status)) {
     for (const [k, v] of Object.entries(scale)) color[`status-${status}-${k}`] = v;
+  }
+  // 关系图谱: category colours etc. (graph-*) and the starfield theme (graph-dark-*). `fade` is
+  // an opacity, not a colour, so it becomes its own token.
+  const opacity: Record<string, string> = {};
+  for (const group of ["graph", "graph-dark"] as const) {
+    for (const [k, v] of Object.entries(d.colors[group])) {
+      if (k === "fade") opacity[`${group}-fade`] = String(v);
+      else color[`${group}-${k}`] = v;
+    }
   }
   // Literal colours DESIGN.md writes inline in component specs, named here so components
   // still consume a token rather than a hex value.
@@ -92,13 +113,14 @@ function buildTokens(d: Design) {
 
   return {
     color,
+    opacity,
     font,
     text,
     fontWeight,
     spacing: d.spacing,
     radius: d.rounded,
     shadow: d.shadow,
-    motion: d.motion,
+    motion: motionTokens(d.motion),
     breakpoint: { md: firstPx(d.breakpoints.tablet), lg: firstPx(d.breakpoints.desktop) },
   };
 }
@@ -109,6 +131,7 @@ export function generate(md: string): { css: string; ts: string } {
   const add = (name: string, value: string) => lines.push(`  --${name}: ${value};`);
 
   for (const [k, v] of Object.entries(t.color)) add(`color-${k}`, v);
+  for (const [k, v] of Object.entries(t.opacity)) add(`opacity-${k}`, v);
   for (const [k, v] of Object.entries(t.font)) add(`font-${k}`, v);
   for (const [k, v] of Object.entries(t.fontWeight)) add(`font-weight-${k}`, v);
   for (const [k, v] of Object.entries(t.text)) {
@@ -120,6 +143,10 @@ export function generate(md: string): { css: string; ts: string } {
   for (const [k, v] of Object.entries(t.radius)) add(`radius-${k}`, v);
   for (const [k, v] of Object.entries(t.shadow)) add(`shadow-${k}`, v);
   for (const [k, v] of Object.entries(t.motion)) add(`motion-${k}`, v);
+  // Tailwind v4 `ease-*` utilities (ease-standard / ease-decelerate / ease-accelerate).
+  for (const [k, v] of Object.entries(t.motion)) {
+    if (k.startsWith("easing-")) add(`ease-${k.slice("easing-".length)}`, v);
+  }
   for (const [k, v] of Object.entries(t.breakpoint)) add(`breakpoint-${k}`, v);
 
   const css = [

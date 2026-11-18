@@ -10,7 +10,7 @@
  * The seed graph (BOT-5 / BOT-9) is written the same way, per BOT user (support/bot.ts).
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   REMOTE_BASE_URL,
@@ -34,9 +34,19 @@ export default async function globalSetupRemote() {
     console.log(`e2e:bot remote: ${base} (${REMOTE_ENV}) version ${health.version}`);
   }
   mkdirSync(STATE_DIR, { recursive: true });
-  const [cmd, args] = remoteCli("invites", "generate", "20");
+  // One code per registerUser call across all specs, plus headroom; grows with the suite.
+  const specs = readdirSync(resolve(ROOT, "tests/e2e")).filter((f) => f.endsWith(".spec.ts"));
+  const calls = specs.reduce(
+    (n, f) =>
+      n +
+      (readFileSync(resolve(ROOT, "tests/e2e", f), "utf8").match(/registerUser\(/g) ?? []).length,
+    0,
+  );
+  const count = String(calls * 2 + 10);
+  const [cmd, args] = remoteCli("invites", "generate", count);
   const out = execFileSync(cmd, args, { cwd: ROOT, encoding: "utf8" });
   const codes = out.trim().split(/\s+/).filter(Boolean);
-  if (codes.length !== 20) throw new Error(`expected 20 invite codes, got: ${out}`);
+  if (codes.length !== Number(count))
+    throw new Error(`expected ${count} invite codes, got: ${out}`);
   writeFileSync(resolve(STATE_DIR, "invites.json"), JSON.stringify({ codes, next: 0 }));
 }

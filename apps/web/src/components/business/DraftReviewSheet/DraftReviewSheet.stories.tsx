@@ -9,7 +9,7 @@ import {
   setConfidence,
   setRelationshipType,
 } from "../../../lib/draft.ts";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { DraftReviewSheet, type DraftReviewSheetProps } from "./DraftReviewSheet.tsx";
 import { REVIEW_DRAFT, TAXONOMY, TAXONOMY_WITH_CUSTOM } from "./fixtures.ts";
@@ -80,7 +80,11 @@ type Story = StoryObj<typeof meta>;
 
 const sheet = () => screen.findByRole("dialog", { name: "确认草稿" });
 
-/** AC-10: grouped by category; every item shows its confidence. */
+/**
+ * AC-10: grouped by category; every item shows its confidence. Style refresh AC-8: items are
+ * natural sentences with the confidence trailing in grey (「张伟喜欢钓鱼 · 本人说」), persons
+ * read 「老张 是 张伟」; 放弃 and 确认入图谱 side by side at equal width, 确认 the primary.
+ */
 export const Grouped: Story = {
   play: async () => {
     const s = await sheet();
@@ -94,7 +98,27 @@ export const Grouped: Story = {
     for (const item of items) {
       await expect(item.querySelector("[data-confidence]")).not.toBeNull();
     }
-    await expect(within(s).getByText("老张 → 张伟")).toBeVisible();
+    const matched = s.querySelector('[data-person-match="matched"] [data-person-match-title]');
+    await expect(matched).toHaveTextContent("老张 是 张伟");
+    const texts = [...items].map((i) => i.querySelector("[data-confidence-line]")?.textContent);
+    await expect(texts).toEqual([
+      "张伟喜欢钓鱼 · 本人说",
+      "小李在腾讯工作 · 转述",
+      "张伟在阿里巴巴工作 · 本人说",
+      "张伟的籍贯是湖南长沙 · 本人说",
+      "张伟是小李的室友 · 转述",
+      "我觉得和小李很亲近 · 亲历",
+    ]);
+    // no internal name, no field glued on
+    await expect(s).not.toHaveTextContent(/[A-Z]{2,}_|张伟 · 喜欢/);
+    const discard = within(s).getByRole("button", { name: "放弃" });
+    const confirm = within(s).getByRole("button", { name: "确认入图谱" });
+    await expect(discard.getBoundingClientRect().width).toBeCloseTo(
+      confirm.getBoundingClientRect().width,
+      0,
+    );
+    await expect(discard.getBoundingClientRect().top).toBe(confirm.getBoundingClientRect().top);
+    await expect(getComputedStyle(confirm).backgroundColor).toBe(token("primary-6"));
   },
 };
 
@@ -108,7 +132,9 @@ export const AmbiguousBlocksConfirm: Story = {
     await expect(within(s).getByText("还有 1 个人物需要先选择")).toBeVisible();
 
     await userEvent.click(within(s).getByRole("button", { name: "李明（同学）" }));
-    await expect(within(s).getByText("小李 → 李明")).toBeVisible();
+    await expect(s.querySelector('[data-person-match="matched"]:nth-of-type(2)')).toHaveTextContent(
+      "小李 是 李明",
+    );
     await expect(confirm).toBeEnabled();
     await expect(within(s).queryByText("还有 1 个人物需要先选择")).toBeNull();
     await userEvent.click(confirm);
@@ -120,19 +146,20 @@ export const AmbiguousBlocksConfirm: Story = {
 export const EditAndRemove: Story = {
   play: async () => {
     const s = await sheet();
-    const fishing = within(s)
-      .getByText("张伟 · 喜欢 钓鱼")
-      .closest("[data-draft-item]") as HTMLElement;
-    await userEvent.click(
-      within(fishing).getByRole("button", { name: "可信度：本人说，点按修改" }),
-    );
+    const fishing = [...s.querySelectorAll("[data-draft-item]")].find((el) =>
+      el.textContent?.includes("张伟喜欢钓鱼"),
+    ) as HTMLElement;
+    // tapping the line itself opens the confidence menu
+    await userEvent.click(within(fishing).getByText("张伟喜欢钓鱼"));
     await userEvent.click(await screen.findByRole("menuitemradio", { name: "亲历" }));
     await waitFor(() =>
-      expect(within(fishing).getByRole("button", { name: "可信度：亲历，点按修改" })).toBeVisible(),
+      expect(
+        within(fishing).getByRole("button", { name: /亲历（可信度，点按修改）/ }),
+      ).toBeVisible(),
     );
 
-    await userEvent.click(within(s).getByRole("button", { name: "删除「张伟 · 籍贯 湖南长沙」" }));
-    await expect(within(s).queryByText("张伟 · 籍贯 湖南长沙")).toBeNull();
+    await userEvent.click(within(s).getByRole("button", { name: "删除「张伟的籍贯是湖南长沙」" }));
+    await expect(within(s).queryByText("张伟的籍贯是湖南长沙")).toBeNull();
     // Its section disappears when empty.
     await expect(within(s).queryByRole("heading", { name: "画像变化" })).toBeNull();
   },
@@ -144,8 +171,9 @@ export const UpdateAndUnverified: Story = {
     const s = await sheet();
     await expect(within(s).getByText("将更新：字节跳动 → 阿里巴巴")).toBeVisible();
     const unverified = s.querySelector("[data-draft-item=unverified]") as HTMLElement;
-    await expect(unverified).toHaveTextContent("小李 · 工作单位 腾讯");
-    await expect(unverified).toHaveTextContent("与已有信息冲突且可信度更低，标为待核实");
+    await expect(unverified).toHaveTextContent("小李在腾讯工作");
+    await expect(unverified).toHaveTextContent("待核实");
+    await expect(unverified).toHaveTextContent("与已有信息冲突且可信度更低");
   },
 };
 
@@ -158,9 +186,12 @@ export const DiscardNeedsConfirmation: Story = {
     await expect(modal).toHaveTextContent("记录原文会保留");
     const cancel = within(modal).getByRole("button", { name: "取消" });
     const discard = within(modal).getByRole("button", { name: "放弃" });
-    await expect(cancel.getBoundingClientRect().width).toBe(discard.getBoundingClientRect().width);
-    await expect(getComputedStyle(discard).color).toBe(rgb("#C81E1E"));
-    await expect(getComputedStyle(discard).backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(cancel.getBoundingClientRect().width).toBeCloseTo(
+      discard.getBoundingClientRect().width,
+      2,
+    );
+    await expect(getComputedStyle(discard).color).toBe(token("status-error-6"));
+    await expect(getComputedStyle(discard).backgroundColor).toBe(token("neutral-bg-container"));
 
     await userEvent.click(cancel);
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
@@ -179,7 +210,9 @@ export const CustomSubtypeInPicker: Story = {
   args: { taxonomy: TAXONOMY_WITH_CUSTOM },
   play: async () => {
     const s = await sheet();
-    const rel = within(s).getByText("张伟 与 小李").closest("[data-draft-item]") as HTMLElement;
+    const rel = [...s.querySelectorAll("[data-draft-item]")].find((el) =>
+      el.textContent?.includes("张伟是小李的室友"),
+    ) as HTMLElement;
     await expect(rel.querySelector("[data-relationship-type]")).toHaveTextContent("社会 · 室友");
     const edit = within(rel).getByRole("button", { name: "修改关系类型「社会 · 室友」" });
     await userEvent.click(edit);
@@ -194,11 +227,11 @@ export const CustomSubtypeInPicker: Story = {
   },
 };
 
-/** Desktop D1: the same sheet as the 360px right panel. */
+/** Desktop D1: the same sheet as the 380px right panel. */
 export const SidePanel: Story = {
   args: { variant: "side-panel" },
   play: async () => {
     const s = await sheet();
-    await expect(s.getBoundingClientRect().width).toBe(360);
+    await expect(s.getBoundingClientRect().width).toBe(380);
   },
 };

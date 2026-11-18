@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { SegmentedControl, type SegmentedControlProps } from "./SegmentedControl.tsx";
 
 function Controlled(props: SegmentedControlProps) {
@@ -46,7 +46,7 @@ export const Medium: Story = {
     const record = canvas.getByRole("radio", { name: "记录" });
     const ask = canvas.getByRole("radio", { name: "提问" });
     await expect(record).toBeChecked();
-    await expect(getComputedStyle(record).color).toBe(rgb("#4F46E5"));
+    await expect(getComputedStyle(record).color).toBe(token("primary-6"));
 
     await userEvent.click(ask);
     await expect(ask).toBeChecked();

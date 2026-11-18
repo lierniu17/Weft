@@ -8,10 +8,10 @@ schema is in the OpenAPI document at ``/openapi.json``.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate, Precision
@@ -24,6 +24,8 @@ from weft.domain.draft import (
 )
 from weft.domain.feelings import DIMENSIONS, by_direction
 from weft.domain.graph_view import GraphView
+from weft.domain.graph_write import humanize
+from weft.domain.preferences import GraphTheme, Preferences
 from weft.domain.quota import QuotaDecision
 from weft.domain.taxonomy import Category
 from weft.repositories.records import (
@@ -203,7 +205,7 @@ class ProfileOut(_Out):
     @classmethod
     def of(cls, p: ProfileRecord) -> ProfileOut:
         summary = (
-            SummaryOut(text=p.summary, generated_at=p.summary_generated_at)
+            SummaryOut(text=humanize(p.summary), generated_at=p.summary_generated_at)
             if p.summary and p.summary_generated_at
             else None
         )
@@ -294,7 +296,8 @@ class RelationshipOut(_Out):
             origin=r.origin,
             introduced_by=None if r.introduced_by is None else PersonOut.of(r.introduced_by),
             status=None if r.status is None else RelationshipStatus(r.status),
-            summary=r.summary,
+            # generated text written before labels were complete may hold an internal name
+            summary=humanize(r.summary) if r.summary and r.summary_generated_at else r.summary,
             summary_generated_at=r.summary_generated_at,
             confidence=r.confidence,
             sources=list(r.sources),
@@ -475,31 +478,90 @@ class UpdateDraftRequest(_In):
 
 
 class GraphNodeOut(_Out):
+    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
+
     id: str
     name: str
     is_self: bool
+    met_at: PartialDate | None = Field(
+        default=None,
+        description="认识时间: the Relationship with Self's met_at, else the 发生日期 of the "
+        "first Entry mentioning the person; None for Self or when unknown",
+    )
+    anchor_person_id: str | None = Field(
+        default=None,
+        description="Persons with no Relationship to Self (间接认识): the connected person "
+        "nearest to Self, whose angle they sit near",
+    )
 
 
 class GraphEdgeOut(_Out):
+    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
+
     id: str
     source: str
     target: str
-    types: list[RelationshipTypeOut]
+    types: list[RelationshipTypeOut] = Field(description="types[0] is the primary type")
     status: RelationshipStatus | None
-    closeness: ClosenessLevel | None = Field(description="The closer direction's current level")
+    closeness: ClosenessLevel | None = Field(description="The closer direction's level")
+    confidence: Confidence
+    source_closeness: ClosenessLevel | None = Field(
+        default=None, description="source's closeness to target (感受, this direction)"
+    )
+    target_closeness: ClosenessLevel | None = Field(
+        default=None, description="target's closeness to source (感受, the other direction)"
+    )
+
+
+class GraphGroupOut(_Out):
+    """群体: a workplace, school or family with two or more members (Self never counted)."""
+
+    id: str
+    name: str
+    kind: Literal["family", "organization", "school"]
+    member_ids: list[str]
+
+
+class GraphTimelineOut(_Out):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_: PartialDate | None = Field(
+        alias="from", description="The earliest 认识时间; None when nobody has one"
+    )
+    to: date = Field(description="Today")
+
+
+def _closeness(level: str | None) -> ClosenessLevel | None:
+    return None if level is None else ClosenessLevel(level)
 
 
 class GraphOut(_Out):
+    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
+
     center_id: str
     nodes: list[GraphNodeOut]
     edges: list[GraphEdgeOut]
     omitted: int = Field(description="Persons left out by the 50-node cap (AC-33)")
+    groups: list[GraphGroupOut] = Field(default_factory=list)
+    timeline: GraphTimelineOut | None = Field(
+        default=None, description="Panorama only: the time axis' range"
+    )
+    at: PartialDate | None = Field(default=None, description="The time point shown; None = now")
 
     @classmethod
     def of(cls, v: GraphView) -> GraphOut:
         return cls(
             center_id=v.center_id,
-            nodes=[GraphNodeOut(id=n.id, name=n.name, is_self=n.is_self) for n in v.nodes],
+            nodes=[
+                GraphNodeOut(
+                    id=n.id,
+                    name=n.name,
+                    is_self=n.is_self,
+                    met_at=n.met_at,
+                    anchor_person_id=n.anchor_id,
+                )
+                for n in v.nodes
+            ],
             edges=[
                 GraphEdgeOut(
                     id=e.id,
@@ -512,12 +574,54 @@ class GraphOut(_Out):
                         for t in e.types
                     ],
                     status=None if e.status is None else RelationshipStatus(e.status),
-                    closeness=None if e.closeness is None else ClosenessLevel(e.closeness),
+                    closeness=_closeness(e.closeness),
+                    confidence=Confidence(e.confidence),
+                    source_closeness=_closeness(e.source_closeness),
+                    target_closeness=_closeness(e.target_closeness),
                 )
                 for e in v.edges
             ],
             omitted=v.omitted,
+            groups=[
+                GraphGroupOut(
+                    id=g.id,
+                    name=g.name,
+                    kind=g.kind,
+                    member_ids=g.member_ids,
+                )
+                for g in v.groups
+            ],
+            timeline=None
+            if v.timeline is None
+            else GraphTimelineOut(from_=v.timeline.start, to=v.timeline.end),
+            at=v.at,
         )
+
+
+# --- preferences (graph-viz AC-18) -----------------------------------------------------------
+
+
+class PreferencesOut(_Out):
+    graph_theme: GraphTheme = Field(
+        description="图谱外观: light = 浅色 (default), starfield = 星空"
+    )
+
+    @classmethod
+    def of(cls, p: Preferences) -> PreferencesOut:
+        return cls(graph_theme=p.graph_theme)
+
+
+class PreferencesPatch(_In):
+    """Only the fields given change; ``null`` is not a value."""
+
+    graph_theme: GraphTheme | None = Field(default=None, description="Omit to keep")
+
+    @field_validator("graph_theme", mode="before")
+    @classmethod
+    def _not_null(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("graph_theme cannot be null")
+        return value
 
 
 class AskRequest(_In):
@@ -561,13 +665,17 @@ __all__ = [
     "EntrySubmitted",
     "ErrorBody",
     "FactOut",
+    "GraphGroupOut",
     "GraphOut",
+    "GraphTimelineOut",
     "LearnedAliasOut",
     "LoginRequest",
     "MeResponse",
     "PairEdited",
     "PairOut",
     "PersonOut",
+    "PreferencesOut",
+    "PreferencesPatch",
     "ProfileEditRequest",
     "ProfileEdited",
     "ProfileOut",

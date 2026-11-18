@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Tooltip } from "./Tooltip.tsx";
 
 const meta = {
@@ -40,8 +40,8 @@ export const OnFocusEscCloses: Story = {
     // Inverted surface: text-primary background, container-coloured text.
     // The visible bubble is the tooltip element itself or its styled parent.
     const bubble = tip.closest(".rounded-sm") as HTMLElement;
-    await expect(getComputedStyle(bubble).backgroundColor).toBe(rgb("#1D2433"));
-    await expect(getComputedStyle(bubble).borderRadius).toBe("6px");
+    await expect(getComputedStyle(bubble).backgroundColor).toBe(token("neutral-text-primary"));
+    await expect(getComputedStyle(bubble).borderRadius).toBe("8px");
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());

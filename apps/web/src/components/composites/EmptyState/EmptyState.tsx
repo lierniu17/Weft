@@ -34,7 +34,10 @@ const COPY: Record<EmptyStateVariant, { title: string; description: string; acti
   },
 };
 
-/** Illustrations drawn from the tokens: interwoven weft lines, an empty person card, a question mark. */
+/**
+ * Illustrations drawn from the tokens in ink and greys on a bg-subtle tile: interwoven weft
+ * lines, an empty person card, a question mark.
+ */
 function Illustration({ variant }: { variant: EmptyStateVariant }) {
   return (
     <svg
@@ -45,7 +48,7 @@ function Illustration({ variant }: { variant: EmptyStateVariant }) {
       fill="none"
       strokeLinecap="round"
     >
-      <rect x="4" y="4" width="88" height="88" rx="24" className="fill-primary-1" />
+      <rect x="4" y="4" width="88" height="88" rx="24" className="fill-neutral-bg-subtle" />
       {variant === "first-use" && (
         <>
           <path
@@ -55,7 +58,7 @@ function Illustration({ variant }: { variant: EmptyStateVariant }) {
           />
           <path
             d="M18 58c14 12 26-12 40 0s20 8 20 8"
-            className="stroke-secondary-6"
+            className="stroke-neutral-text-disabled"
             strokeWidth="4"
           />
           <path d="M34 22v52M62 22v52" className="stroke-neutral-border" strokeWidth="3" />
@@ -112,18 +115,19 @@ export function EmptyState({
       <Illustration variant={variant} />
       <div className="flex flex-col gap-xs">
         <h2 className="text-h3 text-neutral-text-primary">{title ?? copy.title}</h2>
-        <p className="text-body-sm text-neutral-text-secondary">
-          {description ?? copy.description}
-        </p>
+        <p className="text-body-sm text-neutral-text-tertiary">{description ?? copy.description}</p>
       </div>
       {examples && examples.length > 0 && (
-        <ul aria-label="示例记录" className="flex w-full max-w-[360px] flex-col gap-sm">
+        <ul
+          aria-label="示例记录"
+          className="motion-stagger flex w-full max-w-[360px] flex-col gap-sm"
+        >
           {examples.map((text) => (
             <li key={text}>
               <button
                 type="button"
                 onClick={() => onExample?.(text)}
-                className="motion-colors focus-ring w-full cursor-pointer rounded-md border border-neutral-border bg-neutral-bg-container px-md py-sm text-left text-body-md text-neutral-text-primary hover:bg-neutral-bg-layout active:bg-primary-1"
+                className="motion-press focus-ring w-full cursor-pointer rounded-md border border-neutral-divider bg-neutral-bg-container px-md py-sm text-left text-body-md text-neutral-text-secondary hover:bg-neutral-bg-subtle hover:text-neutral-text-primary"
               >
                 {text}
               </button>
@@ -132,7 +136,7 @@ export function EmptyState({
         </ul>
       )}
       {examples && examples.length > 0 && (
-        <p className="text-caption text-neutral-text-secondary">点一个示例试试</p>
+        <p className="text-caption text-neutral-text-tertiary">点一个示例试试</p>
       )}
       {action && onAction && (
         <Button variant="secondary" size="lg" onClick={onAction} className="min-w-[160px]">

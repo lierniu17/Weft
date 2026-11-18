@@ -1,7 +1,9 @@
-"""图 (graph views): a person's local graph and the panorama around Self (AC-33, AC-34)."""
+"""图 (graph views): a person's local graph and the panorama around Self, now or at a point
+in time (AC-33, AC-34, graph-viz AC-14)."""
 
 from __future__ import annotations
 
+from weft.domain.dates import PartialDate
 from weft.domain.graph_view import LOCAL_GRAPH_LIMIT, GraphView, PanoramaFilter, local_view
 from weft.domain.graph_view import panorama_view as _panorama_view
 from weft.domain.tenancy import require_tenant
@@ -29,15 +31,24 @@ async def local_graph(infra: Infra, person_id: str, *, hops: int = 1) -> Result[
             await q.feelings(),
             hops=hops,
             limit=LOCAL_GRAPH_LIMIT,
+            first_mentions=await q.mention_dates(),
         )
     )
 
 
-async def panorama(infra: Infra, f: PanoramaFilter) -> GraphView:
-    """The whole graph centred on Self, filtered by type and Self's closeness."""
+async def panorama(infra: Infra, f: PanoramaFilter, *, at: PartialDate | None = None) -> GraphView:
+    """The whole graph centred on Self, filtered by type and Self's closeness; as it was at
+    ``at`` when given (persons met by then, closeness and Relationships as of then)."""
     q = GraphQueryRepository(infra.neo4j, require_tenant())
     return _panorama_view(
-        await graph(infra).list_persons(), await q.relationships(), await q.feelings(), f
+        await graph(infra).list_persons(),
+        await q.relationships(),
+        await q.feelings(),
+        f,
+        at=at,
+        first_mentions=await q.mention_dates(),
+        facts=await q.facts(),
+        today=infra.today(),
     )
 
 

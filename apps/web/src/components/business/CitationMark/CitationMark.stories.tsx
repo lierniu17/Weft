@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { CitationMark } from "./CitationMark.tsx";
 
 const meta = {
@@ -19,14 +19,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Style refresh AC-7: the 出处 mark is a small bg-muted square with its number, neutral grey. */
 export const Default: Story = {
   play: async ({ canvasElement, args }) => {
     const mark = within(canvasElement).getByRole("button", { name: "出处 2" });
-    await expect(mark).toHaveTextContent("[2]");
+    await expect(mark).toHaveTextContent(/^2$/);
     const style = getComputedStyle(mark);
-    await expect(style.color).toBe(rgb("#4F46E5"));
+    await expect(style.backgroundColor).toBe(token("neutral-bg-muted"));
+    await expect(style.color).toBe(token("neutral-text-secondary"));
     await expect(style.fontSize).toBe("12px");
-    await expect(style.verticalAlign).toBe("super");
+    await expect(style.height).toBe("18px");
+    await expect(style.borderTopLeftRadius).toBe("6px");
     await userEvent.click(mark);
     await expect(args.onOpen).toHaveBeenCalledWith(2);
   },

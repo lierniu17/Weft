@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, screen, userEvent, waitFor, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { motionMs } from "../../../lib/motion.ts";
+import { token } from "../../../test/color.ts";
+import { canEmulateReducedMotion } from "../../../test/reducedMotion.ts";
+import { tokens } from "../../../tokens.gen.ts";
 import { Button } from "../Button/Button.tsx";
 import { Drawer, type DrawerProps } from "./Drawer.tsx";
 
@@ -50,10 +53,12 @@ export const BottomSheet: Story = {
     const sheet = await screen.findByRole("dialog", { name: "确认草稿" });
     await expect(sheet).toHaveAccessibleDescription("今天 · 确认后才会写进图谱");
     const style = getComputedStyle(sheet);
-    await expect(style.borderTopLeftRadius).toBe("16px");
-    await expect(style.borderTopRightRadius).toBe("16px");
+    await expect(style.borderTopLeftRadius).toBe(tokens.radius.xl);
+    await expect(style.borderTopRightRadius).toBe(tokens.radius.xl);
     await expect(style.borderBottomLeftRadius).toBe("0px");
-    await expect(style.backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(style.backgroundColor).toBe(token("neutral-bg-container"));
+    // A floating surface: shadow.lg.
+    await expect(style.boxShadow).toContain("rgba(0, 0, 0, 0.1) 0px 12px 32px 0px");
     // Anchored to the bottom of the viewport.
     await waitFor(() =>
       expect(Math.round(sheet.getBoundingClientRect().bottom)).toBe(window.innerHeight),
@@ -95,8 +100,9 @@ export const SidePanel: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "查看并确认" }));
     const panel = await screen.findByRole("dialog", { name: "出处" });
-    await expect(panel.getBoundingClientRect().width).toBe(360);
-    await expect(getComputedStyle(panel).borderLeftColor).toBe(rgb("#EBEEF2"));
+    // DESIGN.md: the right column is 380px.
+    await expect(panel.getBoundingClientRect().width).toBe(380);
+    await expect(getComputedStyle(panel).borderLeftColor).toBe(token("neutral-divider"));
     // Anchored to the right edge once the slide-in settles.
     await waitFor(() =>
       expect(Math.round(panel.getBoundingClientRect().right)).toBe(window.innerWidth),
@@ -140,9 +146,10 @@ export const NonModalSidePanel: Story = {
     // In the page flow, not portalled; a dialog that does not block the page.
     await expect(canvasElement).toContainElement(panel);
     await expect(panel).not.toHaveAttribute("aria-modal", "true");
-    await expect(panel.getBoundingClientRect().width).toBe(360);
-    await expect(getComputedStyle(panel).borderLeftColor).toBe(rgb("#EBEEF2"));
+    await expect(panel.getBoundingClientRect().width).toBe(380);
+    await expect(getComputedStyle(panel).borderLeftColor).toBe(token("neutral-divider"));
     await expect(getComputedStyle(panel).position).not.toBe("fixed");
+    await expect(getComputedStyle(panel).boxShadow).not.toContain("12px 32px");
     // No mask; focus moved into the panel.
     await expect(document.querySelector("[data-drawer-mask]")).toBeNull();
     await waitFor(() => expect(panel).toContainElement(document.activeElement as HTMLElement));
@@ -217,5 +224,142 @@ export const ModalSidePanelEsc: Story = {
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(trigger).toHaveFocus());
+  },
+};
+
+/** The wide right column (560px) holds the panorama beside the chat (graph-viz AC-17). */
+export const NonModalWide: Story = {
+  name: "Side panel · non-modal, wide",
+  args: { variant: "side-panel", modal: false, width: "wide" },
+  render: (args) => <Inline {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "查看并确认" }));
+    const panel = await canvas.findByRole("dialog", { name: "确认草稿" });
+    await expect(panel.getBoundingClientRect().width).toBe(560);
+  },
+};
+
+/** The focus ring as computed: 2px solid ink, 2px away (AC-6). */
+const ringOf = (el: Element) => {
+  const s = getComputedStyle(el);
+  return s.outlineStyle === "none"
+    ? "none"
+    : `${s.outlineWidth} ${s.outlineStyle} ${s.outlineColor} +${s.outlineOffset}`;
+};
+const RING = `2px solid ${token("primary-6")} +2px`;
+
+/** AC-6: opened with a pointer, the ✕ that receives focus shows no ring. */
+export const PointerOpenNoFocusRing: Story = {
+  name: "Focus ring · pointer open shows none (AC-6)",
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "查看并确认" }));
+    const sheet = await screen.findByRole("dialog", { name: "确认草稿" });
+    const close = within(sheet).getByRole("button", { name: "关闭" });
+    await waitFor(() => expect(close).toHaveFocus());
+    await expect(close).toHaveFocus();
+    await expect(ringOf(close)).toBe("none");
+
+    // Switching to the keyboard brings the ring back on the next stop.
+    await userEvent.tab();
+    await expect(ringOf(document.activeElement as Element)).toBe(RING);
+  },
+};
+
+/** AC-6: opened from the keyboard, the focused ✕ shows the ink ring. */
+export const KeyboardOpenShowsFocusRing: Story = {
+  name: "Focus ring · keyboard open shows it (AC-6)",
+  play: async ({ canvasElement }) => {
+    const trigger = within(canvasElement).getByRole("button", { name: "查看并确认" });
+    await userEvent.tab();
+    await expect(trigger).toHaveFocus();
+    await expect(ringOf(trigger)).toBe(RING);
+    await userEvent.keyboard("{Enter}");
+    const sheet = await screen.findByRole("dialog", { name: "确认草稿" });
+    const close = within(sheet).getByRole("button", { name: "关闭" });
+    await waitFor(() => expect(close).toHaveFocus());
+    await expect(ringOf(close)).toBe(RING);
+  },
+};
+
+const anim = (el: Element) => {
+  const s = getComputedStyle(el);
+  return {
+    name: s.animationName,
+    duration: s.animationDuration,
+    easing: s.animationTimingFunction,
+  };
+};
+const sec = (ms: number) => `${ms / 1000}s`;
+const m = tokens.motion;
+
+/** AC-13: in over 250ms decelerate, out over 200ms accelerate; the scrim fades both ways. */
+export const SheetMotion: Story = {
+  name: "Motion · bottom sheet (AC-13)",
+  parameters: { motion: true },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "查看并确认" }));
+    const sheet = await screen.findByRole("dialog", { name: "确认草稿" });
+    const mask = document.querySelector("[data-drawer-mask]") as HTMLElement;
+    await expect(anim(sheet)).toEqual({
+      name: "sheet-in",
+      duration: sec(motionMs("sheet")),
+      easing: m["easing-decelerate"],
+    });
+    await expect(anim(mask)).toEqual({
+      name: "fade-in",
+      duration: sec(motionMs("sheet")),
+      easing: m["easing-standard"],
+    });
+
+    await userEvent.click(within(sheet).getByRole("button", { name: "关闭" }));
+    // Still mounted while it slides out.
+    await expect(sheet).toHaveAttribute("data-state", "closed");
+    await expect(anim(sheet)).toEqual({
+      name: "sheet-out",
+      duration: sec(motionMs("sheet-exit")),
+      easing: m["easing-accelerate"],
+    });
+    await expect(anim(mask).name).toBe("fade-out");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  },
+};
+
+export const PanelMotion: Story = {
+  name: "Motion · side panel (AC-13)",
+  args: { variant: "side-panel" },
+  parameters: { motion: true },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "查看并确认" }));
+    const panel = await screen.findByRole("dialog", { name: "确认草稿" });
+    await expect(anim(panel)).toEqual({
+      name: "panel-in",
+      duration: sec(motionMs("sheet")),
+      easing: m["easing-decelerate"],
+    });
+    await userEvent.click(within(panel).getByRole("button", { name: "关闭" }));
+    await expect(anim(panel)).toEqual({
+      name: "panel-out",
+      duration: sec(motionMs("sheet-exit")),
+      easing: m["easing-accelerate"],
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  },
+};
+
+/** AC-16: with 「减少动态效果」 the sheet and scrim switch directly, in and out. */
+export const ReducedMotion: Story = {
+  name: "Motion · reduced (AC-16)",
+  parameters: { motion: true, reducedMotion: true },
+  play: async ({ canvasElement }) => {
+    if (!canEmulateReducedMotion()) return;
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "查看并确认" }));
+    const sheet = await screen.findByRole("dialog", { name: "确认草稿" });
+    await expect(anim(sheet).name).toBe("none");
+    await expect(anim(document.querySelector("[data-drawer-mask]") as Element).name).toBe("none");
+    await expect(document.getAnimations()).toEqual([]);
+    await userEvent.click(within(sheet).getByRole("button", { name: "关闭" }));
+    // Gone at once: nothing left to animate out.
+    await expect(screen.queryByRole("dialog")).toBeNull();
   },
 };

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { FiArrowUp, FiMoreHorizontal, FiX } from "react-icons/fi";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { IconButton } from "./IconButton.tsx";
 
 const meta = {
@@ -18,7 +18,7 @@ export const Filled: Story = {
   play: async ({ canvasElement, args }) => {
     // Icon-only: the accessible name comes from aria-label, not from the glyph.
     const button = within(canvasElement).getByRole("button", { name: "发送" });
-    await expect(getComputedStyle(button).backgroundColor).toBe(rgb("#4F46E5"));
+    await expect(getComputedStyle(button).backgroundColor).toBe(token("primary-6"));
     await expect(getComputedStyle(button).borderRadius).toBe("9999px");
     await userEvent.click(button);
     await expect(args.onClick).toHaveBeenCalledTimes(1);
@@ -57,8 +57,9 @@ export const Disabled: Story = {
   play: async ({ canvasElement, args }) => {
     const button = within(canvasElement).getByRole("button", { name: "发送" });
     await expect(button).toBeDisabled();
-    await expect(getComputedStyle(button).backgroundColor).toBe(rgb("#EBEEF2"));
-    await expect(getComputedStyle(button).color).toBe(rgb("#9AA3B2"));
+    // DESIGN.md §2: an empty composer's send button fades to 25%, still ink.
+    await expect(getComputedStyle(button).backgroundColor).toBe(token("primary-6"));
+    await expect(getComputedStyle(button).opacity).toBe("0.25");
     await userEvent.click(button);
     await expect(args.onClick).not.toHaveBeenCalled();
   },

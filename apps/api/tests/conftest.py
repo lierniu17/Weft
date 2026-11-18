@@ -55,7 +55,10 @@ _forget_local_env_file()
 
 # 2026-11-16 12:00 Beijing time — the date the spec's examples use.
 DEFAULT_NOW = datetime(2026, 11, 16, 4, 0, tzinfo=UTC)
-TABLES = "users, invite_codes, sessions, entries, drafts, custom_subtypes, usage_counters"
+TABLES = (
+    "users, invite_codes, sessions, entries, drafts, custom_subtypes, usage_counters, "
+    "user_preferences"
+)
 
 CREATED_GROUPS: set[str] = set()
 

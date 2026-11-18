@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { FiMoreHorizontal } from "react-icons/fi";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { IconButton } from "../../basics/IconButton/IconButton.tsx";
 import { NavBar } from "./NavBar.tsx";
@@ -34,8 +34,10 @@ export const Root: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const bar = canvas.getByRole("banner");
-    await expect(bar.getBoundingClientRect().height).toBe(48);
-    await expect(getComputedStyle(bar).backgroundColor).toBe(rgb("#FFFFFF"));
+    // 52px on the white page, no rule underneath.
+    await expect(bar.getBoundingClientRect().height).toBe(52);
+    await expect(getComputedStyle(bar).backgroundColor).toBe(token("neutral-bg-layout"));
+    await expect(getComputedStyle(bar).borderBottomWidth).toBe("0px");
     await expect(canvas.getByRole("heading", { level: 1, name: "Weft" })).toBeVisible();
     await expect(canvas.queryByRole("button", { name: "返回" })).toBeNull();
     await expect(canvas.getByRole("button", { name: "记录" })).toBeVisible();
@@ -72,5 +74,15 @@ export const LongTitle: Story = {
     await expect(getComputedStyle(heading).textOverflow).toBe("ellipsis");
     await userEvent.hover(heading);
     await expect(await screen.findByRole("tooltip")).toHaveTextContent(LONG);
+  },
+};
+
+/** The person page names itself in its own h1: the bar keeps only 返回 and the actions. */
+export const WithoutTitle: Story = {
+  args: { title: "", variant: "pushed", onBack: fn() },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("heading")).toBeNull();
+    await expect(canvas.getByRole("button", { name: "返回" })).toBeVisible();
   },
 };

@@ -77,7 +77,7 @@ export function FeelingRow({
             aria-expanded={expanded}
             aria-controls={historyId}
             onClick={() => setExpanded((v) => !v)}
-            className="motion-colors focus-ring flex shrink-0 cursor-pointer items-center gap-xs rounded-sm px-xs text-caption text-primary-6 hover:bg-primary-1"
+            className="motion-colors focus-ring flex shrink-0 cursor-pointer items-center gap-xs rounded-sm px-xs text-caption text-neutral-text-secondary hover:bg-neutral-bg-muted hover:text-neutral-text-primary"
           >
             历史
             <FiChevronDown

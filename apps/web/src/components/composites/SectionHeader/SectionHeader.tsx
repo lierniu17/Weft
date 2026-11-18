@@ -13,7 +13,10 @@ export type SectionHeaderProps = {
   className?: string;
 };
 
-/** Section title for a list or page area: caption, text-secondary, optional action. */
+/**
+ * Section title for a list or page area: typography.section (13 / 20 semibold) in the
+ * tertiary grey, optional action. Sections sit spacing.lg apart, spacing.sm above content.
+ */
 export function SectionHeader({
   title,
   count,
@@ -24,10 +27,10 @@ export function SectionHeader({
 }: SectionHeaderProps) {
   const Heading = `h${level}` as const;
   return (
-    <div className={cx("flex min-h-[24px] items-center gap-sm", className)}>
+    <div data-section-header="" className={cx("flex min-h-[24px] items-center gap-sm", className)}>
       <Heading
         id={id}
-        className="min-w-[0] flex-1 truncate text-caption font-regular text-neutral-text-secondary"
+        className="min-w-[0] flex-1 truncate text-section text-neutral-text-tertiary"
       >
         {title}
         {count !== undefined && ` · ${count}`}

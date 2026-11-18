@@ -18,6 +18,13 @@ const VARIANTS: Record<BannerVariant, string> = {
   info: "bg-status-info-1 text-status-info-6",
 };
 
+/** Icons are graphics: the status `graphic` tone (≥ 3:1); text stays status-6 (≥ 4.5:1). */
+const ICON_TONE: Record<BannerVariant, string> = {
+  warning: "text-status-warning-graphic",
+  error: "text-status-error-graphic",
+  info: "text-status-info-graphic",
+};
+
 const ICONS: Record<BannerVariant, ReactNode> = {
   warning: <FiAlertTriangle />,
   error: <FiAlertCircle />,
@@ -38,7 +45,7 @@ export function Banner({ variant = "info", children, action, className }: Banner
         className,
       )}
     >
-      <span aria-hidden="true" className="mt-xs shrink-0">
+      <span aria-hidden="true" className={cx("mt-xs shrink-0", ICON_TONE[variant])}>
         {ICONS[variant]}
       </span>
       <div className="min-w-[0] flex-1">{children}</div>

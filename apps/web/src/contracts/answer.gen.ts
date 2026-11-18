@@ -46,7 +46,7 @@ export type IsSelf = boolean;
 export type IsOpinion = boolean;
 export type Citations1 = Citation[];
 /**
- * Related persons, shown as chips
+ * Related persons, shown as chips (never Self)
  */
 export type Persons = PersonRef[];
 /**

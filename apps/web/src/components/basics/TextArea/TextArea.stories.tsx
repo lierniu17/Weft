@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { TextArea } from "./TextArea.tsx";
 
 const meta = {
@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>;
 export const AutoGrow: Story = {
   play: async ({ canvasElement }) => {
     const box = within(canvasElement).getByRole("textbox", { name: "记录内容" });
-    await expect(getComputedStyle(box).borderRadius).toBe("10px");
+    await expect(getComputedStyle(box).borderRadius).toBe("12px");
     const oneLine = box.getBoundingClientRect().height;
 
     await userEvent.type(box, "今天和老张吃饭{Enter}他说跟小李闹掰了{Enter}第三行");
@@ -43,6 +43,6 @@ export const Disabled: Story = {
   play: async ({ canvasElement }) => {
     const box = within(canvasElement).getByRole("textbox", { name: "记录内容" });
     await expect(box).toBeDisabled();
-    await expect(getComputedStyle(box).backgroundColor).toBe(rgb("#F5F6F8"));
+    await expect(getComputedStyle(box).backgroundColor).toBe(token("neutral-bg-subtle"));
   },
 };

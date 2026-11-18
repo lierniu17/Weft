@@ -89,7 +89,7 @@ class Answer(_Model):
     kind: AnswerKind
     segments: list[AnswerSegment]
     citations: list[Citation]
-    persons: list[PersonRef] = Field(description="Related persons, shown as chips")
+    persons: list[PersonRef] = Field(description="Related persons, shown as chips (never Self)")
     path: list[PersonRef] | None = Field(
         default=None, description="kind = path: ordered chain from the first person to the last"
     )

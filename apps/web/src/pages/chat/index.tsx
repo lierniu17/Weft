@@ -5,8 +5,15 @@ import { ApiError, enc } from "../../api/client.ts";
 import { useEntries, useSubmitEntry } from "../../api/entries.ts";
 import { useAsk, useUsage } from "../../api/graph.ts";
 import { useChatSession } from "../../app/chatSession.tsx";
-import { useLayout, useSheetVariant, useToday } from "../../app/layout.ts";
+import {
+  CONTENT_COLUMN,
+  RIGHT_COLUMN,
+  useLayout,
+  useSheetVariant,
+  useToday,
+} from "../../app/layout.ts";
 import { Button } from "../../components/basics/Button/Button.tsx";
+import { Drawer } from "../../components/basics/Drawer/Drawer.tsx";
 import { Skeleton } from "../../components/basics/Skeleton/Skeleton.tsx";
 import { Toast } from "../../components/basics/Toast/Toast.tsx";
 import { AnswerCard } from "../../components/business/AnswerCard/AnswerCard.tsx";
@@ -17,12 +24,13 @@ import {
 } from "../../components/business/ChatComposer/ChatComposer.tsx";
 import { CitationSheet } from "../../components/business/CitationSheet/CitationSheet.tsx";
 import { MessageBubble } from "../../components/business/MessageBubble/MessageBubble.tsx";
-import { Card } from "../../components/composites/Card/Card.tsx";
 import { EmptyState } from "../../components/composites/EmptyState/EmptyState.tsx";
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
-import type { Citation } from "../../contracts/answer.ts";
+import type { Answer, Citation } from "../../contracts/answer.ts";
+import { cx } from "../../lib/cx.ts";
 import { type OccurredOn, todayOccurredOn } from "../../lib/datePrecision.ts";
 import { draftCardLabels, quotaMessages, toPartialDate } from "../../lib/pageModels.ts";
+import { PanoramaBody } from "../panorama/PanoramaView.tsx";
 import { CurrentPersonPanel } from "./CurrentPersonPanel.tsx";
 import { DraftReview } from "./DraftReview.tsx";
 import { EntryThread } from "./EntryThread.tsx";
@@ -53,6 +61,8 @@ export function ChatPage() {
   const [reviewing, setReviewing] = useState<{ draftId: string; occurredOn: string } | null>(null);
   const [citations, setCitations] = useState<Citation[] | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** Desktop: the panorama in the right column, with the answer lit (清除 keeps the graph). */
+  const [graphPanel, setGraphPanel] = useState<{ answer: Answer | null } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const feed = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -110,6 +120,7 @@ export function ChatPage() {
   const inline = layout === "desktop";
   const review = (draftId: string, entryOccurredOn: string) => {
     setCitations(null);
+    setGraphPanel(null);
     setReviewing({ draftId, occurredOn: entryOccurredOn });
   };
 
@@ -142,6 +153,18 @@ export function ChatPage() {
     });
   };
 
+  // 在图上查看 (graph-viz AC-17): phones and tablets go to 全景图; desktop keeps the chat
+  // and opens the panorama in the right column.
+  const showOnGraph = (answer: Answer) => {
+    if (inline) {
+      setReviewing(null);
+      setCitations(null);
+      setGraphPanel({ answer });
+    } else {
+      navigate("/graph", { state: { answer } });
+    }
+  };
+
   const answerHandlers = {
     today,
     onPersonClick: (p: { person_id: string }) => openPerson(p.person_id),
@@ -169,7 +192,7 @@ export function ChatPage() {
               role="status"
               aria-busy="true"
               aria-label="正在加载对话"
-              className="flex flex-col gap-md p-md"
+              className={cx(CONTENT_COLUMN, "flex flex-col gap-md py-md")}
             >
               <Skeleton variant="card" />
               <Skeleton variant="card" />
@@ -184,7 +207,11 @@ export function ChatPage() {
               }}
             />
           ) : (
-            <ol aria-label="对话" className="flex flex-col gap-md px-md py-md">
+            <ol
+              aria-label="对话"
+              data-page-content=""
+              className={cx(CONTENT_COLUMN, "motion-stagger flex flex-col gap-lg py-md")}
+            >
               {history.map((e) => (
                 <EntryThread
                   key={e.id}
@@ -221,25 +248,28 @@ export function ChatPage() {
                           const c = item.answer?.citations.find((x) => x.index === i);
                           if (!c) return;
                           setReviewing(null);
+                          setGraphPanel(null);
                           setCitations([c]);
                         }}
+                        onShowOnGraph={() => item.answer && showOnGraph(item.answer)}
                         {...answerHandlers}
                       />
                     ) : item.error ? (
-                      <Card className="max-w-[88%] text-body-sm text-status-error-6" role="alert">
+                      <p className="py-xs text-body-md text-status-error-6" role="alert">
                         {item.error}
-                      </Card>
+                      </p>
                     ) : (
-                      <Card
+                      // answers are never boxed (AC-4): the wait is set on the page too
+                      <div
                         role="status"
                         aria-busy="true"
                         aria-label="正在查找"
-                        className="flex max-w-[88%] flex-col gap-sm"
+                        className="flex flex-col gap-sm py-xs"
                       >
                         <p className="text-body-md text-neutral-text-secondary">正在图谱里查找…</p>
                         <Skeleton width="80%" />
                         <Skeleton width="60%" />
-                      </Card>
+                      </div>
                     )}
                   </li>
                 );
@@ -249,6 +279,7 @@ export function ChatPage() {
           <div ref={bottom} />
         </div>
         <ChatComposer
+          className="mx-auto w-full max-w-[720px]"
           mode={mode}
           onModeChange={setMode}
           value={text}
@@ -261,10 +292,32 @@ export function ChatPage() {
           exhausted={quotaMessages(usage.data)}
         />
       </div>
-      {inline && !reviewing && citations === null && (
+      {inline && graphPanel && (
+        <Drawer
+          open
+          onOpenChange={(open) => !open && setGraphPanel(null)}
+          title="全景图"
+          variant="side-panel"
+          modal={false}
+          width="wide"
+        >
+          <div className="flex h-full min-h-[480px] flex-col">
+            <PanoramaBody
+              panel
+              answer={graphPanel.answer}
+              onClearAnswer={() => setGraphPanel({ answer: null })}
+              onOpenPerson={openPerson}
+            />
+          </div>
+        </Drawer>
+      )}
+      {inline && !reviewing && citations === null && !graphPanel && (
         <aside
           aria-label="右栏"
-          className="flex w-[360px] shrink-0 flex-col overflow-y-auto border-l border-neutral-divider bg-neutral-bg-container"
+          className={cx(
+            RIGHT_COLUMN,
+            "flex flex-col overflow-y-auto border-l border-neutral-divider bg-neutral-bg-container",
+          )}
         >
           <CurrentPersonPanel entryId={latestConfirmed?.id} />
         </aside>

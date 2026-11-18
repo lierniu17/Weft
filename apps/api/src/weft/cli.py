@@ -3,7 +3,8 @@
 invites generate N                print N new invite codes, one per line (AC-41)
 invites list                      every code with its state (unused / used / revoked) and user
 invites revoke CODE               revoke an unused code (exit 1 if unknown, used or revoked)
-seed --user LOGIN                 write the seed graph (BOT-5 / BOT-9) into LOGIN's empty graph
+seed --user LOGIN [--size N]      write the seed graph (BOT-5 / BOT-9) into LOGIN's empty graph;
+                                  --size grows it with generated persons to N (e.g. 300)
 embeddings backfill --user LOGIN  embed LOGIN's persons, entities and facts lacking vectors
 summaries refresh --user LOGIN    regenerate LOGIN's stale 综合描述 and relationship summaries
 
@@ -38,6 +39,9 @@ def _parser() -> argparse.ArgumentParser:
 
     seed_cmd = groups.add_parser("seed", help="write the seed graph into a user's empty graph")
     seed_cmd.add_argument("--user", required=True, help="login name")
+    seed_cmd.add_argument(
+        "--size", type=int, default=None, help="grow to N persons with generated ones"
+    )
     emb = groups.add_parser("embeddings", help="search embeddings")
     emb_cmds = emb.add_subparsers(dest="command", required=True)
     emb_cmds.add_parser("backfill", help="embed what has no vector").add_argument(
@@ -74,8 +78,8 @@ async def _invites(args: argparse.Namespace, infra: Infra) -> int:
     return 1
 
 
-async def _seed(infra: Infra) -> int:
-    result = await seed.seed_graph(infra)
+async def _seed(infra: Infra, size: int | None = None) -> int:
+    result = await seed.seed_graph(infra, size=size)
     if isinstance(result, Err):
         print(f"cannot seed: {result.message}", file=sys.stderr)
         return 1
@@ -113,7 +117,11 @@ async def run(argv: Sequence[str], *, infra: Infra) -> int:
     args = _parser().parse_args(list(argv))
     if args.group == "invites":
         return await _invites(args, infra)
-    per_user = {"seed": _seed, "embeddings": _backfill, "summaries": _refresh}
+    per_user: dict[str, Callable[[Infra], Awaitable[int]]] = {
+        "seed": lambda i: _seed(i, args.size),
+        "embeddings": _backfill,
+        "summaries": _refresh,
+    }
     return await _as_user(infra, args.user, per_user[args.group])
 
 

@@ -249,7 +249,7 @@
       "type": "array"
     },
     "persons": {
-      "description": "Related persons, shown as chips",
+      "description": "Related persons, shown as chips (never Self)",
       "items": {
         "$ref": "#/$defs/PersonRef"
       },

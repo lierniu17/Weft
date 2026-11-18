@@ -19,6 +19,7 @@
     "test:web": "pnpm test:unit && pnpm test:stories",
     "e2e:bot": "playwright test",
     "e2e:fixtures": "node tests/e2e/run.mjs --author",
+    "e2e:clean": "tsx tests/e2e/clean.ts",
     "test:all": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test:stories",
     "e2e:walkthrough": "node tests/e2e/run.mjs --walkthrough --author",
     "e2e:bot:remote": "node tests/e2e/run.mjs --remote",

@@ -180,11 +180,11 @@ test("AC-UI walkthrough", async ({ page }) => {
   // --- 375: chat with a draft + answer (AC-UI-1, 2, 9, 10) ----------------------------
   await page.goto("/");
   await submitRecord(page, "今天和老张吃饭，他说他女儿明年高考，他最近迷上了钓鱼，不过他不喝酒。");
-  const card = draftCardOf(page, "女儿明年高考");
+  const card = draftCardOf(page, "迷上了钓鱼");
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: 60_000 });
   results["AC-UI-10 one draft card per entry"] = await page
     .locator("[data-entry-thread]")
-    .filter({ hasText: "女儿明年高考" })
+    .filter({ hasText: "迷上了钓鱼" })
     .locator("[data-draft-card]")
     .count();
   results["AC-UI-9 draft status is a live region"] = await card
@@ -254,7 +254,9 @@ test("AC-UI walkthrough", async ({ page }) => {
   results["AC-UI-6 discard modal buttons"] = widths;
   await snap(page, "375-discard-modal");
   await modal.getByRole("button", { name: "取消" }).click();
+  await expect(modal).toBeHidden(); // its exit fade (motion.sheet-exit) is over
   await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
 
   // ask with the keyboard
   await page.getByRole("radio", { name: "提问" }).click();
@@ -481,7 +483,7 @@ test("AC-UI walkthrough", async ({ page }) => {
           mask: 0,
           pageHidden: false,
           inPageFlow: true,
-          width: 360,
+          width: 380,
           right: expect.any(Number),
           focusInPanel: true,
           triggerHitTestable: true,

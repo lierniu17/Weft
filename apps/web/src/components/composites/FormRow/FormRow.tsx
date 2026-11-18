@@ -23,7 +23,7 @@ export function FormRow({ label, htmlFor, children, className }: FormRowProps) {
       >
         <label
           htmlFor={htmlFor}
-          className="w-[96px] max-w-[96px] shrink-0 pt-sm text-right text-body-sm text-neutral-text-primary @max-[359px]:w-auto @max-[359px]:pt-[0] @max-[359px]:text-left"
+          className="w-[96px] max-w-[96px] shrink-0 pt-sm text-right text-body-sm text-neutral-text-secondary @max-[359px]:w-auto @max-[359px]:pt-[0] @max-[359px]:text-left"
         >
           {label}
         </label>

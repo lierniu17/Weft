@@ -43,7 +43,7 @@ export function FactTimeline({ facts, today, onFactOpen, className }: FactTimeli
           <button
             type="button"
             onClick={() => onFactOpen(f.id)}
-            className="motion-colors focus-ring cursor-pointer rounded-sm text-left hover:text-primary-6"
+            className="motion-colors focus-ring cursor-pointer rounded-sm text-left decoration-neutral-border underline-offset-4 hover:underline"
           >
             <span data-fact-text="">{f.text}</span>
           </button>

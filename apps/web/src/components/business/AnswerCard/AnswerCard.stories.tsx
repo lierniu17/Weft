@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Answer } from "../../../contracts/answer.ts";
-import { rgb } from "../../../test/color.ts";
+import { TRANSPARENT, token } from "../../../test/color.ts";
 import { CitationSheet } from "../CitationSheet/CitationSheet.tsx";
 import { AnswerCard } from "./AnswerCard.tsx";
 import {
@@ -42,11 +42,23 @@ type Story = StoryObj<typeof meta>;
 
 const card = (root: HTMLElement) => within(root).getByRole("article", { name: "回答" });
 
-/** text: every claim carries a [n]; related persons and follow-ups are clickable. */
+/**
+ * text: every claim carries a 出处 mark; related persons (avatar chips) and follow-ups are
+ * clickable. Style refresh AC-4 / AC-7: the answer sits straight on the page — no card
+ * (no fill, border or shadow); 「在图上查看」 is a neutral text button.
+ */
 export const Text: Story = {
   play: async ({ canvasElement, args }) => {
     const c = within(card(canvasElement));
-    await expect(getComputedStyle(card(canvasElement)).backgroundColor).toBe(rgb("#FFFFFF"));
+    const surface = getComputedStyle(card(canvasElement));
+    await expect(surface.backgroundColor).toBe(TRANSPARENT);
+    await expect(surface.borderTopWidth).toBe("0px");
+    await expect(surface.boxShadow).toBe("none");
+    const chip = c.getByRole("button", { name: /张伟/ });
+    await expect(chip.querySelector("[data-chip-avatar]")).toHaveAttribute(
+      "data-chip-avatar",
+      "张",
+    );
     await expect(card(canvasElement)).toHaveTextContent("据老张说");
     await expect(c.getAllByRole("button", { name: /^出处 \d$/ })).toHaveLength(2);
     await userEvent.click(c.getByRole("button", { name: "出处 2" }));
@@ -154,7 +166,7 @@ export const NoAnswer: Story = {
     await expect(card(canvasElement)).toHaveTextContent("图谱里没有相关信息");
     await expect(c.queryByRole("button", { name: /^出处/ })).toBeNull();
     const record = c.getByRole("button", { name: "去记一笔" });
-    await expect(getComputedStyle(record).backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(getComputedStyle(record).backgroundColor).toBe(token("neutral-bg-container"));
     await userEvent.click(record);
     await expect(args.onRecord).toHaveBeenCalled();
   },
@@ -165,5 +177,75 @@ export const NoAnswerDefaultText: Story = {
   args: { answer: { ...NO_ANSWER, segments: [] } },
   play: async ({ canvasElement }) => {
     await expect(card(canvasElement)).toHaveTextContent("图谱里没有相关信息。");
+  },
+};
+
+/**
+ * graph-viz AC-16: every answer about people (path / list / stat / text) offers
+ * 「在图上查看」; no_answer does not.
+ */
+export const ShowOnGraph: Story = {
+  args: { answer: PATH_ANSWER, onShowOnGraph: fn() },
+  play: async ({ canvasElement, args }) => {
+    const c = within(card(canvasElement));
+    const show = c.getByRole("button", { name: "在图上查看" });
+    // a neutral text button (style refresh AC-7): no fill, no border, secondary grey
+    await expect(getComputedStyle(show).backgroundColor).toBe(TRANSPARENT);
+    await expect(getComputedStyle(show).color).toBe(token("neutral-text-secondary"));
+    await userEvent.click(show);
+    await expect(args.onShowOnGraph).toHaveBeenCalledTimes(1);
+  },
+};
+
+function EveryKind() {
+  return (
+    <div className="flex flex-col gap-md">
+      {[TEXT_ANSWER, PATH_ANSWER, LIST_ANSWER, STAT_ANSWER, NO_ANSWER].map((a) => (
+        <AnswerCard
+          key={a.kind}
+          answer={a}
+          today={TODAY}
+          onCitationOpen={() => {}}
+          onPersonClick={() => {}}
+          onFollowUp={() => {}}
+          onRecord={() => {}}
+          onShowOnGraph={() => {}}
+        />
+      ))}
+    </div>
+  );
+}
+
+export const ShowOnGraphByKind: Story = {
+  render: () => <EveryKind />,
+  play: async ({ canvasElement }) => {
+    const cards = within(canvasElement).getAllByRole("article", { name: "回答" });
+    const has = cards.map(
+      (el) => within(el).queryByRole("button", { name: "在图上查看" }) !== null,
+    );
+    await expect(has).toEqual([true, true, true, true, false]);
+  },
+};
+
+/** Self is never a related-person chip (an older answer may still list 我): only in the chain. */
+export const SelfIsNotAChip: Story = {
+  args: {
+    answer: {
+      ...PATH_ANSWER,
+      persons: [
+        { person_id: "me", name: "小明", is_self: true },
+        { person_id: "zw", name: "张伟" },
+        { person_id: "wf", name: "王芳" },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const c = within(card(canvasElement));
+    const related = c.getByRole("list", { name: "相关人物" });
+    const chips = within(related).getAllByRole("button");
+    await expect(chips.map((b) => b.getAttribute("aria-label"))).toEqual(["查看张伟", "查看王芳"]);
+    await expect(
+      within(c.getByRole("list", { name: "人脉路径" })).getAllByRole("button"),
+    ).toHaveLength(3);
   },
 };

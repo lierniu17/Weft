@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { TRANSPARENT, token } from "../../../test/color.ts";
+import { tokens } from "../../../tokens.gen.ts";
+
 import { ChatComposer } from "./ChatComposer.tsx";
 
 const today = new Date(2026, 10, 16);
@@ -59,7 +61,7 @@ export const SubmitRecord: Story = {
     const { input, send } = parts(canvasElement);
     await userEvent.type(input, "今天和老张吃饭");
     await expect(send).toBeEnabled();
-    await expect(getComputedStyle(send).backgroundColor).toBe(rgb("#4F46E5"));
+    await expect(getComputedStyle(send).backgroundColor).toBe(token("primary-6"));
     await userEvent.click(send);
     await expect(args.onSubmit).toHaveBeenCalledWith({
       mode: "record",
@@ -123,7 +125,7 @@ export const RecordQuotaExhausted: Story = {
     const { canvas, input, send, ask } = parts(canvasElement);
     const banner = canvas.getByRole("status");
     await expect(banner).toHaveTextContent("北京时间 0 点重置");
-    await expect(getComputedStyle(banner).backgroundColor).toBe(rgb("#FFF7E6"));
+    await expect(getComputedStyle(banner).backgroundColor).toBe(token("status-warning-1"));
     await expect(input).toBeDisabled();
     await expect(send).toBeDisabled();
     // Asking is judged by its own quota (S5 ③).
@@ -163,5 +165,32 @@ export const Controlled: Story = {
     await expect(input).toHaveValue("读大学时在社团认识了小李");
     await userEvent.type(input, "。");
     await expect(args.onValueChange).toHaveBeenCalledWith("读大学时在社团认识了小李。");
+  },
+};
+
+/**
+ * Style refresh AC-7: the composer is the page's focal point — one rounded.xl box with a thin
+ * border and shadow.md, shadow.lg while focused; the textarea has no box of its own; the
+ * round ink send button sits at 25% opacity and cannot be pressed while the box is empty.
+ */
+export const FocalPoint: Story = {
+  play: async ({ canvasElement }) => {
+    const { input, send } = parts(canvasElement);
+    const box = canvasElement.querySelector("[data-composer-box]") as HTMLElement;
+    const style = getComputedStyle(box);
+    await expect(style.borderTopLeftRadius).toBe(tokens.radius.xl);
+    await expect(style.borderTopColor).toBe(token("neutral-border"));
+    await expect(style.boxShadow).toContain("rgba(0, 0, 0, 0.06) 0px 4px 16px 0px"); // shadow.md
+    await expect(getComputedStyle(input).borderTopWidth).toBe("0px");
+    await expect(getComputedStyle(input).backgroundColor).toBe(TRANSPARENT);
+    await expect(getComputedStyle(send).opacity).toBe("0.25");
+    await expect(send).toBeDisabled();
+    await expect(getComputedStyle(send).borderTopLeftRadius).toBe("9999px");
+    await userEvent.click(input);
+    await waitFor(() =>
+      expect(getComputedStyle(box).boxShadow).toContain("rgba(0, 0, 0, 0.1) 0px 12px 32px 0px"),
+    ); // shadow.lg
+    await userEvent.type(input, "今天");
+    await waitFor(() => expect(getComputedStyle(send).opacity).toBe("1"));
   },
 };

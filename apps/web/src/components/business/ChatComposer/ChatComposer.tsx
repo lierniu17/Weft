@@ -98,49 +98,54 @@ export function ChatComposer({
   };
 
   return (
-    <div
-      className={cx(
-        "flex flex-col gap-sm border-t border-neutral-divider bg-neutral-bg-container px-md py-sm",
-        className,
-      )}
-    >
+    <div data-composer="" className={cx("flex flex-col gap-sm px-md pt-sm pb-md", className)}>
       {blocked && <Banner variant="warning">{blocked}</Banner>}
-      <div className="flex items-center gap-sm">
-        <SegmentedControl
-          aria-label="输入类型"
-          options={MODES}
-          value={mode}
-          onValueChange={(v) => setMode(v as ComposerMode)}
-        />
-        {mode === "record" && (
-          <DatePicker value={occurredOn} onChange={onOccurredOnChange} today={today} />
-        )}
-      </div>
+      {/* The page's focal point (DESIGN.md §2): rounded.xl, a thin border, shadow.md → lg. */}
       <form
-        className="flex items-end gap-sm"
+        data-composer-box=""
+        className={cx(
+          "flex flex-col gap-sm rounded-xl border border-neutral-border bg-neutral-bg-container py-sm pr-sm pl-md shadow-md",
+          "transition-[box-shadow,border-color] duration-[var(--motion-base)] ease-[var(--motion-easing-standard)]",
+          "focus-within:border-neutral-text-disabled focus-within:shadow-lg",
+          Boolean(blocked) && "bg-neutral-bg-subtle",
+        )}
         onSubmit={(e) => {
           e.preventDefault();
           submit();
         }}
       >
         <TextArea
+          variant="bare"
           aria-label={COPY[mode].label}
           placeholder={COPY[mode].placeholder}
           value={value}
           disabled={Boolean(blocked)}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
-          className="flex-1"
+          className="pt-xs pr-sm"
         />
-        <IconButton
-          type="submit"
-          aria-label="发送"
-          variant="filled"
-          size="lg"
-          icon={<FiArrowUp />}
-          loading={sending}
-          disabled={!canSend}
-        />
+        <div className="flex items-center gap-sm">
+          <SegmentedControl
+            aria-label="输入类型"
+            size="sm"
+            options={MODES}
+            value={mode}
+            onValueChange={(v) => setMode(v as ComposerMode)}
+          />
+          {mode === "record" && (
+            <DatePicker value={occurredOn} onChange={onOccurredOnChange} today={today} />
+          )}
+          <IconButton
+            type="submit"
+            aria-label="发送"
+            variant="filled"
+            size="md"
+            icon={<FiArrowUp />}
+            loading={sending}
+            disabled={!canSend}
+            className="ml-auto"
+          />
+        </div>
       </form>
     </div>
   );

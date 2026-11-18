@@ -21,7 +21,7 @@ export function Tooltip({ content, children, side = "top", delayDuration = 300 }
             side={side}
             sideOffset={4}
             collisionPadding={8}
-            className="z-50 max-w-[280px] animate-fade-in rounded-sm bg-neutral-text-primary px-sm py-xs text-caption text-neutral-bg-container shadow-card"
+            className="z-50 max-w-[280px] animate-fade-in data-[state=closed]:animate-fade-out rounded-sm bg-neutral-text-primary px-sm py-xs text-caption text-neutral-bg-container shadow-md"
           >
             {content}
           </RadixTooltip.Content>

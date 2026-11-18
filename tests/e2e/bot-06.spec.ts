@@ -19,9 +19,11 @@ test("BOT-6 就地编辑画像与手动编辑记录", { tag: "@llm" }, async ({ 
   await page.getByRole("button", { name: "完成" }).click();
   const identity = page.locator('[data-profile-section="notes"]').filter({ hasText: "基本身份" });
   await expect(identity).toContainText("生日 · 3 月 5 日");
+  // 性格 has nothing left: it folds into 「还可以补充」 (style refresh AC-9)
   await expect(
-    page.locator('[data-profile-section="tags"]').filter({ hasText: "性格" }),
-  ).not.toContainText("急性子");
+    page.locator('[data-profile-section="tags"]').filter({ hasText: "急性子" }),
+  ).toHaveCount(0);
+  await expect(page.locator("[data-profile-fold]")).toContainText("性格");
 
   // 3. 点开生日这一条的出处。
   await identity.getByRole("button", { name: /生日/ }).click();
