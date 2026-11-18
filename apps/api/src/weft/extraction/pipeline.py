@@ -348,7 +348,10 @@ MATCH_SYSTEM = """你负责判断一条记录里提到的人是不是图谱里�
 
 
 def _episode(inp: ExtractionInput) -> EpisodicNode:
-    day = inp.occurred.first_day()
+    # Graphiti resolves 「上个月」「上周末」 against the episode's reference time, so when the
+    # occurred date was read from the text that is the day of writing, not the occurred date
+    # (else 「上个月跳槽」 written 11-18, occurred 2026-10, would land in 2026-09).
+    day = inp.written_on if inp.written_on is not None else inp.occurred.first_day()
     reference = datetime(day.year, day.month, day.day, tzinfo=UTC)
     return EpisodicNode(
         name="weft entry",
