@@ -1,5 +1,5 @@
 /** 人物页: PersonHeader, 我和他, local RelationGraph (1 / 2 hops), 画像 and 他的关系. */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FiChevronRight } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router";
 import { useMe } from "../../api/auth.ts";
@@ -13,6 +13,7 @@ import {
   usePair,
   useProfile,
 } from "../../api/graph.ts";
+import { useGraphTheme } from "../../api/preferences.ts";
 import { exposeGraph } from "../../app/devHooks.ts";
 import { useLayout, useSidePanel, useToday } from "../../app/layout.ts";
 import { Banner } from "../../components/basics/Banner/Banner.tsx";
@@ -45,6 +46,15 @@ export function PersonPage() {
   const pair = usePair(isSelf ? undefined : selfId, personId);
   const [hops, setHops] = useState<1 | 2>(1);
   const graph = useLocalGraph(personId, hops);
+  const graphTheme = useGraphTheme();
+  const [graphFocus, setGraphFocus] = useState<string | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new person starts unfocused
+  useEffect(() => setGraphFocus(null), [personId]);
+  const focusedProfile = useProfile(graphFocus ?? undefined);
+  const focusedLikes = focusedProfile.data?.facts
+    .filter((f) => f.predicate === "LIKES" && f.current && f.subject_id === graphFocus)
+    .map((f) => f.object)
+    .slice(0, 3);
   const edit = useEditProfile(personId);
   const del = useDeletePerson();
   const [editing, setEditing] = useState(false);
@@ -105,13 +115,15 @@ export function PersonPage() {
     <RelationGraph
       onReady={exposeGraph}
       variant="local"
-      nodes={graph.data.nodes}
-      edges={graph.data.edges}
-      centerId={graph.data.center_id}
+      data={graph.data}
+      theme={graphTheme}
       hops={hops}
       onHopsChange={setHops}
       truncatedCount={graph.data.omitted}
-      onNodeClick={(id) => id !== personId && navigate(`/people/${enc(id)}`)}
+      focusId={graphFocus}
+      onFocusChange={setGraphFocus}
+      likes={focusedLikes}
+      onOpenPerson={(id) => id !== personId && navigate(`/people/${enc(id)}`)}
     />
   ) : (
     <Skeleton variant="card" height="200px" />

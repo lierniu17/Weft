@@ -4,8 +4,8 @@
  *
  * - path  → the chain's people; its links lit in order (`sequence`, ~0.7 s per link)
  * - list / stat → the listed / counted people (pulse), no links
- * - pair  → a text answer about exactly two people with a citation on their relationship:
- *           both people and the link between them
+ * - pair  → a text answer about exactly two people with a citation on their relationship
+ *           (or about one person, cited together with 我): both people and their link
  * - person → any other answer naming people
  * - none  → no answer, or nobody to show (no 「在图上查看」 button)
  */
@@ -57,6 +57,22 @@ export function answerHighlight(answer: Answer): AnswerHighlight {
         if (about) {
           const link: [string, string] = [persons[0], persons[1]];
           return { kind: "pair", persons, edges: [link], sequence: [link] };
+        }
+      }
+      // 我 is never a chip: an answer about 我 and one person names him only, its
+      // citation pairs him with 我
+      if (persons.length === 1) {
+        const mine = answer.citations
+          .map((c) => c.pair)
+          .find(
+            (p) =>
+              p?.some((x) => x.person_id === persons[0]) &&
+              p.some((x) => x.is_self && x.person_id !== persons[0]),
+          );
+        const self = mine?.find((x) => x.is_self);
+        if (self) {
+          const link: [string, string] = [self.person_id, persons[0]];
+          return { kind: "pair", persons: link, edges: [link], sequence: [link] };
         }
       }
       return persons.length ? person(persons) : NONE;

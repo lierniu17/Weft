@@ -31,6 +31,8 @@ type Design = {
     secondary: Record<string, string>;
     neutral: Record<string, string>;
     status: Record<string, Record<string, string>>;
+    graph: Record<string, string>;
+    "graph-dark": Record<string, string>;
   };
   typography: Record<string, string | TypeScale>;
   spacing: Record<string, string>;
@@ -73,6 +75,15 @@ function buildTokens(d: Design) {
   for (const [status, scale] of Object.entries(d.colors.status)) {
     for (const [k, v] of Object.entries(scale)) color[`status-${status}-${k}`] = v;
   }
+  // 关系图谱: category colours etc. (graph-*) and the starfield theme (graph-dark-*). `fade` is
+  // an opacity, not a colour, so it becomes its own token.
+  const opacity: Record<string, string> = {};
+  for (const group of ["graph", "graph-dark"] as const) {
+    for (const [k, v] of Object.entries(d.colors[group])) {
+      if (k === "fade") opacity[`${group}-fade`] = String(v);
+      else color[`${group}-${k}`] = v;
+    }
+  }
   // Literal colours DESIGN.md writes inline in component specs, named here so components
   // still consume a token rather than a hex value.
   color["on-primary"] = d.components.basics.Button.variants.primary.text;
@@ -92,6 +103,7 @@ function buildTokens(d: Design) {
 
   return {
     color,
+    opacity,
     font,
     text,
     fontWeight,
@@ -109,6 +121,7 @@ export function generate(md: string): { css: string; ts: string } {
   const add = (name: string, value: string) => lines.push(`  --${name}: ${value};`);
 
   for (const [k, v] of Object.entries(t.color)) add(`color-${k}`, v);
+  for (const [k, v] of Object.entries(t.opacity)) add(`opacity-${k}`, v);
   for (const [k, v] of Object.entries(t.font)) add(`font-${k}`, v);
   for (const [k, v] of Object.entries(t.fontWeight)) add(`font-weight-${k}`, v);
   for (const [k, v] of Object.entries(t.text)) {

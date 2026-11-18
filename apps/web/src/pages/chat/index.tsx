@@ -7,6 +7,7 @@ import { useAsk, useUsage } from "../../api/graph.ts";
 import { useChatSession } from "../../app/chatSession.tsx";
 import { useLayout, useSheetVariant, useToday } from "../../app/layout.ts";
 import { Button } from "../../components/basics/Button/Button.tsx";
+import { Drawer } from "../../components/basics/Drawer/Drawer.tsx";
 import { Skeleton } from "../../components/basics/Skeleton/Skeleton.tsx";
 import { Toast } from "../../components/basics/Toast/Toast.tsx";
 import { AnswerCard } from "../../components/business/AnswerCard/AnswerCard.tsx";
@@ -20,9 +21,10 @@ import { MessageBubble } from "../../components/business/MessageBubble/MessageBu
 import { Card } from "../../components/composites/Card/Card.tsx";
 import { EmptyState } from "../../components/composites/EmptyState/EmptyState.tsx";
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
-import type { Citation } from "../../contracts/answer.ts";
+import type { Answer, Citation } from "../../contracts/answer.ts";
 import { type OccurredOn, todayOccurredOn } from "../../lib/datePrecision.ts";
 import { draftCardLabels, quotaMessages, toPartialDate } from "../../lib/pageModels.ts";
+import { PanoramaBody } from "../panorama/PanoramaView.tsx";
 import { CurrentPersonPanel } from "./CurrentPersonPanel.tsx";
 import { DraftReview } from "./DraftReview.tsx";
 import { EntryThread } from "./EntryThread.tsx";
@@ -53,6 +55,8 @@ export function ChatPage() {
   const [reviewing, setReviewing] = useState<{ draftId: string; occurredOn: string } | null>(null);
   const [citations, setCitations] = useState<Citation[] | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** Desktop: the panorama in the right column, with the answer lit (清除 keeps the graph). */
+  const [graphPanel, setGraphPanel] = useState<{ answer: Answer | null } | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const feed = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -110,6 +114,7 @@ export function ChatPage() {
   const inline = layout === "desktop";
   const review = (draftId: string, entryOccurredOn: string) => {
     setCitations(null);
+    setGraphPanel(null);
     setReviewing({ draftId, occurredOn: entryOccurredOn });
   };
 
@@ -140,6 +145,18 @@ export function ChatPage() {
           error: e instanceof ApiError ? e.message : "问答暂时不可用，请稍后再试",
         }),
     });
+  };
+
+  // 在图上查看 (graph-viz AC-17): phones and tablets go to 全景图; desktop keeps the chat
+  // and opens the panorama in the right column.
+  const showOnGraph = (answer: Answer) => {
+    if (inline) {
+      setReviewing(null);
+      setCitations(null);
+      setGraphPanel({ answer });
+    } else {
+      navigate("/graph", { state: { answer } });
+    }
   };
 
   const answerHandlers = {
@@ -221,8 +238,10 @@ export function ChatPage() {
                           const c = item.answer?.citations.find((x) => x.index === i);
                           if (!c) return;
                           setReviewing(null);
+                          setGraphPanel(null);
                           setCitations([c]);
                         }}
+                        onShowOnGraph={() => item.answer && showOnGraph(item.answer)}
                         {...answerHandlers}
                       />
                     ) : item.error ? (
@@ -261,7 +280,26 @@ export function ChatPage() {
           exhausted={quotaMessages(usage.data)}
         />
       </div>
-      {inline && !reviewing && citations === null && (
+      {inline && graphPanel && (
+        <Drawer
+          open
+          onOpenChange={(open) => !open && setGraphPanel(null)}
+          title="全景图"
+          variant="side-panel"
+          modal={false}
+          width="wide"
+        >
+          <div className="flex h-full min-h-[480px] flex-col">
+            <PanoramaBody
+              panel
+              answer={graphPanel.answer}
+              onClearAnswer={() => setGraphPanel({ answer: null })}
+              onOpenPerson={openPerson}
+            />
+          </div>
+        </Drawer>
+      )}
+      {inline && !reviewing && citations === null && !graphPanel && (
         <aside
           aria-label="右栏"
           className="flex w-[360px] shrink-0 flex-col overflow-y-auto border-l border-neutral-divider bg-neutral-bg-container"

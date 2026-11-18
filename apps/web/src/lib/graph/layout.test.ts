@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Category } from "../../contracts/draft.ts";
-import { crowd, edge, graph, node, SELF } from "./fixtures.ts";
+import { crowd, edge, graph, node, SELF, seedGraph } from "./fixtures.ts";
+import { estimateTextWidth } from "./labelPlacement.ts";
 import {
   CLOSENESS_RING,
   type GraphLayout,
@@ -235,6 +236,23 @@ describe("spacing (AC-2: no overlap)", () => {
       expect(l.extent).toBeGreaterThanOrEqual(radii[5]);
     });
   }
+
+  it("grows a crowded 至交 ring so that neighbours' names fit side by side (seed graph)", () => {
+    const g = seedGraph();
+    const l = layoutGraph(g, DESKTOP);
+    const kin = Object.values(l.nodes)
+      .filter((n) => n.ring === 1 && n.sector === "kin")
+      .sort((a, b) => a.angle - b.angle);
+    expect(kin.map((n) => n.id).sort()).toEqual(["dad", "mom", "wife"]);
+    const name = (id: string) => g.nodes.find((n) => n.id === id)?.name ?? "";
+    for (let i = 1; i < kin.length; i++) {
+      const [a, b] = [kin[i - 1], kin[i]];
+      const room = (estimateTextWidth(name(a.id), 12) + estimateTextWidth(name(b.id), 12)) / 2;
+      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(room);
+    }
+    // … within the viewport's proportions: the rings stay in order and inside the view
+    expect(l.extent).toBeLessThanOrEqual(Math.min(DESKTOP.width, DESKTOP.height) / 2);
+  });
 
   it("fits the viewport when there is room (rings are not grown)", () => {
     const l = layoutGraph(crowd(30), DESKTOP);

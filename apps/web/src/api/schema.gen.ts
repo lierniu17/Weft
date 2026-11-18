@@ -489,7 +489,7 @@ export interface components {
             path?: components["schemas"]["PersonRef"][] | null;
             /**
              * Persons
-             * @description Related persons, shown as chips
+             * @description Related persons, shown as chips (never Self)
              */
             persons: components["schemas"]["PersonRef"][];
             /** Segments */

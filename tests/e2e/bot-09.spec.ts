@@ -7,34 +7,18 @@ import {
   seedGraph,
   shot,
 } from "./support/bot.ts";
+import { clickPerson, graphView } from "./support/graph.ts";
 
-type Rendered = { x: number; y: number };
-
-/** Where Cytoscape drew the node with this label, in page coordinates. */
-async function nodePoint(page: Page, label: string): Promise<Rendered> {
-  const box = await page.locator("[data-relation-graph]").boundingBox();
-  if (!box) throw new Error("graph not on screen");
-  const at = await page.evaluate((name) => {
-    type Node = { data: (k: string) => string; renderedPosition: () => { x: number; y: number } };
-    const cy = (window as unknown as { __weftCy: { nodes: () => { toArray: () => Node[] } } })
-      .__weftCy;
-    const node = cy
-      .nodes()
-      .toArray()
-      .find((n) => n.data("label") === name);
-    return node ? node.renderedPosition() : null;
-  }, label);
-  if (!at) throw new Error(`no node ${label}`);
-  return { x: box.x + at.x, y: box.y + at.y };
-}
-
-const graphNames = (page: Page) =>
-  page.getByRole("list", { name: "图中的人物" }).getByRole("button").allTextContents();
+/** Names on the graph (local: everyone shown; panorama with a filter: the people kept lit). */
+const graphNames = async (page: Page) => {
+  const g = await graphView(page).catch(() => null);
+  return g ? (g.emphasized ?? g.visible) : [];
+};
 
 /** BOT-9 〔AC-33, AC-34, AC-35〕 local graph 1 → 2 hops, tap a person, filter the panorama. */
 test("BOT-9 局部图、点击跳转、全景图筛选、375px 无横向滚动", async ({ page }) => {
   await pinClock(page);
-  // Built images (stage) expose the Cytoscape instance only when the test opts in.
+  // Built images (stage) expose the graph's test hook only when the test opts in.
   await page.addInitScript(() => {
     (window as unknown as { __weftE2E: boolean }).__weftE2E = true;
   });
@@ -58,8 +42,12 @@ test("BOT-9 局部图、点击跳转、全景图筛选、375px 无横向滚动",
   await page.getByRole("radio", { name: "1 层" }).click();
   await expect.poll(async () => (await graphNames(page)).length).toBe(oneHop);
   await page.waitForTimeout(300);
-  const point = await nodePoint(page, "李明");
-  await page.mouse.click(point.x, point.y);
+  // graph-viz AC-12: a click focuses the person and shows their card; 查看人物页 opens them
+  await clickPerson(page, "李明");
+  await page
+    .getByRole("region", { name: "李明的卡片" })
+    .getByRole("button", { name: "查看人物页" })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/people/${xiaoli}$`));
   await expect(page.getByRole("heading", { name: "李明", level: 2 })).toBeVisible();
   await expectNoHorizontalScroll(page);

@@ -18,6 +18,9 @@ export type GraphFilterSheetProps = {
   variant?: DrawerVariant;
   /** `false`: the desktop right column beside the panorama (side-panel in place, page stays interactive). */
   modal?: boolean;
+  /** 「只显示符合的人」 instead of fading the rest (graph-viz AC-13); omitted = no toggle. */
+  onlyMatching?: boolean;
+  onOnlyMatchingChange?: (only: boolean) => void;
 };
 
 const CLOSENESS: { value: ClosenessLevel | null; label: string }[] = [
@@ -37,7 +40,10 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** 全景图筛选: relationship categories and subtypes (multi-select) + a closeness floor (single). */
+/**
+ * 全景图筛选: relationship categories and subtypes (multi-select) + a closeness floor (single);
+ * people who do not match fade on the graph, or with 「只显示符合的人」 are left out.
+ */
 export function GraphFilterSheet({
   open,
   onOpenChange,
@@ -46,6 +52,8 @@ export function GraphFilterSheet({
   onChange,
   variant = "bottom-sheet",
   modal,
+  onlyMatching = false,
+  onOnlyMatchingChange,
 }: GraphFilterSheetProps) {
   const toggleCategory = (c: GraphFilter["categories"][number]) => {
     if (value.categories.includes(c)) {
@@ -159,6 +167,25 @@ export function GraphFilterSheet({
             );
           })}
         </Group>
+
+        {onOnlyMatchingChange && (
+          <Group label="不符合的人">
+            <Chip
+              variant={onlyMatching ? "neutral" : "selected"}
+              pressed={!onlyMatching}
+              onClick={() => onOnlyMatchingChange(false)}
+            >
+              淡化显示
+            </Chip>
+            <Chip
+              variant={onlyMatching ? "selected" : "neutral"}
+              pressed={onlyMatching}
+              onClick={() => onOnlyMatchingChange(true)}
+            >
+              只显示符合的人
+            </Chip>
+          </Group>
+        )}
       </div>
     </Drawer>
   );

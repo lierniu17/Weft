@@ -459,4 +459,4 @@ components:
 
 ## 5. Do's & Don'ts
 - **DO**：所有来自图谱的说法都能点到出处；同一含义的组件只用一个，用 variants 区分；删除 / 注销按钮与“取消”同等尺寸。
-- **DON'T**：不在一屏放两个 primary；不用颜色作为可信度的唯一区分；不在对话流里为同一条记录追加多张草稿卡片；不把 `RelationGraph`（Cytoscape.js）拆成自定义节点组件。
+- **DON'T**：不在一屏放两个 primary；不用颜色作为可信度的唯一区分；不在对话流里为同一条记录追加多张草稿卡片；不把 `RelationGraph`（Sigma.js）拆成自定义节点组件。

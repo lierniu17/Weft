@@ -6,6 +6,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 export const keys = {
   me: ["me"] as const,
+  preferences: ["preferences"] as const,
   usage: ["usage"] as const,
   taxonomy: ["taxonomy"] as const,
   entries: ["entries"] as const,

@@ -219,3 +219,16 @@ export const ModalSidePanelEsc: Story = {
     await waitFor(() => expect(trigger).toHaveFocus());
   },
 };
+
+/** The wide right column (560px) holds the panorama beside the chat (graph-viz AC-17). */
+export const NonModalWide: Story = {
+  name: "Side panel · non-modal, wide",
+  args: { variant: "side-panel", modal: false, width: "wide" },
+  render: (args) => <Inline {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "查看并确认" }));
+    const panel = await canvas.findByRole("dialog", { name: "确认草稿" });
+    await expect(panel.getBoundingClientRect().width).toBe(560);
+  },
+};

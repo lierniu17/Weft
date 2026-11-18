@@ -10,6 +10,12 @@ Commands
     invites N             print N invite codes
     seed LOGIN [--size N] write the seed graph (BOT-5 / BOT-9) into LOGIN's graph; --size
                           grows it with generated persons to N (graph performance, e.g. 300)
+    clean-graph [--orphans]
+                          delete the graphs of the e2e database's users from Neo4j (Neo4j
+                          is shared with the dev stack and pytest, and its fulltext
+                          statistics are index-wide). --orphans also deletes leftovers of
+                          earlier e2e runs whose users are gone: groups no Postgres database
+                          on the server has a user for, written entirely on the e2e clock.
 
 What is pinned
     * LLM traffic: replay only, from tests/e2e/fixtures/llm/ (LLM_FIXTURES_DIR). Provider
@@ -30,7 +36,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -38,6 +44,8 @@ import httpx
 HERE = Path(__file__).resolve().parent
 FIXTURES = HERE.parent / "fixtures" / "llm"
 FROZEN_START = datetime(2026, 11, 16, 2, 0, tzinfo=UTC)  # 10:00 Beijing
+# How far the e2e clock can get in one run (it ticks in real time from FROZEN_START).
+E2E_CLOCK_SPAN = timedelta(hours=2)
 _STARTED = datetime.now(UTC)
 
 # Never let a real key or a real provider anywhere near the e2e stack.
@@ -130,6 +138,105 @@ async def _invites(count: int) -> int:
     return 0
 
 
+def _pg_url(database: str | None = None) -> str:
+    url = os.environ["DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://")
+    return url if database is None else f"{url.rpartition('/')[0]}/{database}"
+
+
+async def _user_groups(database: str) -> set[str] | None:
+    """The graph groups of ``database``'s users; None if it has no Weft users table."""
+    import asyncpg
+
+    from weft.domain.tenancy import group_id_for_user
+
+    try:
+        conn = await asyncpg.connect(_pg_url(database))
+    except asyncpg.InvalidCatalogNameError:
+        return None
+    try:
+        rows = await conn.fetch("SELECT id FROM users")
+    except asyncpg.UndefinedTableError:
+        return None
+    finally:
+        await conn.close()
+    return {group_id_for_user(r["id"]) for r in rows}
+
+
+async def _orphan_e2e_groups() -> set[str]:
+    """Groups left by earlier e2e runs (their weft_e2e database has been reset since).
+
+    A group qualifies only if no database on the Postgres server (dev, e2e, live pytest
+    sessions) has a user for it, and every node in it was written on the e2e clock: the
+    e2e API's day starts at FROZEN_START (02:00 UTC), pytest's FakeClock at 04:00 UTC.
+    """
+    import asyncpg
+
+    conn = await asyncpg.connect(_pg_url("postgres"))
+    try:
+        names = [
+            r["datname"]
+            for r in await conn.fetch("SELECT datname FROM pg_database WHERE NOT datistemplate")
+        ]
+    finally:
+        await conn.close()
+    owned: set[str] = set()
+    for name in names:
+        owned |= await _user_groups(name) or set()
+    built = infra()
+    try:
+        async with built.neo4j.session() as neo:
+            result = await neo.run(
+                "MATCH (n) WHERE n.group_id IS NOT NULL"
+                " WITH n.group_id AS g, min(n.created_at) AS first, max(n.created_at) AS last,"
+                " count(n.created_at) AS dated, count(n) AS nodes"
+                " WHERE dated = nodes AND first >= datetime($start) AND last < datetime($end)"
+                " RETURN g",
+                start=FROZEN_START.isoformat(),
+                end=(FROZEN_START + E2E_CLOCK_SPAN).isoformat(),
+            )
+            candidates = {record["g"] async for record in result}
+    finally:
+        await built.aclose()
+    return candidates - owned
+
+
+async def _clean_graph(orphans: bool) -> int:
+    groups = await _user_groups(_pg_url().rpartition("/")[2]) or set()
+    from_users = len(groups)
+    if orphans:
+        groups |= await _orphan_e2e_groups()
+    built = infra()
+    try:
+        async with built.neo4j.session() as neo:
+
+            async def count() -> tuple[int, int]:
+                result = await neo.run(
+                    "MATCH (n) WHERE n.group_id IN $groups"
+                    " RETURN count(DISTINCT n.group_id) AS g, count(n) AS n",
+                    groups=sorted(groups),
+                )
+                record = await result.single()
+                assert record is not None
+                return record["g"], record["n"]
+
+            found, nodes = await count()
+            print(
+                f"e2e graph cleanup: {found} groups, {nodes} nodes to delete"
+                f" ({from_users} e2e users{', plus orphans of earlier runs' if orphans else ''})"
+            )
+            if nodes:
+                await neo.run(
+                    "MATCH (n) WHERE n.group_id IN $groups"
+                    " CALL (n) { DETACH DELETE n } IN TRANSACTIONS OF 1000 ROWS",
+                    groups=sorted(groups),
+                )
+            left_groups, left = await count()
+    finally:
+        await built.aclose()
+    print(f"e2e graph cleanup: done, {left_groups} groups / {left} nodes left")
+    return 0 if left == 0 else 1
+
+
 async def _seed(login: str, size: int | None = None) -> int:
     from weft.repositories.accounts import UserRepository
     from weft.services import seed
@@ -172,11 +279,14 @@ def main() -> int:
     seed_cmd = sub.add_parser("seed")
     seed_cmd.add_argument("login")
     seed_cmd.add_argument("--size", type=int, default=None)
+    sub.add_parser("clean-graph").add_argument("--orphans", action="store_true")
     args = parser.parse_args()
     if args.command == "serve":
         return _serve(args.port)
     if args.command == "db-reset":
         return asyncio.run(_db_reset())
+    if args.command == "clean-graph":
+        return asyncio.run(_clean_graph(args.orphans))
     if args.command == "invites":
         return asyncio.run(_invites(args.count))
     return asyncio.run(_seed(args.login, args.size))

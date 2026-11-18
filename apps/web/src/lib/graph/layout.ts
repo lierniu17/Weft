@@ -14,7 +14,9 @@
  * - 间接认识: angle near the anchor person (`anchor_person_id`, resolved through chains),
  *   several around one anchor spread just enough not to overlap.
  * - Spacing: any two nodes stay at least a node diameter apart. Rings start from the
- *   viewport (prototype proportions) and only grow when a ring is too crowded.
+ *   viewport (prototype proportions) and only grow when a ring is too crowded. The rings
+ *   named at the base zoom (至交, 亲近) also grow so that neighbours' names fit side by
+ *   side — by at most two ring steps; label placement handles the rest.
  *
  * Coordinates are world units centred on 我 (x right, y down; angle 0 = 3 o'clock, growing
  * clockwise on screen). The renderer pans / zooms; `extent` tells it how far nodes reach.
@@ -22,6 +24,7 @@
 import type { Schemas } from "../../api/client.ts";
 import type { Category, ClosenessLevel } from "../../contracts/draft.ts";
 import { CATEGORIES, categoryLabel } from "../labels.ts";
+import { estimateTextWidth, truncateName } from "./labelPlacement.ts";
 
 type GraphData = Pick<Schemas["GraphOut"], "center_id" | "nodes" | "edges"> &
   Partial<Pick<Schemas["GraphOut"], "groups">>;
@@ -46,6 +49,11 @@ export const MIN_SECTOR_ANGLE = (Math.PI * 2) / 16;
 /** Largest node radius (亲近 and closer, prototype) and 我's radius, in world units. */
 export const NODE_RADIUS = 13;
 export const SELF_RADIUS = 18;
+/** Rings named at the base zoom (至交, 亲近) also make room for their names, side by side. */
+const NAMED_RINGS = 2;
+/** Name font (px) and the gap between two names, for that room. */
+const NAME_PX = 12;
+const NAME_GAP = 8;
 /** Even rings are nudged by this share of a slot so neighbouring rings do not line up. */
 const STAGGER = 0.08;
 const USABLE = 1 - 2 * STAGGER;
@@ -292,8 +300,18 @@ export function layoutGraph(
     let need = ring === 1 ? Math.max(r0, selfRadius + nodeRadius + 4, d) : radii[ring - 2] + d;
     need = Math.max(need, r0 + step * (ring - 1));
     for (const sector of sectors) {
-      const m = cells.get(`${ring}:${sector.category}`)?.length ?? 0;
-      need = Math.max(need, radiusFor(m, sector.end - sector.start, d));
+      const members = cells.get(`${ring}:${sector.category}`) ?? [];
+      const span = sector.end - sector.start;
+      need = Math.max(need, radiusFor(members.length, span, d));
+      if (ring <= NAMED_RINGS && members.length > 1) {
+        const widest = Math.max(
+          ...members.map((p) =>
+            estimateTextWidth(truncateName(byId.get(p.id)?.name ?? ""), NAME_PX),
+          ),
+        );
+        const named = radiusFor(members.length, span, Math.max(d, widest + NAME_GAP));
+        need = Math.max(need, Math.min(named, r0 + step * (ring + 1)));
+      }
     }
     radii.push(need);
   }
@@ -395,4 +413,26 @@ export function layoutGraph(
     selfRadius,
     extent: radii[5] + nodeRadius,
   };
+}
+
+/** 亲近 and closer are drawn bigger (prototype 13 vs 10.5). */
+export const SMALL_NODE = 10.5 / 13;
+
+/** Disc radius in layout units: 我 biggest, 亲近 and closer bigger than the rest. */
+export function worldRadius(
+  l: NodeLayout | undefined,
+  isCenter: boolean,
+  layout: GraphLayout,
+): number {
+  if (isCenter) return layout.selfRadius;
+  const big = l?.closeness === "intimate" || l?.closeness === "close";
+  return layout.nodeRadius * (big ? 1 : SMALL_NODE);
+}
+
+/** Where sector names sit: past the outermost ring. */
+export function labelRadius(layout: Pick<GraphLayout, "rings">) {
+  const r = layout.rings;
+  const outer = r[r.length - 1]?.radius ?? 0;
+  const step = r.length > 1 ? outer - r[r.length - 2].radius : 40;
+  return outer + step * 0.6;
 }

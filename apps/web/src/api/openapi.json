@@ -172,7 +172,7 @@
       "title": "Path"
      },
      "persons": {
-      "description": "Related persons, shown as chips",
+      "description": "Related persons, shown as chips (never Self)",
       "items": {
        "$ref": "#/components/schemas/PersonRef"
       },

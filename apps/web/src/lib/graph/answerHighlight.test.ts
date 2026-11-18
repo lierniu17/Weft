@@ -72,6 +72,16 @@ describe("answer → what lights up on the graph (AC-16, AC-17)", () => {
     });
   });
 
+  it("an answer about me and one person lights both and our link (Self is not a chip)", () => {
+    const h = answerHighlight(answer({ persons: [zhang], citations: [citation(1, [me, zhang])] }));
+    expect(h).toEqual({
+      kind: "pair",
+      persons: ["me", "zhang"],
+      edges: [["me", "zhang"]],
+      sequence: [["me", "zhang"]],
+    });
+  });
+
   it("an answer about one person lights that person", () => {
     // a profile answer may cite one of his relationships: still about him
     const h = answerHighlight(answer({ persons: [zhang], citations: [citation(1, [zhang, li])] }));

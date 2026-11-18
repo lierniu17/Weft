@@ -227,7 +227,14 @@ def build_answer(
     if kind is AnswerKind.PATH and len(path) < 2:
         kind = AnswerKind.TEXT
     stat_persons = refs(final.stat_persons or [i.person for i in final.items])
-    chips = refs(final.persons + final.path + [i.person for i in final.items] + final.stat_persons)
+    # 我 may be in the path chain, never a related-person chip
+    chips = [
+        r
+        for r in refs(
+            final.persons + final.path + [i.person for i in final.items] + final.stat_persons
+        )
+        if not r.is_self
+    ]
     return Answer(
         kind=kind,
         segments=segments or [AnswerSegment(text="见下方出处。")],

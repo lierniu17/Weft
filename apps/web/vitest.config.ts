@@ -20,7 +20,14 @@ export default defineConfig({
       {
         plugins: [react(), tailwindcss(), storybookTest({ configDir: ".storybook" })],
         optimizeDeps: {
-          include: ["react-icons/fi", "radix-ui", "cytoscape"],
+          include: [
+            "react-icons/fi",
+            "radix-ui",
+            "sigma",
+            "sigma/rendering",
+            "sigma/utils",
+            "graphology",
+          ],
         },
         test: {
           name: "storybook",
