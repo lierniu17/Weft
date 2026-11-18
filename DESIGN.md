@@ -1,32 +1,38 @@
 ---
 version: "alpha"
 name: "Weft"
-description: "Weft 人际关系图谱 · 方案二 · 清蓝。像一个专业的效率工具：冷白底、靛蓝强调、全无衬线、圆角克制，信息密度高。 遵循 60-30-10：中性底色约 60–70%，文字与结构约 30%，主色与状态色合计不超过 10%。移动端优先（375px 基准），桌面端三栏。"
+description: "Weft 人际关系图谱 · 对话感（2026-11 改版）。简洁、耐用、易用、大大方方：白底，内容直接铺开，靠留白与字号分层；近黑中性主色只给主按钮、当前态与焦点，彩色只用于状态；参考豆包——输入框是对话页的视觉焦点，回答不套卡片。移动端优先（375px 基准），桌面端内容限宽 720 居中。"
 
 colors:
+  # 主色 = 近黑墨色：只给主按钮、当前 tab / 选中态、焦点环。不用于链接、标签、徽章。
   primary:
-    6: "#4F46E5"
-    5: "#6366F1"
-    7: "#4338CA"
-    1: "#EEF2FF"
+    6: "#18181B"
+    5: "#27272A"
+    7: "#09090B"
+    1: "#F4F4F5"
+  # 辅色并入中性：次级强调（例如“本人说”徽章、选中的次级态）一律用中性灰，不再引入第二个彩色。
   secondary:
-    6: "#0B7A6E"
-    5: "#0E9384"
-    7: "#08635A"
-    1: "#E6F6F4"
+    6: "#52525B"
+    5: "#3F3F46"
+    7: "#27272A"
+    1: "#F4F4F5"
   neutral:
-    bg-layout: "#F5F6F8"
-    bg-container: "#FFFFFF"
-    border: "#DDE1E8"
-    divider: "#EBEEF2"
-    text-primary: "#1D2433"
-    text-secondary: "#5B6475"
-    text-disabled: "#9AA3B2"
+    bg-layout: "#FFFFFF"      # 页面底色：白
+    bg-container: "#FFFFFF"   # 抽屉 / 弹窗 / 浮层
+    bg-subtle: "#F7F7F8"      # 侧栏、已入图谱的草稿卡、综合描述等弱分区
+    bg-muted: "#F0F0F2"       # 用户气泡、标签、分段控件底、悬停
+    border: "#E4E4E7"         # 输入框、次按钮描边
+    divider: "#ECECEF"        # 列表分隔线
+    text-primary: "#18181B"   # 17.7:1
+    text-secondary: "#52525B" # 7.7:1
+    text-tertiary: "#71717A"  # 元信息、分区标题；白底 4.8:1，bg-subtle 4.5:1
+    text-disabled: "#A1A1AA"  # 仅占位符与禁用控件
+  # 彩色只用于状态。6 级用于文字（均已校验对 1 级浅底 ≥ 4.5:1），graphic 用于图标 / 对勾等图形（≥ 3:1）。
   status:
-    success: { 1: "#ECFDF3", 6: "#15803D", 7: "#166534" }
-    warning: { 1: "#FFF7E6", 6: "#B45309", 7: "#92400E" }
-    error: { 1: "#FEF2F2", 6: "#C81E1E", 7: "#A51A1A" }
-    info: { 1: "#EFF6FF", 6: "#2563EB", 7: "#1D4ED8" }
+    success: { 1: "#F0FDF4", 6: "#15803D", 7: "#166534", graphic: "#16A34A" }
+    warning: { 1: "#FFFBEB", 6: "#B45309", 7: "#92400E", graphic: "#D97706" }
+    error: { 1: "#FEF2F2", 6: "#B91C1C", 7: "#991B1B", graphic: "#DC2626" }
+    info: { 1: "#EFF6FF", 6: "#1D4ED8", 7: "#1E40AF", graphic: "#2563EB" }
   # 关系图谱按关系大类着色（线、节点外环、扇区名、群体光晕）。亮色复用主色 / 辅色 / 状态色，只有“情感”新增一色。
   graph:
     kin: "#0B7A6E"          # 亲属 = secondary.6
@@ -60,16 +66,18 @@ colors:
     panel-border: "#24304F"
 
 typography:
-  font-family: "'PingFang SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif"
-  font-family-heading: "'PingFang SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif"
+  font-family: "'PingFang SC', 'HarmonyOS Sans SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif"
+  font-family-heading: "'PingFang SC', 'HarmonyOS Sans SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif"
   font-family-mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace"
   h1: { size: "24px", weight: "600", line-height: "32px" }
   h2: { size: "20px", weight: "600", line-height: "28px" }
   h3: { size: "17px", weight: "600", line-height: "24px" }
   body-lg: { size: "16px", weight: "400", line-height: "24px" }
-  body-md: { size: "15px", weight: "400", line-height: "22px" }
+  body-md: { size: "15px", weight: "400", line-height: "24px" }
   body-sm: { size: "14px", weight: "400", line-height: "20px" }
   caption: { size: "12px", weight: "400", line-height: "18px" }
+  section: { size: "13px", weight: "600", line-height: "20px", color: "colors.neutral.text-tertiary" }   # 分区标题
+  meta: { size: "13px", weight: "400", line-height: "20px", color: "colors.neutral.text-tertiary" }       # 元信息
 
 spacing:
   xs: "4px"
@@ -81,19 +89,30 @@ spacing:
   xxxl: "64px"
 
 rounded:
-  sm: "6px"     # 按钮、输入框
-  md: "10px"    # 卡片、草稿卡片、Banner
-  lg: "16px"    # 抽屉顶部、对话气泡、弹窗
-  full: "9999px" # Chip、头像、可信度徽章、分段控件
+  sm: "8px"     # 按钮内小元素、徽章内角、引用标记
+  md: "12px"    # 卡片、草稿卡、列表悬停底
+  lg: "20px"    # 抽屉顶部、弹窗
+  xl: "24px"    # 对话输入框
+  bubble: "18px 18px 6px 18px"  # 用户气泡
+  full: "9999px" # 按钮、标签、头像、分段控件
 
 shadow:
-  card: "0 1px 2px rgba(29, 36, 51, 0.06), 0 2px 8px rgba(29, 36, 51, 0.06)"
-  overlay: "0 -8px 24px rgba(0, 0, 0, 0.12)"
+  sm: "0 1px 2px rgba(0, 0, 0, 0.04)"
+  md: "0 4px 16px rgba(0, 0, 0, 0.06)"     # 输入框
+  lg: "0 12px 32px rgba(0, 0, 0, 0.10)"    # 输入框聚焦、抽屉、弹窗
 
 motion:
-  fast: "120ms cubic-bezier(0.2, 0, 0, 1)"
-  base: "200ms cubic-bezier(0.2, 0, 0, 1)"
-  sheet: "240ms cubic-bezier(0.2, 0, 0, 1)"
+  easing-standard: "cubic-bezier(0.2, 0, 0, 1)"     # 屏内状态变化
+  easing-decelerate: "cubic-bezier(0, 0, 0, 1)"     # 进入
+  easing-accelerate: "cubic-bezier(0.3, 0, 1, 1)"   # 退出
+  fast: "120ms"      # 按下、悬停、颜色变化
+  base: "200ms"      # 页面切换进入、淡入、chip 轻弹
+  exit: "150ms"      # 页面切换退出
+  sheet: "250ms"     # 抽屉 / 侧栏进入（退出 200ms + accelerate）
+  emphasis: "300ms"  # 草稿入图谱收起、对勾画出、数字滚动
+  stagger: "30ms"    # 列表入场错开，最多 6 项
+  press-scale: "0.98"
+  reduced: "所有过渡改为直接切换；骨架屏改为静态"
 
 breakpoints:
   mobile: "< 768px（单栏 + 底部 TabBar）"
@@ -390,7 +409,7 @@ components:
         local: { hops: "1 | 2", max-nodes: 50, height: "200px（移动端）" }
         panorama: { center: "本人", filter: "GraphFilterSheet", timeline: "GraphTimeline", legend: "GraphLegend", list: "GraphListView", gestures: "单指拖动、双指缩放、滚轮缩放" }
       themes:
-        light: "colors.graph + DESIGN.md 中性色，白底"
+        light: "名称“浅色”：colors.graph + DESIGN.md 中性色，白底"
         starfield: "colors.graph-dark：径向渐变深底、闪烁星点、节点与连线同色发光、亲近及以上连线上缓慢流动的光点（< 768px 不画光点）"
       states:
         focused: { rule: "点人物：他、本人、直接相连的人与连线保持，其余淡到 colors.graph.fade，200ms 过渡；同时显示人物卡片（Card + Chip）" }
@@ -410,7 +429,7 @@ components:
     GraphListView:
       description: "图谱的列表替代视图：按环（亲密度）与扇区（大类）分组列出人物与关系，复用 ListItem / PersonRow；聚焦与问答高亮在列表中同步体现；键盘可达。"
     GraphAppearanceSetting:
-      description: "“我的”页设置项：图谱外观 清蓝 / 星空（SegmentedControl），保存到账户。"
+      description: "“我的”页设置项：图谱外观 浅色 / 星空（SegmentedControl），保存到账户。"
     GraphFilterSheet:
       description: "全景图筛选：关系大类 / 小类 Chip 多选 + 亲密度档位单选。"
     EntryListItem:
@@ -427,36 +446,44 @@ components:
       description: "关系类型词表：五个大类分组，每组列出小类，可在组内用 Input 新增自定义小类。"
 ---
 
-# Weft Design System（定稿：方案二 · 清蓝）
+# Weft Design System（2026-11 改版：对话感）
 
-> 像一个专业的效率工具：冷白底、靛蓝强调、全无衬线、圆角克制，信息密度高。
+> 交互与视觉真源：`docs/prototypes/2026-11-18-style-refresh.html`（方案 A）。前一版“清蓝”见 git 历史与 `docs/design/DESIGN.v2-indigo.md`。
 
-## 1. Overview & Color Palette Strategy
-- **定位**：清晰、可靠、效率感。适合把 Weft 定位成“人脉管理工具”。代价是情感温度最低，像 CRM。
-- **60% Dominant**：页面大背景 `colors.neutral.bg-layout`（#F5F6F8）+ 卡片与抽屉 `colors.neutral.bg-container`（#FFFFFF）。对话页是最大的面，必须保持大面积安静。
-- **30% Secondary**：`text-primary`（#1D2433）/ `text-secondary`（#5B6475）构建文字层级；`colors.secondary.6`（#0B7A6E）用于“本人说”徽章、人物头像底色、评价左边线等次要结构。
-- **10% Accent**：`colors.primary.6`（#4F46E5）只用于：发送按钮、“确认入图谱”、当前 tab、出处标记 [n]、选中态。一屏最多一个 primary 按钮。状态色只在明确反馈时出现：红 = 需要你处理（需选择、待确认、失败、删除），琥珀 / 橙 = 转述与待核实，绿 = 活跃关系与成功。
-- **禁用灰的用法**：`text-disabled` 只用于禁用控件和输入框占位符（WCAG 对禁用控件不要求对比度）；空状态、“已放弃”等需要阅读的文字一律用 `text-secondary`。
-- **对比度**：所有正文对背景 ≥ 4.5:1，白字对 `primary.6 / primary.7` ≥ 4.5:1，状态色 6 级对 1 级浅底 ≥ 4.5:1（已逐一校验）。不使用 #000000 / #FFFFFF 作为正文或大背景。
+## 1. 原则：简洁、耐用、易用、大大方方
+- **一屏一个焦点**：对话页是输入框，人物页是姓名与综合描述，弹窗里是主操作。其余元素让路。
+- **层级靠字号、字重、留白，不靠框和色块**：页标题 `h1` 24/32；分区标题 `section` 13 半粗、三级灰；正文 `body-md` 15/24；元信息 `meta` 13。分区之间 24px，组内 8px。
+- **白底，内容直接铺开**：页面不用卡片套卡片。只有三种面：白色页面、`bg-subtle` 弱分区（侧栏、已入图谱的草稿、综合描述）、浮层（抽屉 / 弹窗，带 `shadow.lg`）。
+- **近黑主色，彩色只给状态**：`primary` 只用于主按钮、当前 tab / 选中态、焦点环。链接与图标按钮用中性灰；标签默认 `bg-muted` 底、无描边；绿 / 黄 / 红 / 蓝只出现在“活跃 / 转述·待核实 / 紧张·危险 / 信息”这类状态上。关系图谱按 `colors.graph` 分类着色，属于数据可视化，不受此限。
+- **桌面限宽**：主内容 `max-width: 720px` 居中；右栏 380px；侧栏 232px（`bg-subtle`）。
+- **少而准的文案**：用自然语句（“张伟喜欢钓鱼”），不拼接字段（“张伟 · 喜欢 钓鱼”）；任何内部字段名（如 RELATED_EVENT）不得出现在界面上。
+- **空内容折叠**：没有内容的画像分区不逐个显示“还没有记录”，合并成一行“还可以补充：生日、籍贯……”（可点）。
 
-## 2. Typography & Rhythm Layout
-- **字体**：标题 `font-family-heading`，正文 `font-family`。移动端正文默认 `body-md`（15px），列表副文与元信息 `caption`。
-- **间距**：只用 `spacing` 中的值。组内 8px，组间 24px；对话气泡之间 16px，同一条记录的气泡与草稿卡片之间 8px。
-- **对齐**：表单用 `FormRow`（标签右对齐、输入框左对齐，窄屏堆叠）；额度、统计、数量等纯数字一律右对齐。
-- **可信度不只靠颜色**：`ConfidenceBadge` 必须同时显示文字（亲历 / 本人说 / 转述 / 推测）；“推测”额外用虚线边框。
+## 2. 对话页（参考豆包）
+- 输入框是视觉焦点：`rounded.xl`、`border`、`shadow.md`，聚焦 `shadow.lg`；内含“记录 | 提问”小分段、日期（仅记录模式）、圆形近黑发送按钮（空内容时 25% 不透明）。
+- 用户消息：`bg-muted` 气泡，`rounded.bubble`，右对齐，下方 12px 元信息。
+- 回答：**不套卡片**，正文直接排在白底上；出处 `[n]` 为 `bg-muted` 小方块；相关人物为头像 chip；“在图上查看”为中性文字按钮。
+- 草稿卡：白底 + `divider` 细边 + `rounded.md`；确认后变 `bg-subtle` 无边、内容收起，只剩“✓ 已入图谱 · N 条信息”。
 
-## 3. Interaction Dynamics & Flow Control
-- **足不出户**：确认草稿、出处、筛选、日期选择都在 `Drawer` 中完成（移动端底部抽屉，桌面端右栏面板），不跳页；删除人物、放弃草稿用 `Modal`。
-- **意图显式**：`ChatComposer` 的“记录 / 提问”由用户切换，系统不猜；提问发送后自动切回记录。
-- **即时反应**：可点元素 hover 在 `motion.base` 内过渡到 hover 色；整行可点的 `ListItem` hover 时整行变 `bg-layout`。草稿卡片状态（抽取中 → 待确认 → 已入图谱）原地变化，不新增消息。
-- **加载**：抽取中用 `DraftCard.extracting` 骨架；列表与人物页首次加载用 `Skeleton`，不用转圈。
+## 3. 动效（少而有用，见 `motion` token）
+| 场景 | 动效 |
+| --- | --- |
+| 页面切换 | 进入：淡入 + 上移 8px，`base` + decelerate；退出：淡出 `exit` |
+| 抽屉 / 侧栏 / 弹窗 | 进入 `sheet` + decelerate（底部滑入 / 右侧滑入 / 缩放 0.98→1 淡入）；退出 200ms + accelerate；遮罩淡入 |
+| 列表首次出现 | 逐项淡入上移，`stagger` 30ms，最多 6 项，之后的同时出现 |
+| 草稿 → 已入图谱 | 卡片高度收起 + 背景过渡 `emphasis`；绿色对勾描线画出；新出现的人物 chip 轻弹（0.9→1.04→1，`base`） |
+| 按下 / 悬停 | 按下缩放 `press-scale`、`fast`；悬停底色过渡 `fast` |
+| 数字变化 | 额度、条数等数字从下方滚入，`emphasis` |
+| 加载 | 骨架屏柔和明暗，1.6s 循环；不用转圈 |
+- 只给有意义的变化加动效；高频操作（输入、滚动）不加。
+- `prefers-reduced-motion: reduce` 时全部直接切换，骨架屏静止。
 
-## 4. Edge Cases & Adaptation Layout
-- **响应式**：移动端单栏 + 底部 `TabBar`（对话 / 人物 / 我的）；桌面端 `SideNav` 固定 220px，对话区弹性，右栏 360px 承载草稿 / 出处 / 当前人物；超过 1440px 时内容居中。
-- **长文本**：人物名、组织名单行截断 + `Tooltip`；记录原文在列表中两行截断；综合描述三行截断，可展开。
-- **空状态**：首次使用、无人物、人物不存在、图谱里没有答案，各用 `EmptyState` 或 `AnswerCard.no-answer`，都有插画（纬线 / 人物卡 / 问号）+ 一句话 + 引导按钮。
-- **额度用完**：`ChatComposer.quota-exhausted` + `Banner.warning` 说明重置时间。
+## 4. 可访问性
+- 正文对背景 ≥ 4.5:1（上方 token 已逐一校验）；`text-disabled` 只用于占位符与禁用控件。
+- 焦点环只在键盘操作时出现（`:focus-visible`），2px 近黑 + 2px 间距；打开抽屉时不得让关闭按钮呈现焦点环。
+- 状态不只靠颜色：可信度、关系状态都有文字。
+- 图标按钮必须有可读名称。
 
 ## 5. Do's & Don'ts
-- **DO**：所有来自图谱的说法都能点到出处；同一含义的组件只用一个，用 variants 区分；删除 / 注销按钮与“取消”同等尺寸。
-- **DON'T**：不在一屏放两个 primary；不用颜色作为可信度的唯一区分；不在对话流里为同一条记录追加多张草稿卡片；不把 `RelationGraph`（Sigma.js）拆成自定义节点组件。
+- **DO**：一屏一个主按钮；同一含义只用一个组件；文案说人话；数字右对齐并用等宽数字。
+- **DON'T**：不用彩色强调非状态信息；不给回答、列表层层套框；不使用模度外的间距；不把 `RelationGraph`（Sigma.js）拆成自定义节点组件；不为高频操作加动效。
