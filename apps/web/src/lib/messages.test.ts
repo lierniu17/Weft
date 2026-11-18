@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composerQuota, messageActions, problemText } from "./messages.ts";
+import { composerQuota, messageActions, optionPart, problemText } from "./messages.ts";
 
 const draft = { id: "d1" };
 const usage = (entryLeft: number, askLeft: number) => ({
@@ -14,6 +14,7 @@ describe("消息的纠正按钮 (AC-6, AC-10)", () => {
       expect(messageActions({ intent: "record", entry: { draft } }, status)).toEqual({
         bubble: [{ target: "ask", label: "改为提问" }],
         reply: [],
+        options: [],
       });
     }
   });
@@ -22,6 +23,7 @@ describe("消息的纠正按钮 (AC-6, AC-10)", () => {
     expect(messageActions({ intent: "record", entry: { draft } }, "confirmed")).toEqual({
       bubble: [],
       reply: [],
+      options: [],
     });
   });
 
@@ -41,6 +43,7 @@ describe("消息的纠正按钮 (AC-6, AC-10)", () => {
     expect(messageActions({ intent: "ask", entry: null }, undefined)).toEqual({
       bubble: [{ target: "record", label: "改为记录" }],
       reply: [],
+      options: [],
     });
   });
 
@@ -54,6 +57,7 @@ describe("消息的纠正按钮 (AC-6, AC-10)", () => {
     expect(messageActions({ intent: "record_ask", entry: { draft } }, "pending")).toEqual({
       bubble: [],
       reply: [],
+      options: [],
     });
   });
 
@@ -64,7 +68,65 @@ describe("消息的纠正按钮 (AC-6, AC-10)", () => {
         { target: "record", label: "记下来" },
         { target: "ask", label: "帮我查" },
       ],
+      options: [],
     });
+  });
+});
+
+describe("反问的候选按钮 (intent clarify AC-1, AC-3, AC-8)", () => {
+  const clarify = (resolved: boolean) => ({
+    question: "你是想记下“老周最近不太顺”，还是想查老周最近怎么样？",
+    options: [
+      { label: "记下：老周最近不太顺", intent: "record" as const, question: null },
+      { label: "查：老周最近怎么样", intent: "ask" as const, question: "老周最近怎么样？" },
+    ],
+    resolved,
+  });
+
+  it("an open 反问: its options in order (by index), instead of 记下来 / 帮我查", () => {
+    expect(
+      messageActions({ intent: "chitchat", entry: null, clarify: clarify(false) }, undefined),
+    ).toEqual({
+      bubble: [],
+      reply: [],
+      options: [
+        { target: 0, label: "记下：老周最近不太顺" },
+        { target: 1, label: "查：老周最近怎么样" },
+      ],
+    });
+  });
+
+  it("a 反问 answered by the next message: no options, no 记下来 / 帮我查", () => {
+    expect(
+      messageActions({ intent: "chitchat", entry: null, clarify: clarify(true) }, undefined),
+    ).toEqual({ bubble: [], reply: [], options: [] });
+  });
+
+  it("拿不准 without a 反问 (missing or invalid): the fixed 记下来 / 帮我查", () => {
+    for (const none of [null, undefined]) {
+      expect(
+        messageActions({ intent: "chitchat", entry: null, clarify: none }, undefined).reply,
+      ).toEqual([
+        { target: "record", label: "记下来" },
+        { target: "ask", label: "帮我查" },
+      ]);
+    }
+  });
+
+  it("an option clicked: 纠正 by the new kind (AC-8), the options are gone", () => {
+    expect(
+      messageActions({ intent: "ask", entry: null, clarify: clarify(true) }, undefined),
+    ).toEqual({ bubble: [{ target: "record", label: "改为记录" }], reply: [], options: [] });
+    expect(
+      messageActions({ intent: "record", entry: { draft }, clarify: clarify(true) }, "pending"),
+    ).toEqual({ bubble: [{ target: "ask", label: "改为提问" }], reply: [], options: [] });
+  });
+
+  it("a refused option names the quota of its kind (AC-7)", () => {
+    expect(optionPart({ intent: "record" }, undefined)).toBe("record");
+    expect(optionPart({ intent: "ask" }, undefined)).toBe("ask");
+    expect(optionPart({ intent: "record_ask" }, "entry")).toBe("record");
+    expect(optionPart({ intent: "record_ask" }, "ask")).toBe("ask");
   });
 });
 

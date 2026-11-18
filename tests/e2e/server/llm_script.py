@@ -5,7 +5,8 @@
 The e2e run itself never imports this module; it replays the saved fixtures.
 
 Each message a BOT sends is first read by 意图识别 (``INTENT`` below: what it is, when it
-happened); each Entry text (spec 「端到端验收用例」) then maps to its enrichment result.
+happened; ``INTENT_AFTER`` for a message sent while a 反问 is open, read with it as context);
+each Entry text (spec 「端到端验收用例」) then maps to its enrichment result.
 Graphiti's entity step is answered with no entities: every person, fact, relationship and
 feeling comes from Weft's own enrichment call, which is what the Draft is built from.
 """
@@ -147,6 +148,12 @@ ENRICH: dict[str, dict[str, Any]] = {
     ),
     # Intent routing BOT-6: read as a 记录 (scripted), though it carries no new information.
     "老张喜欢什么": enrichment(),
+    # Intent clarify BOT-2 / BOT-4: 原话 + 回答, merged by the reading; 上个月 is October.
+    "老周上个月被裁了": enrichment(
+        facts=[fact("老周", "EXPERIENCED", "被裁", "witnessed", valid_at="2026-10")],
+    ),
+    # Intent clarify BOT-3: the unrelated message after the 反问.
+    "今天和小林吃饭了": enrichment(persons=["小林"]),
 }
 
 # Person matching: (mention, candidate names in the order sent) -> decision.
@@ -161,7 +168,13 @@ MATCH: dict[tuple[str, tuple[str, ...]], dict[str, Any]] = {
 # occurred only when the message says when; 「周末」 is the Saturday just past.
 
 
-def intent(kind: str, confidence: float, occurred: str | None = None, **rest: str) -> dict:
+def intent(
+    kind: str,
+    confidence: float,
+    occurred: str | None = None,
+    clarify: dict[str, Any] | None = None,
+    **rest: str,
+) -> dict:
     return {
         "intent": kind,
         "confidence": confidence,
@@ -169,7 +182,37 @@ def intent(kind: str, confidence: float, occurred: str | None = None, **rest: st
         "record_text": rest.get("record_text"),
         "question": rest.get("question"),
         "reply": rest.get("reply"),
+        **({"clarify": clarify} if clarify else {}),
     }
+
+
+def asks_back(question: str, *options: dict[str, Any]) -> dict[str, Any]:
+    """The 反问 a reading writes when it is not sure (intent clarify): question + options."""
+    return {"question": question, "options": list(options)}
+
+
+def option(label: str, kind: str, question: str | None = None) -> dict[str, Any]:
+    return {"label": label, "intent": kind, "question": question}
+
+
+def intent_after(kind: str, confidence: float, *, answers: bool, **rest: str | None) -> dict:
+    """A reading with a 反问 as context: whether the message answers it, and the merged
+    ``record_text`` / ``question`` (原话 + 回答)."""
+    return {
+        **intent(kind, confidence, rest.get("occurred")),
+        "record_text": rest.get("record_text"),
+        "question": rest.get("question"),
+        "reply": rest.get("reply"),
+        "answers_clarification": answers,
+    }
+
+
+# Intent clarify BOTs: the 反问s, quoted again as the context of the next message.
+ZHOU_UNLUCKY = "老周最近好像不太顺吧"
+ZHOU_NEWS = "老周那事后来咋样了"
+ZHOU_NEWS_ASKED = "你是想查老周哪件事，还是想记下他的新情况？"
+JIE = "阿杰这人吧，怎么说呢"
+JIE_ASKED = "你是想记下你对阿杰的看法，还是想查阿杰是个什么样的人？"
 
 
 INTENT: dict[str, dict[str, Any]] = {
@@ -200,6 +243,47 @@ INTENT: dict[str, dict[str, Any]] = {
     # Intent routing BOT-6: the spec replays this question as a 记录 (a misreading the user
     # then corrects with 改为提问).
     "老张喜欢什么": intent("record", 0.8),
+    # Intent clarify BOT-1: a guess that could be a note or a question — asked back.
+    ZHOU_UNLUCKY: intent(
+        "record",
+        0.5,
+        clarify=asks_back(
+            "你是想记下“老周最近不太顺”，还是想查老周最近怎么样？",
+            option("记下：老周最近不太顺", "record"),
+            option("查：老周最近怎么样", "ask", "老周最近怎么样？"),
+        ),
+    ),
+    # Intent clarify BOT-2 / BOT-4: 「那事」 is unclear — which thing, or news to note?
+    ZHOU_NEWS: intent(
+        "ask",
+        0.45,
+        clarify=asks_back(
+            ZHOU_NEWS_ASKED,
+            option("查：老周最近怎么样", "ask", "老周最近怎么样？"),
+            option("记下：老周有新情况", "record"),
+        ),
+    ),
+    # Intent clarify BOT-3: half a sentence about 阿杰 — asked back; then an unrelated record.
+    JIE: intent(
+        "record",
+        0.4,
+        clarify=asks_back(
+            JIE_ASKED,
+            option("记下：对阿杰的看法", "record"),
+            option("查：阿杰是个什么样的人", "ask", "阿杰是个什么样的人？"),
+        ),
+    ),
+    "今天和小林吃饭了": intent("record", 0.95),
+}
+
+# A message sent while a 反问 is open, keyed by (原话, 反问, message).
+INTENT_AFTER: dict[tuple[str, str, str], dict[str, Any]] = {
+    # Intent clarify BOT-2 / BOT-4: the answer says what to do and adds the news.
+    (ZHOU_NEWS, ZHOU_NEWS_ASKED, "想记一下，他上个月被裁了"): intent_after(
+        "record", 0.92, answers=True, occurred="2026-10", record_text="老周上个月被裁了"
+    ),
+    # Intent clarify BOT-3: a vague answer — still 拿不准, and never asked back twice.
+    (JIE, JIE_ASKED, "嗯……"): intent_after("record", 0.3, answers=True),
 }
 
 # --- 问答 ----------------------------------------------------------------------------
@@ -290,6 +374,11 @@ def _ask_unknown(out: dict[str, Any]) -> dict[str, Any]:
     return {"kind": "no_answer", "subjects": ["老张"], "segments": []}
 
 
+def _ask_unknown_zhou(out: dict[str, Any]) -> dict[str, Any]:
+    # The seed graph has 周涛, nobody called 老周: no answer, no guessing at a similar name.
+    return {"kind": "no_answer", "subjects": ["老周"], "segments": []}
+
+
 ASK: dict[str, tuple[tuple[str, dict[str, Any]], Any]] = {
     "老张和小李是什么关系？": (
         ("read_relationship", {"person_a": "老张", "person_b": "小李"}),
@@ -305,6 +394,8 @@ ASK: dict[str, tuple[tuple[str, dict[str, Any]], Any]] = {
     "老张现在在哪个部门？": (("read_profile", {"person": "老张"}), _ask_department),
     "老张是个什么性子？": (("read_profile", {"person": "老张"}), _ask_temper),
     "老张喜欢什么": (("find_person", {"name": "老张"}), _ask_unknown),
+    # intent clarify BOT-1 (查：老周最近怎么样)
+    "老周最近怎么样？": (("find_person", {"name": "老周"}), _ask_unknown_zhou),
 }
 
 # --- plumbing ----------------------------------------------------------------------------
@@ -385,6 +476,12 @@ def respond(path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     task = _task(body)
     if task is None:
         raise AssertionError(f"no scripted answer for {json.dumps(body, ensure_ascii=False)[:400]}")
+    if task["task"] == "intent" and "context" in task:
+        ctx = task["context"]
+        key = (ctx["original"], ctx["clarify_question"], task["text"])
+        if key not in INTENT_AFTER:
+            raise AssertionError(f"no scripted intent for 「{key[2]}」 after the 反问 「{key[1]}」")
+        return 200, chat(json.dumps(INTENT_AFTER[key], ensure_ascii=False))
     if task["task"] == "intent":
         text = task["text"]
         if text not in INTENT:

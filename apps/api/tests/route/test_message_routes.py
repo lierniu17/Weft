@@ -1,5 +1,6 @@
 """Message routes over HTTP (intent routing): send, list, re-route; the occurred date on PUT
-/api/drafts. Contract shape, status codes, background extraction (AC-3..AC-10)."""
+/api/drafts. Contract shape, status codes, background extraction (AC-3..AC-10). 反问 (intent
+clarify AC-1, AC-3, AC-4, AC-8): the clarify fields and clicking an option."""
 
 from __future__ import annotations
 
@@ -45,6 +46,8 @@ async def test_a_record_message_returns_the_entry_and_its_draft_extracted_in_the
         "answer",
         "reply",
         "problems",
+        "clarify",
+        "clarification_of",
     }
     assert (body["intent"], body["recognized_intent"], body["uncertain"]) == (
         "record",
@@ -226,3 +229,129 @@ async def test_message_contract_uses_the_published_answer_and_draft_schemas(app:
     assert set(schemas["Intent"]["enum"]) == {"record", "ask", "record_ask", "chitchat"}
     assert schemas["RerouteRequest"]["required"] == ["as"]
     assert "occurred_on" in schemas["UpdateDraftRequest"]["properties"]
+
+
+# --- 反问 (intent clarify) -------------------------------------------------------------------
+
+UNSURE = "小蒋最近好像不太开心吧"
+UNSURE_ASKED = "你是想记下小蒋最近不开心，还是想查小蒋最近怎么样？"
+UNSURE_OPTIONS = [
+    {"label": "记下：小蒋最近不开心", "intent": "record"},
+    {"label": "查：小蒋最近怎么样", "intent": "ask", "question": "小蒋最近怎么样？"},
+]
+
+
+def unsure(llm: LLMScript) -> None:
+    llm.intent(
+        UNSURE,
+        "record",
+        confidence=0.45,
+        clarify={"question": UNSURE_ASKED, "options": UNSURE_OPTIONS},
+    )
+
+
+async def test_a_clarification_is_returned_restored_and_settled_by_a_click(
+    register: Register, llm: LLMScript
+) -> None:
+    unsure(llm)
+    llm.ask("小蒋最近怎么样？", [("find_person", {"name": "小蒋"})], final("no_answer"))
+    user = await register()
+
+    body = await send(user, UNSURE)
+
+    assert (body["intent"], body["uncertain"], body["reply"]) == ("chitchat", True, UNSURE_ASKED)
+    assert body["clarify"] == {
+        "question": UNSURE_ASKED,
+        "options": [
+            {"label": "记下：小蒋最近不开心", "intent": "record", "question": None},
+            {"label": "查：小蒋最近怎么样", "intent": "ask", "question": "小蒋最近怎么样？"},
+        ],
+        "resolved": False,
+    }
+    assert body["clarification_of"] is None
+    [restored] = (await user.client.get("/api/messages")).json()["messages"]
+    assert restored["clarify"] == body["clarify"]
+
+    url = f"/api/messages/{body['message_id']}/clarify"
+    clicked = await user.client.post(url, json={"option": 1})
+
+    assert clicked.status_code == 200, clicked.text
+    done = clicked.json()
+    assert (done["intent"], done["reply"]) == ("ask", None)
+    assert done["answer"]["kind"] == "no_answer" and done["clarify"]["resolved"] is True
+    [restored] = (await user.client.get("/api/messages")).json()["messages"]
+    assert restored["clarify"]["resolved"] is True and restored["answer"] == done["answer"]
+    usage = (await user.client.get("/api/usage")).json()
+    assert (usage["entry"]["used"], usage["ask"]["used"]) == (0, 1)
+    again = await user.client.post(url, json={"option": 0})
+    assert (again.status_code, again.json()["error"]) == (409, "already_resolved")
+
+
+async def test_clicking_record_extracts_the_original_words_in_the_background(
+    register: Register, llm: LLMScript
+) -> None:
+    unsure(llm)
+    sc.laozhang_promoted(llm, UNSURE, "小蒋")  # whatever the model extracts from it
+    user = await register()
+    body = await send(user, UNSURE)
+
+    clicked = await user.client.post(
+        f"/api/messages/{body['message_id']}/clarify", json={"option": 0}
+    )
+
+    assert clicked.status_code == 200, clicked.text
+    entry = clicked.json()["entry"]
+    assert entry["text"] == UNSURE and entry["draft"]["status"] == "extracting"
+    draft = (await user.client.get(f"/api/drafts/{entry['draft']['id']}")).json()
+    assert draft["status"] == "pending"
+
+
+async def test_clarify_errors(register: Register, llm: LLMScript, app: FastAPI) -> None:
+    unsure(llm)
+    llm.intent("早上好呀", "chitchat", confidence=0.99, reply="早！")
+    user = await register()
+    plain = await send(user, "早上好呀")
+    body = await send(user, UNSURE)
+    url = f"/api/messages/{body['message_id']}/clarify"
+
+    out_of_range = await user.client.post(url, json={"option": 5})
+    negative = await user.client.post(url, json={"option": -1})
+    extra = await user.client.post(url, json={"option": 0, "as": "ask"})
+    none = await user.client.post(
+        f"/api/messages/{plain['message_id']}/clarify", json={"option": 0}
+    )
+    unknown = await user.client.post(
+        "/api/messages/00000000-0000-0000-0000-000000000000/clarify", json={"option": 0}
+    )
+    assert (out_of_range.status_code, out_of_range.json()["error"]) == (422, "no_such_option")
+    assert negative.status_code == 422 and extra.status_code == 422
+    assert (none.status_code, none.json()["error"]) == (409, "no_clarification")
+    assert (unknown.status_code, unknown.json()["error"]) == (404, "not_found")
+
+    app.state.infra.settings = app.state.infra.settings.model_copy(update={"daily_ask_limit": 0})
+    quota = await user.client.post(url, json={"option": 1})
+    assert (quota.status_code, quota.json()["error"]) == (429, "quota_exceeded")
+    [_, kept] = (await user.client.get("/api/messages")).json()["messages"]
+    assert kept["clarify"]["resolved"] is False
+
+
+async def test_a_typed_answer_points_at_the_message_it_answers(
+    register: Register, llm: LLMScript
+) -> None:
+    unsure(llm)
+    reply = "记一下吧，她失恋了"
+    llm.intent_after(
+        UNSURE, UNSURE_ASKED, reply, "record", answers=True, record_text="小蒋最近失恋了，不太开心"
+    )
+    sc.laozhang_promoted(llm, "小蒋最近失恋了，不太开心", "小蒋")
+    user = await register()
+    original = await send(user, UNSURE)
+
+    answer = await send(user, reply)
+
+    assert answer["clarification_of"] == original["message_id"] and answer["clarify"] is None
+    assert answer["entry"]["text"] == "小蒋最近失恋了，不太开心"
+    first, second = (await user.client.get("/api/messages")).json()["messages"]
+    assert first["clarify"]["resolved"] is True
+    assert second["clarification_of"] == original["message_id"]
+    assert second["entry"]["draft"]["status"] == "pending"

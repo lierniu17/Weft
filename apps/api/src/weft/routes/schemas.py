@@ -26,7 +26,7 @@ from weft.domain.draft import (
 from weft.domain.feelings import DIMENSIONS, by_direction
 from weft.domain.graph_view import GraphView
 from weft.domain.graph_write import humanize
-from weft.domain.intent import Intent
+from weft.domain.intent import Clarification, Intent
 from weft.domain.message import Problem
 from weft.domain.preferences import GraphTheme, Preferences
 from weft.domain.quota import QuotaDecision
@@ -499,6 +499,10 @@ class RerouteRequest(_In):
     )
 
 
+class ClarifyRequest(_In):
+    option: int = Field(ge=0, description="Index of the clicked option in clarify.options")
+
+
 class MessageEntryOut(_Out):
     """The Entry a message became (记录), with its Draft."""
 
@@ -524,6 +528,37 @@ class ProblemOut(_Out):
         return cls(part=p.part, error=p.error, message=p.message, resets_at=p.resets_at)
 
 
+class ClarifyOptionOut(_Out):
+    label: str = Field(description="What clicking does, e.g. 「记下：…」「查：…」")
+    intent: Literal["record", "ask", "record_ask"] = Field(
+        description="record: the original text becomes a 记录; ask: question is answered"
+    )
+    question: str | None = Field(description="ask / record_ask: the question that is answered")
+
+
+class ClarifyOut(_Out):
+    """反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options."""
+
+    question: str
+    options: list[ClarifyOptionOut]
+    resolved: bool = Field(description="Settled (clicked, answered, re-routed): hide options")
+
+    @classmethod
+    def of(cls, c: Clarification, *, resolved: bool) -> ClarifyOut:
+        return cls(
+            question=c.question,
+            options=[
+                ClarifyOptionOut(
+                    label=o.label,
+                    intent=o.intent.value,
+                    question=o.question,
+                )
+                for o in c.options
+            ],
+            resolved=resolved,
+        )
+
+
 class MessageOut(_Out):
     message_id: uuid.UUID
     text: str
@@ -538,6 +573,12 @@ class MessageOut(_Out):
     answer: Answer | None = Field(description="ask / record_ask: the answer, with citations")
     reply: str | None = Field(description="chitchat: the short reply")
     problems: list[ProblemOut]
+    clarify: ClarifyOut | None = Field(
+        description="拿不准 with a 反问: shown instead of the fixed reply; null otherwise"
+    )
+    clarification_of: uuid.UUID | None = Field(
+        description="This message was typed as the answer to that message's 反问"
+    )
 
     @classmethod
     def of(cls, v: MessageView) -> MessageOut:
@@ -565,6 +606,10 @@ class MessageOut(_Out):
             answer=m.answer,
             reply=m.reply,
             problems=[ProblemOut.of(p) for p in m.problems],
+            clarify=None
+            if m.clarify is None
+            else ClarifyOut.of(m.clarify, resolved=m.clarification_resolved_at is not None),
+            clarification_of=m.clarification_of,
         )
 
 
