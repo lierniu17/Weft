@@ -1,0 +1,20 @@
+{"id": "user-01", "category": "记录", "text": "昨天和老周喝酒，他说他打算明年辞职回老家开民宿", "gold": {"intent": "record", "occurred": "2026-11-15"}}
+{"id": "user-02", "category": "记录", "text": "上个月表妹生了个儿子，小名叫豆豆", "gold": {"intent": "record", "occurred": "2026-10"}}
+{"id": "user-03", "category": "记录", "text": "前年过年在舅舅家第一次见到嫂子，她是做护士的", "gold": {"intent": "record", "occurred": "2024-02"}}
+{"id": "user-04", "category": "记录", "text": "2018 年在深圳上班时认识了阿杰，他是我当时的室友", "gold": {"intent": "record", "occurred": "2018"}}
+{"id": "user-05", "category": "记录", "text": "小林不喝咖啡，一喝就失眠，下次约她别去咖啡店", "gold": {"intent": "record", "occurred": null}}
+{"id": "user-06", "category": "记录", "text": "今天开会听领导说，老周和财务部的赵姐是大学同学", "gold": {"intent": "record", "occurred": null}}
+{"id": "user-07", "category": "记录", "text": "上周末陪爸妈去体检，我爸血压有点高，医生让他少吃盐", "gold": {"intent": "record", "occurred": "2026-11-14"}}
+{"id": "user-08", "category": "记录", "text": "阿杰说他女朋友下个月从杭州调回来了", "gold": {"intent": "record", "occurred": null}}
+{"id": "user-09", "category": "提问", "text": "小林生日是几号", "gold": {"intent": "ask"}}
+{"id": "user-10", "category": "提问", "text": "帮我看看阿杰喜欢什么，下周想给他买个礼物", "gold": {"intent": "ask"}}
+{"id": "user-11", "category": "提问", "text": "老周那事后来咋样了", "gold": {"intent": "ask"}}
+{"id": "user-12", "category": "提问", "text": "我和赵姐是怎么认识的？", "gold": {"intent": "ask"}}
+{"id": "user-13", "category": "提问", "text": "嫂子在哪家医院上班来着", "gold": {"intent": "ask"}}
+{"id": "user-14", "category": "混合", "text": "听说阿杰升主管了，他现在在哪个部门？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "user-15", "category": "混合", "text": "小林搬到浦东了，她之前是住哪的？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "user-16", "category": "混合", "text": "表妹说她老公最近在学开车，他俩是哪年结婚的？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "user-17", "category": "寒暄", "text": "谢谢", "gold": {"intent": "chitchat"}}
+{"id": "user-18", "category": "寒暄", "text": "嗯嗯好的", "gold": {"intent": "chitchat"}}
+{"id": "user-19", "category": "模糊句", "text": "老周最近好像不太顺吧", "gold": {"intent": "chitchat"}}
+{"id": "user-20", "category": "模糊句", "text": "阿杰这人吧，怎么说呢", "gold": {"intent": "chitchat"}}

@@ -1,0 +1,30 @@
+{"id": "rec-01", "category": "回答后记录", "original": "老钟最近好像在减肥吧", "clarify_question": "你是想记下老钟在减肥，还是想查老钟最近的情况？", "reply": "记下来吧", "gold": {"answers": true, "intent": "record", "has": ["老钟", "减肥"]}}
+{"id": "rec-02", "category": "回答后记录", "original": "小蔡好像和女朋友分了吧", "clarify_question": "你是想记下小蔡和女朋友分手了，还是想查小蔡的感情状况？", "reply": "嗯，记一下", "gold": {"answers": true, "intent": "record", "has": ["小蔡", "分"]}}
+{"id": "rec-03", "category": "回答后记录", "original": "宋姐是不是调到财务部了", "clarify_question": "你是想记下宋姐调到财务部了，还是想查宋姐现在在哪个部门？", "reply": "她自己跟我说的，记上", "gold": {"answers": true, "intent": "record", "has": ["宋姐", "财务部"]}}
+{"id": "rec-04", "category": "回答后记录", "original": "老韩他儿子好像考上大学了", "clarify_question": "你是想记下老韩的儿子考上大学了，还是想查他儿子的情况？", "reply": "第一个", "gold": {"answers": true, "intent": "record", "has": ["老韩", "大学"]}}
+{"id": "rec-05", "category": "回答后记录", "original": "堂姐应该是怀孕了吧", "clarify_question": "你是想记下堂姐怀孕了，还是想查堂姐的近况？", "reply": "是要记下，她亲口告诉我的", "gold": {"answers": true, "intent": "record", "has": ["堂姐", "怀孕"]}}
+{"id": "ask-01", "category": "回答后提问", "original": "阿亮最近好像挺闲的", "clarify_question": "你是想记下阿亮最近挺闲，还是想查阿亮最近在做什么？", "reply": "查一下他最近在干嘛", "gold": {"answers": true, "intent": "ask", "has": ["阿亮"]}}
+{"id": "ask-02", "category": "回答后提问", "original": "小莫那个工作的事", "clarify_question": "你想查小莫工作的哪方面？还是有她的新情况要记？", "reply": "想知道她现在在哪家公司", "gold": {"answers": true, "intent": "ask", "has": ["小莫", "公司"]}}
+{"id": "ask-03", "category": "回答后提问", "original": "韦老师是不是退休了", "clarify_question": "你是想记下韦老师退休了，还是想查韦老师有没有退休？", "reply": "查查，我也不确定", "gold": {"answers": true, "intent": "ask", "has": ["韦老师", "退休"]}}
+{"id": "ask-04", "category": "回答后提问", "original": "三叔家那个事", "clarify_question": "你想查三叔家的哪件事？还是有新情况要记？", "reply": "他家老房子拆迁的事，之前跟你说过", "gold": {"answers": true, "intent": "ask", "has": ["三叔", "拆迁"]}}
+{"id": "ask-05", "category": "回答后提问", "original": "邱总好像不喝酒吧", "clarify_question": "你是想记下邱总不喝酒，还是想查邱总喝不喝酒？", "reply": "后面那个", "gold": {"answers": true, "intent": "ask", "has": ["邱总", "酒"]}}
+{"id": "more-01", "category": "补充信息", "original": "小艾最近好像换城市了", "clarify_question": "你是想记下小艾换了城市，还是想查小艾现在在哪个城市？", "reply": "她上个月搬去杭州了，在一家游戏公司上班", "gold": {"answers": true, "intent": "record", "has": ["小艾", "杭州"], "occurred": "2026-10"}}
+{"id": "more-02", "category": "补充信息", "original": "阿康那边怎么说", "clarify_question": "你想查阿康的哪件事？还是他有新消息要记？", "reply": "他说下个月结婚，请我当伴郎", "gold": {"answers": true, "intent": "record", "has": ["阿康", "结婚"]}}
+{"id": "more-03", "category": "补充信息", "original": "老范的店", "clarify_question": "你想查老范的店的什么？还是有新情况要记？", "reply": "关门了，房租太贵撑不下去", "gold": {"answers": true, "intent": "record", "has": ["老范", "关门"]}}
+{"id": "more-04", "category": "补充信息", "original": "蓉蓉好像出事了", "clarify_question": "你是想记下蓉蓉出了什么事，还是想查蓉蓉的近况？", "reply": "昨天骑车摔了，腿骨折了", "gold": {"answers": true, "intent": "record", "has": ["蓉蓉", "骨折"], "occurred": "2026-11-15"}}
+{"id": "more-05", "category": "补充信息", "original": "楼上的孙叔", "clarify_question": "你想查孙叔的什么？还是有他的新情况要记？", "reply": "他前天搬走了，去女儿家住", "gold": {"answers": true, "intent": "record", "has": ["孙叔", "搬"], "occurred": "2026-11-14"}}
+{"id": "topic-01", "category": "换话题", "original": "小葛好像要辞职了吧", "clarify_question": "你是想记下小葛要辞职，还是想查小葛的工作情况？", "reply": "对了，今天中午和阿珍吃了顿火锅", "gold": {"answers": false, "intent": "record"}}
+{"id": "topic-02", "category": "换话题", "original": "老黎那事", "clarify_question": "你想查老黎的哪件事？还是有新情况要记？", "reply": "早点睡了，晚安", "gold": {"answers": false, "intent": "chitchat"}}
+{"id": "topic-03", "category": "换话题", "original": "温姐是不是升主管了", "clarify_question": "你是想记下温姐升主管了，还是想查温姐现在的职位？", "reply": "我堂弟在哪个学校读书来着？", "gold": {"answers": false, "intent": "ask"}}
+{"id": "topic-04", "category": "换话题", "original": "小俞最近好像挺郁闷", "clarify_question": "你是想记下小俞最近很郁闷，还是想查小俞最近怎么了？", "reply": "周六去看了外婆，她身体还挺硬朗", "gold": {"answers": false, "intent": "record"}}
+{"id": "topic-05", "category": "换话题", "original": "龙哥他们", "clarify_question": "你想查龙哥他们的什么？还是有新情况要记？", "reply": "你能帮我做些什么？", "gold": {"answers": false, "intent": "chitchat"}}
+{"id": "vague-01", "category": "仍然含糊", "original": "阿杜好像有点变化", "clarify_question": "你是想记下阿杜有什么变化，还是想查阿杜最近怎么样？", "reply": "嗯……说不好", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "vague-02", "category": "仍然含糊", "original": "季叔那件事", "clarify_question": "你想查季叔的哪件事？还是有新情况要记？", "reply": "就那个呗", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "vague-03", "category": "仍然含糊", "original": "小施好像不太对劲", "clarify_question": "你是想记下小施哪里不对劲，还是想查小施最近的情况？", "reply": "我也不知道", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "vague-04", "category": "仍然含糊", "original": "饶姐和她老公", "clarify_question": "你想查饶姐和她老公的什么？还是有他们的新情况要记？", "reply": "都行吧", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "vague-05", "category": "仍然含糊", "original": "老严的事情", "clarify_question": "你想查老严的哪件事？还是有新情况要记？", "reply": "就是那个事情啊", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "never-01", "category": "算了", "original": "小田好像回老家了吧", "clarify_question": "你是想记下小田回老家了，还是想查小田现在在哪？", "reply": "算了，不用了", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "never-02", "category": "算了", "original": "鲍哥那边", "clarify_question": "你想查鲍哥的什么？还是有他的新情况要记？", "reply": "没事，随口一说", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "never-03", "category": "算了", "original": "毛毛最近挺怪的", "clarify_question": "你是想记下毛毛最近哪里怪，还是想查毛毛最近怎么了？", "reply": "算了算了", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "never-04", "category": "算了", "original": "樊叔的病", "clarify_question": "你是想记下樊叔生病的情况，还是想查樊叔的身体状况？", "reply": "先不说这个了", "gold": {"answers": true, "intent": "chitchat"}}
+{"id": "never-05", "category": "算了", "original": "单老师是不是要调走了", "clarify_question": "你是想记下单老师要调走，还是想查单老师的去向？", "reply": "没什么，不用管它", "gold": {"answers": true, "intent": "chitchat"}}

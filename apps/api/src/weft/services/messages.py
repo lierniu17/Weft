@@ -13,23 +13,37 @@ message; the other part is still done (AC-7). Every message is stored, so the ch
 rebuilt from ``list_messages`` (newest last).
 
 ``reroute`` handles a message the other way (改为记录 / 改为提问, AC-10).
+
+反问 (intent-clarify spec): a 拿不准 message keeps the 反问 recognition wrote (free, AC-1,
+AC-7). Then either
+
+* an option is clicked (``clarify``): 记下 records the original text, 查 answers the
+  option's question; the 反问 is resolved (AC-3); or
+* the next message is typed while the 反问 is open (``awaits_answer``): it is recognized
+  together with it. If it answers, the merged meaning is handled on the answer message and
+  the 反问 is resolved; a second 拿不准 only gets 「记下来 / 帮我查」, which act on 原话 +
+  回答 (AC-4, AC-5). If it does not answer, it is an ordinary message and the 反问 only
+  takes clicks from then on (AC-6).
+
+A 反问 whose handling hit a used-up quota stays unresolved (AC-7).
 """
 
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from weft.domain.answer import Answer
 from weft.domain.dates import PartialDate
 from weft.domain.draft import DraftStatus
-from weft.domain.intent import Intent
-from weft.domain.message import Part, Problem, reroute_refusal
+from weft.domain.intent import UNCERTAIN_REPLY, ClarifyContext, Intent, Recognition
+from weft.domain.message import Part, Problem, awaits_answer, reroute_refusal
+from weft.domain.quota import LIMIT_REACHED_MESSAGE, next_reset
 from weft.infra import Infra
 from weft.repositories.messages import MessageRepository, MessageWithEntry
 from weft.repositories.records import DraftRecord, EntryRecord, MessageRecord
-from weft.services import ask, drafts, entries, intent
+from weft.services import ask, drafts, entries, intent, usage
 from weft.services._uow import tenant
 from weft.services.results import Err, Ok, Result, not_found
 
@@ -100,6 +114,27 @@ async def _update(infra: Infra, message_id: uuid.UUID, **values: object) -> Mess
         return _view(await repo.with_entry(updated))
 
 
+async def _pending(infra: Infra) -> MessageRecord | None:
+    """The user's latest message if its 反问 still takes a typed answer (AC-4)."""
+    async with infra.sql() as session:
+        latest, now = await MessageRepository(session, tenant()).latest()
+    window = timedelta(minutes=infra.settings.clarify_answer_window_minutes)
+    return latest if awaits_answer(latest, now=now, window=window) else None
+
+
+def _context(pending: MessageRecord) -> ClarifyContext:
+    asked = pending.clarify.question if pending.clarify else UNCERTAIN_REPLY
+    return ClarifyContext(original=pending.text, clarify_question=asked)
+
+
+def _stored_parts(seen: Recognition) -> tuple[str | None, str | None]:
+    """``record_text`` / ``question`` kept on the message: the two parts of a 记录 + 提问,
+    and for an answer to a 反问 the merged texts (what 记下来 / 帮我查 act on, AC-5)."""
+    if seen.answers_clarification or seen.intent is Intent.RECORD_ASK:
+        return seen.record_text, seen.question
+    return None, None
+
+
 async def send(infra: Infra, text: str) -> Result[Handled]:
     body = text.strip()
     if not body:
@@ -107,7 +142,10 @@ async def send(infra: Infra, text: str) -> Result[Handled]:
     if len(body) > MAX_MESSAGE_LENGTH:
         return Err("text_too_long", f"消息不能超过 {MAX_MESSAGE_LENGTH} 字")
 
-    seen = await intent.recognize(infra, body)  # free (AC-2)
+    pending = await _pending(infra)
+    context = None if pending is None else _context(pending)
+    seen = await intent.recognize(infra, body, context)  # free (AC-2; 反问 too, AC-7)
+    answered = pending if pending is not None and seen.answers_clarification else None
     problems: list[Problem] = []
     submitted: entries.Submitted | None = None
     if seen.intent in (Intent.RECORD, Intent.RECORD_ASK):
@@ -117,6 +155,7 @@ async def send(infra: Infra, text: str) -> Result[Handled]:
         else:
             submitted = recorded.value
 
+    record_text, question = _stored_parts(seen)
     async with infra.sql.begin() as session:
         message = await MessageRepository(session, tenant()).create(
             text=body,
@@ -125,30 +164,104 @@ async def send(infra: Infra, text: str) -> Result[Handled]:
             confidence=seen.confidence,
             uncertain=seen.uncertain,
             occurred=seen.occurred,
-            record_text=seen.record_text if seen.intent is Intent.RECORD_ASK else None,
-            question=seen.question if seen.intent is Intent.RECORD_ASK else None,
+            record_text=record_text,
+            question=question,
             entry_id=submitted.entry.id if submitted else None,
             reply=seen.reply if seen.intent is Intent.CHITCHAT else None,
             problems=tuple(problems),
+            clarify=seen.clarify if seen.uncertain and answered is None else None,
+            clarification_of=None if answered is None else answered.id,
         )
     new_draft_id = submitted.draft.id if submitted else None
 
+    view: MessageView | None = None
     if seen.intent in (Intent.ASK, Intent.RECORD_ASK):
-        answered = await _ask(infra, seen.question or body)
-        if isinstance(answered, Err):
-            problems.append(_problem("ask", answered))
+        asked = await _ask(infra, seen.question or body)
+        if isinstance(asked, Err):
+            problems.append(_problem("ask", asked))
             view = await _update(infra, message.id, problems=tuple(problems))
         else:
-            view = await _update(infra, message.id, answer=answered.value)
-        return Ok(Handled(view, new_draft_id))
-    return Ok(Handled(await _load(infra, message), new_draft_id))
+            view = await _update(infra, message.id, answer=asked.value)
+    if answered is not None and not problems:
+        await _update(infra, answered.id, clarification_resolved_at=infra.clock())
+    return Ok(Handled(view or await _load(infra, message), new_draft_id))
+
+
+async def _both_quotas_left(infra: Infra) -> Err | None:
+    """Room in both quotas, checked before a 记录 + 提问 option does either part (AC-7)."""
+    report = await usage.today(infra)
+    for decision in (report.entry, report.ask):
+        if not decision.allowed:
+            return Err(
+                "quota_exceeded",
+                LIMIT_REACHED_MESSAGE,
+                {"kind": decision.kind.value, "resets_at": next_reset(infra.clock()).isoformat()},
+            )
+    return None
+
+
+async def clarify(infra: Infra, message_id: uuid.UUID, option: int) -> Result[Handled]:
+    """Click option ``option`` of the message's 反问 (AC-3): 记下 records the original text
+    (not the option's rewording), 查 answers the option's question; the 反问 is resolved.
+
+    Counted like any 记录 / 提问 (AC-7). A used-up quota refuses the click and changes
+    nothing, so the 反问 stays open.
+    """
+    async with infra.sql() as session:
+        message = await MessageRepository(session, tenant()).get(message_id)
+    if message is None:
+        return not_found("message")
+    if message.clarify is None:
+        return Err("no_clarification", "这条消息没有反问")
+    if message.clarification_resolved_at is not None:
+        return Err("already_resolved", "这个反问已经处理过了")
+    if not 0 <= option < len(message.clarify.options):
+        return Err("no_such_option", "没有这个候选")
+    chosen = message.clarify.options[option]
+    question = chosen.question or message.text
+    if chosen.intent is Intent.RECORD_ASK:
+        refused = ask.check_question(question) or await _both_quotas_left(infra)
+        if refused is not None:
+            return refused
+
+    submitted: entries.Submitted | None = None
+    if chosen.intent in (Intent.RECORD, Intent.RECORD_ASK):
+        recorded = await _record(infra, message.text, message.occurred)
+        if isinstance(recorded, Err):
+            return recorded
+        submitted = recorded.value
+    answer: Answer | None = None
+    problems: tuple[Problem, ...] = ()
+    if chosen.intent in (Intent.ASK, Intent.RECORD_ASK):
+        asked = await _ask(infra, question)
+        if isinstance(asked, Err):
+            if submitted is None:
+                return asked
+            problems = (_problem("ask", asked),)  # the 记录 part is done: keep it
+        else:
+            answer = asked.value
+    view = await _update(
+        infra,
+        message.id,
+        intent=chosen.intent,
+        entry_id=submitted.entry.id if submitted else None,
+        answer=answer,
+        reply=None,
+        problems=problems,
+        record_text=message.text if chosen.intent is Intent.RECORD_ASK else None,
+        question=None if chosen.intent is Intent.RECORD else question,
+        clarification_resolved_at=infra.clock(),
+    )
+    return Ok(Handled(view, submitted.draft.id if submitted else None))
 
 
 async def reroute(infra: Infra, message_id: uuid.UUID, target: Intent) -> Result[Handled]:
     """改为记录 / 改为提问 (AC-10): handle the message the other way, counting the new kind.
 
     Nothing already counted is given back. 改为提问 discards the message's Draft if it is
-    not confirmed yet — after the answer is in, so a failed answer changes nothing.
+    not confirmed yet — after the answer is in, so a failed answer changes nothing. An answer
+    to a 反问 is handled by its merged text (原话 + 回答, intent-clarify AC-5); an open 反问
+    is resolved by it.
     """
     async with infra.sql() as session:
         repo = MessageRepository(session, tenant())
@@ -159,9 +272,14 @@ async def reroute(infra: Infra, message_id: uuid.UUID, target: Intent) -> Result
     refusal = reroute_refusal(message.intent, target, draft.status if draft else None)
     if refusal is not None:
         return Err(refusal.reason, refusal.message)
+    settled: dict[str, object] = (
+        {"clarification_resolved_at": infra.clock()}
+        if message.uncertain and message.clarification_resolved_at is None
+        else {}
+    )
 
     if target is Intent.RECORD:
-        recorded = await _record(infra, message.text, message.occurred)
+        recorded = await _record(infra, message.record_text or message.text, message.occurred)
         if isinstance(recorded, Err):
             return recorded
         view = await _update(
@@ -172,16 +290,23 @@ async def reroute(infra: Infra, message_id: uuid.UUID, target: Intent) -> Result
             answer=None,
             reply=None,
             problems=(),
+            **settled,
         )
         return Ok(Handled(view, recorded.value.draft.id))
 
-    answered = await _ask(infra, message.text)
+    answered = await _ask(infra, message.question or message.text)
     if isinstance(answered, Err):
         return answered
     if draft is not None and draft.status in UNCONFIRMED:
         await drafts.discard_draft(infra, draft.id)  # confirmed meanwhile: it simply stays
     view = await _update(
-        infra, message.id, intent=Intent.ASK, answer=answered.value, reply=None, problems=()
+        infra,
+        message.id,
+        intent=Intent.ASK,
+        answer=answered.value,
+        reply=None,
+        problems=(),
+        **settled,
     )
     return Ok(Handled(view))
 
@@ -206,6 +331,7 @@ __all__ = [
     "Handled",
     "MessageView",
     "Page",
+    "clarify",
     "list_messages",
     "reroute",
     "send",

@@ -3,6 +3,10 @@
  * 纠正 row, then what the message became — the draft card (记录), the answer (提问), both
  * (draft card first), or a short reply with 记下来 / 帮我查 (无关). Parts that could not be
  * done (a used-up quota, Q&A down) say so in place; the draft card changes in place.
+ *
+ * 拿不准 with a 反问 (intent clarify): the 反问 and its options take the reply's place; once
+ * an option is clicked the question stays above what it became (draft card / answer). A
+ * typed answer to a 反问 is an ordinary message, its draft or answer under it.
  */
 
 import { useDraft, useEntry, useRetryDraft } from "../../api/entries.ts";
@@ -15,6 +19,7 @@ import {
   type AnswerCardProps,
 } from "../../components/business/AnswerCard/AnswerCard.tsx";
 import { ChitchatReply } from "../../components/business/ChitchatReply/ChitchatReply.tsx";
+import { ClarifyReply } from "../../components/business/ClarifyReply/ClarifyReply.tsx";
 import { DraftCard } from "../../components/business/DraftCard/DraftCard.tsx";
 import { MessageActions } from "../../components/business/MessageActions/MessageActions.tsx";
 import {
@@ -44,6 +49,10 @@ export type MessageThreadProps = {
   onReroute: (target: MessageActionTarget) => void;
   /** The re-route in flight for this message, if any. */
   rerouting?: MessageActionTarget | null;
+  /** A 反问 option was clicked: its index (intent clarify AC-3). */
+  onClarify: (option: number) => void;
+  /** The 反问 option in flight for this message, if any. */
+  clarifying?: number | null;
   answerProps: Omit<AnswerCardProps, "answer" | "onCitationOpen" | "onShowOnGraph"> & {
     onCitationOpen: (answer: Answer, index: number) => void;
     onShowOnGraph: (answer: Answer) => void;
@@ -70,6 +79,8 @@ export function MessageThread({
   onPersonClick,
   onReroute,
   rerouting,
+  onClarify,
+  clarifying,
   answerProps,
 }: MessageThreadProps) {
   const entry = message.entry;
@@ -84,6 +95,10 @@ export function MessageThread({
   const askProblem = problem("ask");
   const { onCitationOpen, onShowOnGraph, ...answerRest } = answerProps;
   const answer = message.answer;
+  const clarify = message.clarify;
+  const asking =
+    rerouting === "ask" ||
+    (clarifying != null && clarify?.options[clarifying]?.intent !== "record");
 
   const persons = (detail.data?.persons ?? [])
     .filter((p) => !p.is_self)
@@ -106,6 +121,14 @@ export function MessageThread({
       >
         {message.text}
       </MessageBubble>
+      {clarify && (
+        <ClarifyReply
+          question={clarify.question}
+          options={actions.options}
+          onOption={onClarify}
+          pending={clarifying}
+        />
+      )}
       {recordProblem && <Problem problem={recordProblem} usage={usage} />}
       {entry?.draft && draftId && (
         <DraftCard
@@ -129,8 +152,8 @@ export function MessageThread({
         />
       )}
       {askProblem && <Problem problem={askProblem} usage={usage} />}
-      {rerouting === "ask" && !answer && <Searching />}
-      {message.intent === "chitchat" && message.reply && (
+      {asking && !answer && <Searching />}
+      {message.intent === "chitchat" && !clarify && message.reply && (
         <ChitchatReply
           reply={message.reply}
           actions={actions.reply}

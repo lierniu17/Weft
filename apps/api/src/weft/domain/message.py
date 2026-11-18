@@ -6,16 +6,23 @@ shows next to the message; the other part is still done.
 
 改为记录 / 改为提问 (AC-10): only a message handled as 记录 or 提问 (or 无关) can be
 re-routed, only to the other kind, and never a 记录 already confirmed into the graph.
+
+反问 (intent-clarify AC-4): the next message is sent with the pending 反问 as context only
+if the user's latest message is 拿不准, not resolved, not itself an answer to a 反问, still
+handled as 无关, and at most the answer window old.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Literal
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any, Literal
 
 from weft.domain.draft import DraftStatus
 from weft.domain.intent import Intent
+
+if TYPE_CHECKING:
+    from weft.repositories.records import MessageRecord
 
 Part = Literal["record", "ask"]
 
@@ -72,4 +79,24 @@ def reroute_refusal(
     return None
 
 
-__all__ = ["ALREADY_CONFIRMED", "NOT_REROUTABLE", "Part", "Problem", "Refusal", "reroute_refusal"]
+def awaits_answer(latest: MessageRecord | None, *, now: datetime, window: timedelta) -> bool:
+    """Whether the user's ``latest`` message is a 反问 still open to a typed answer."""
+    return (
+        latest is not None
+        and latest.uncertain
+        and latest.intent is Intent.CHITCHAT
+        and latest.clarification_resolved_at is None
+        and latest.clarification_of is None  # only one round: an answer is never asked back
+        and now - latest.created_at <= window
+    )
+
+
+__all__ = [
+    "ALREADY_CONFIRMED",
+    "NOT_REROUTABLE",
+    "Part",
+    "Problem",
+    "Refusal",
+    "awaits_answer",
+    "reroute_refusal",
+]
