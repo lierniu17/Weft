@@ -18,7 +18,10 @@ export type SideNavProps = {
   className?: string;
 };
 
-/** Desktop left navigation: 220px, bg-layout, active item primary-1 / primary-7. */
+/**
+ * Desktop left navigation: 232px on bg-subtle (the weak surface). The current item is a
+ * white pill with shadow.sm and ink text; others are grey and turn bg-muted on hover.
+ */
 export function SideNav({
   items,
   value,
@@ -34,12 +37,12 @@ export function SideNav({
       aria-label="主导航"
       data-collapsed={collapsed || undefined}
       className={cx(
-        "flex h-full shrink-0 flex-col gap-lg overflow-y-auto bg-neutral-bg-layout py-md",
-        collapsed ? "w-[64px] items-center px-sm" : "w-[220px] px-sm",
+        "flex h-full shrink-0 flex-col gap-lg overflow-y-auto bg-neutral-bg-subtle py-md",
+        collapsed ? "w-[64px] items-center px-sm" : "w-[232px] px-sm",
         className,
       )}
     >
-      <p className={cx("text-h3 text-neutral-text-primary", !collapsed && "px-sm")}>
+      <p className={cx("text-h3 font-semibold text-neutral-text-primary", !collapsed && "px-sm")}>
         {collapsed ? "W" : "Weft"}
       </p>
       <ul className="flex flex-col gap-xs">
@@ -52,11 +55,11 @@ export function SideNav({
               aria-label={collapsed ? item.label : undefined}
               onClick={() => onValueChange(item.value)}
               className={cx(
-                "motion-colors focus-ring flex h-[40px] w-full cursor-pointer items-center gap-sm rounded-sm px-sm text-body-md",
+                "motion-colors focus-ring flex h-[40px] w-full cursor-pointer items-center gap-sm rounded-sm px-sm text-body-sm",
                 collapsed && "justify-center",
                 active
-                  ? "bg-primary-1 font-semibold text-primary-7"
-                  : "text-neutral-text-primary hover:bg-neutral-divider",
+                  ? "bg-neutral-bg-container font-semibold text-neutral-text-primary shadow-sm"
+                  : "text-neutral-text-secondary hover:bg-neutral-bg-muted hover:text-neutral-text-primary",
               )}
             >
               <span aria-hidden="true" className="flex text-body-lg">
@@ -81,7 +84,7 @@ export function SideNav({
       </ul>
       {!collapsed && recent.length > 0 && (
         <section aria-labelledby={recentId} className="flex flex-col gap-xs">
-          <h2 id={recentId} className="px-sm text-caption text-neutral-text-secondary">
+          <h2 id={recentId} className="px-sm text-caption text-neutral-text-tertiary">
             最近提到
           </h2>
           <ul className="flex flex-col">
@@ -90,7 +93,7 @@ export function SideNav({
                 <button
                   type="button"
                   onClick={() => onRecentClick?.(p.id)}
-                  className="motion-colors focus-ring flex h-[32px] w-full cursor-pointer items-center rounded-sm px-sm text-left text-body-sm text-neutral-text-primary hover:bg-neutral-divider"
+                  className="motion-colors focus-ring flex h-[32px] w-full cursor-pointer items-center rounded-sm px-sm text-left text-meta text-neutral-text-secondary hover:bg-neutral-bg-muted hover:text-neutral-text-primary"
                 >
                   <span className="truncate">
                     {p.name}

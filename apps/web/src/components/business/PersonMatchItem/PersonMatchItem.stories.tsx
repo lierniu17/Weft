@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { Draft, DraftPerson } from "../../../contracts/draft.ts";
 import { choosePerson } from "../../../lib/draft.ts";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { PersonMatchItem } from "./PersonMatchItem.tsx";
 
 const AMBIGUOUS: DraftPerson = {
@@ -49,7 +49,7 @@ export const Matched: Story = {
     await expect(canvas.getByText("老张 → 张伟")).toBeVisible();
     await expect(canvas.getByText("同事 · 已有别名")).toBeVisible();
     const chip = canvas.getByText("已匹配").parentElement as HTMLElement;
-    await expect(getComputedStyle(chip).backgroundColor).toBe(rgb("#EEF2FF"));
+    await expect(getComputedStyle(chip).backgroundColor).toBe(token("primary-6"));
     await expect(canvas.queryByRole("group")).toBeNull();
   },
 };
@@ -60,7 +60,7 @@ export const Ambiguous: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const title = canvas.getByText("小李 → 选择是谁");
-    await expect(getComputedStyle(title).color).toBe(rgb("#C81E1E"));
+    await expect(getComputedStyle(title).color).toBe(token("status-error-6"));
     const group = canvas.getByRole("group", { name: "「小李」是谁" });
     const options = within(group).getAllByRole("button");
     await expect(options.map((o) => o.textContent)).toEqual([

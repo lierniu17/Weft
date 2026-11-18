@@ -55,9 +55,9 @@ export function TextArea({
         onInput?.(e);
       }}
       className={cx(
-        "motion-colors block w-full resize-none rounded-md border border-neutral-border bg-neutral-bg-container px-sm py-sm text-body-md text-neutral-text-primary outline-none",
-        "placeholder:text-neutral-text-disabled focus:border-primary-6",
-        "disabled:cursor-not-allowed disabled:bg-neutral-bg-layout disabled:text-neutral-text-disabled",
+        "motion-colors block w-full resize-none rounded-md border border-neutral-border bg-neutral-bg-container px-md py-sm text-body-md text-neutral-text-primary outline-none",
+        "placeholder:text-neutral-text-disabled focus:border-neutral-text-tertiary",
+        "disabled:cursor-not-allowed disabled:bg-neutral-bg-subtle disabled:text-neutral-text-disabled",
         className,
       )}
       {...rest}

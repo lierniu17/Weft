@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Confidence } from "../../../contracts/draft.ts";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { DraftFactItem, type DraftFactItemProps } from "./DraftFactItem.tsx";
 
 const meta = {
@@ -69,9 +69,9 @@ export const Unverified: Story = {
     await expect(r).toHaveAttribute("data-draft-item", "unverified");
     const detail = canvas.getByText(/与已有信息冲突且可信度更低，标为待核实/);
     await expect(detail).toHaveTextContent("已有：阿里");
-    await expect(getComputedStyle(detail).color).toBe(rgb("#B45309"));
+    await expect(getComputedStyle(detail).color).toBe(token("status-warning-6"));
     await expect(canvas.getByText("待核实")).toBeVisible();
-    await expect(getComputedStyle(r).borderLeftColor).toBe(rgb("#B45309"));
+    await expect(getComputedStyle(r).borderLeftColor).toBe(token("status-warning-6"));
   },
 };
 

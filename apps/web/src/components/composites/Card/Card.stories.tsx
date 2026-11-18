@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Card } from "./Card.tsx";
 
 const meta = {
@@ -18,10 +18,10 @@ const card = (root: HTMLElement) => root.querySelector("[data-card]") as HTMLEle
 export const Outlined: Story = {
   play: async ({ canvasElement }) => {
     const style = getComputedStyle(card(canvasElement));
-    await expect(style.backgroundColor).toBe(rgb("#FFFFFF"));
-    await expect(style.borderTopLeftRadius).toBe("10px");
+    await expect(style.backgroundColor).toBe(token("neutral-bg-container"));
+    await expect(style.borderTopLeftRadius).toBe("12px");
     await expect(style.paddingTop).toBe("16px");
-    await expect(style.borderTopColor).toBe(rgb("#EBEEF2"));
+    await expect(style.borderTopColor).toBe(token("neutral-divider"));
   },
 };
 
@@ -37,6 +37,6 @@ export const Plain: Story = {
 export const Highlighted: Story = {
   args: { variant: "highlighted" },
   play: async ({ canvasElement }) => {
-    await expect(getComputedStyle(card(canvasElement)).borderTopColor).toBe(rgb("#4F46E5"));
+    await expect(getComputedStyle(card(canvasElement)).borderTopColor).toBe(token("primary-6"));
   },
 };

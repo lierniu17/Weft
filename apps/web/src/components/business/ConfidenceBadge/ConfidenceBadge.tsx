@@ -14,16 +14,20 @@ export type ConfidenceBadgeProps = {
   className?: string;
 };
 
-/** DESIGN.md ConfidenceBadge variants. Colour is only a hint; the text is always complete. */
+/**
+ * DESIGN.md ConfidenceBadge (2026-11): trailing grey meta text, the label always complete.
+ * No fill, no outline — except 推测, a grey dashed outline; 转述 is the one status colour
+ * (warning text), since it is the level that needs a second look.
+ */
 const LOOKS: Record<Confidence, string> = {
-  witnessed: "bg-primary-1 text-primary-7 border-transparent",
-  self_told: "bg-secondary-1 text-secondary-7 border-transparent",
-  hearsay: "bg-status-warning-1 text-status-warning-6 border-transparent",
-  inferred: "bg-neutral-bg-layout text-neutral-text-secondary border-dashed border-neutral-border",
+  witnessed: "border-transparent text-neutral-text-tertiary",
+  self_told: "border-transparent text-neutral-text-tertiary",
+  hearsay: "border-transparent text-status-warning-6",
+  inferred: "border-dashed border-neutral-border text-neutral-text-tertiary",
 };
 
 const BASE =
-  "inline-flex h-[20px] shrink-0 items-center gap-xs whitespace-nowrap rounded-full border px-sm text-caption";
+  "inline-flex h-[20px] shrink-0 items-center gap-xs whitespace-nowrap rounded-full border bg-transparent px-xs text-meta";
 
 /** 可信度: 亲历 / 本人说 / 转述 / 推测. */
 export function ConfidenceBadge({
@@ -57,7 +61,7 @@ export function ConfidenceBadge({
         className={cx(
           BASE,
           LOOKS[level],
-          "motion-colors focus-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-45",
+          "motion-colors focus-ring cursor-pointer hover:bg-neutral-bg-muted disabled:cursor-not-allowed disabled:opacity-45",
           className,
         )}
       >
@@ -70,7 +74,7 @@ export function ConfidenceBadge({
           sideOffset={4}
           collisionPadding={8}
           aria-label="选择可信度"
-          className="z-50 flex min-w-[120px] animate-fade-in flex-col gap-xs rounded-md border border-neutral-divider bg-neutral-bg-container p-xs shadow-card"
+          className="z-50 flex min-w-[120px] animate-fade-in flex-col gap-xs rounded-md border border-neutral-divider bg-neutral-bg-container p-xs shadow-md"
         >
           <DropdownMenu.RadioGroup
             value={level}
@@ -81,7 +85,7 @@ export function ConfidenceBadge({
               <DropdownMenu.RadioItem
                 key={option}
                 value={option}
-                className="flex cursor-pointer items-center justify-between gap-sm rounded-sm px-xs py-xs outline-none data-[highlighted]:bg-neutral-bg-layout"
+                className="flex cursor-pointer items-center justify-between gap-sm rounded-sm px-xs py-xs outline-none data-[highlighted]:bg-neutral-bg-muted"
               >
                 <span data-confidence={option} className={cx(BASE, LOOKS[option])}>
                   {confidenceLabel(option)}

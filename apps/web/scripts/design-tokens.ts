@@ -67,6 +67,16 @@ function firstPx(value: string): string {
   return `${n[1]}px`;
 }
 
+/** DESIGN.md motion minus prose-only keys (`reduced` documents a rule, it is not a value). */
+const MOTION_PROSE = new Set(["reduced"]);
+function motionTokens(motion: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(motion)
+      .filter(([k]) => !MOTION_PROSE.has(k))
+      .map(([k, v]) => [k, String(v)]),
+  );
+}
+
 function buildTokens(d: Design) {
   const color: Record<string, string> = {};
   for (const [k, v] of Object.entries(d.colors.primary)) color[`primary-${k}`] = v;
@@ -110,7 +120,7 @@ function buildTokens(d: Design) {
     spacing: d.spacing,
     radius: d.rounded,
     shadow: d.shadow,
-    motion: d.motion,
+    motion: motionTokens(d.motion),
     breakpoint: { md: firstPx(d.breakpoints.tablet), lg: firstPx(d.breakpoints.desktop) },
   };
 }
@@ -133,6 +143,10 @@ export function generate(md: string): { css: string; ts: string } {
   for (const [k, v] of Object.entries(t.radius)) add(`radius-${k}`, v);
   for (const [k, v] of Object.entries(t.shadow)) add(`shadow-${k}`, v);
   for (const [k, v] of Object.entries(t.motion)) add(`motion-${k}`, v);
+  // Tailwind v4 `ease-*` utilities (ease-standard / ease-decelerate / ease-accelerate).
+  for (const [k, v] of Object.entries(t.motion)) {
+    if (k.startsWith("easing-")) add(`ease-${k.slice("easing-".length)}`, v);
+  }
   for (const [k, v] of Object.entries(t.breakpoint)) add(`breakpoint-${k}`, v);
 
   const css = [

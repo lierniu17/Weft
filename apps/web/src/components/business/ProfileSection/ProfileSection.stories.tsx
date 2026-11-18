@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { type ProfileItem, ProfileSection } from "./ProfileSection.tsx";
 
 const TODAY = new Date(2026, 10, 16);
@@ -66,7 +66,9 @@ export const RolesWithUnverified: Story = {
   play: async ({ canvasElement }) => {
     const row = within(section(canvasElement, "社会角色")).getByRole("button", { name: /腾讯/ });
     await expect(row).toHaveTextContent("待核实");
-    await expect(getComputedStyle(within(row).getByText("待核实")).color).toBe(rgb("#B45309"));
+    await expect(getComputedStyle(within(row).getByText("待核实")).color).toBe(
+      token("status-warning-6"),
+    );
   },
 };
 
@@ -162,6 +164,6 @@ export const Opinion: Story = {
     const text = s.getByText("靠谱，可以深交");
     const quote = text.closest("[data-opinion]") as HTMLElement;
     await expect(getComputedStyle(quote).fontStyle).toBe("italic");
-    await expect(getComputedStyle(quote).borderLeftColor).toBe(rgb("#0B7A6E"));
+    await expect(getComputedStyle(quote).borderLeftColor).toBe(token("secondary-6"));
   },
 };

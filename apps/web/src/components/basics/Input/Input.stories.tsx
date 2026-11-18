@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Input } from "./Input.tsx";
 
 const meta = {
@@ -25,7 +25,7 @@ export const Search: Story = {
   args: { variant: "search", "aria-label": "搜索人物", placeholder: "搜索人物或别名" },
   play: async ({ canvasElement }) => {
     const input = within(canvasElement).getByRole("searchbox", { name: "搜索人物" });
-    await expect(getComputedStyle(input).backgroundColor).toBe(rgb("#F5F6F8"));
+    await expect(getComputedStyle(input).backgroundColor).toBe(token("neutral-bg-muted"));
     await userEvent.type(input, "老张");
     await expect(input).toHaveValue("老张");
   },
@@ -56,7 +56,7 @@ export const ErrorState: Story = {
     const input = within(canvasElement).getByRole("textbox", { name: "邀请码" });
     await expect(input).toHaveAttribute("aria-invalid", "true");
     await expect(input).toHaveAccessibleDescription("邀请码无效");
-    await expect(getComputedStyle(input).borderTopColor).toBe(rgb("#C81E1E"));
+    await expect(getComputedStyle(input).borderTopColor).toBe(token("status-error-6"));
   },
 };
 
@@ -65,6 +65,6 @@ export const Disabled: Story = {
   play: async ({ canvasElement }) => {
     const input = within(canvasElement).getByRole("textbox", { name: "称呼" });
     await expect(input).toBeDisabled();
-    await expect(getComputedStyle(input).backgroundColor).toBe(rgb("#F5F6F8"));
+    await expect(getComputedStyle(input).backgroundColor).toBe(token("neutral-bg-subtle"));
   },
 };

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { ProfileSection, type ProfileSectionVariant } from "./ProfileSection.tsx";
 
 const TODAY = new Date(2026, 10, 16);
@@ -34,7 +34,7 @@ export const SummaryClamp: Story = {
     const s = within(within(canvasElement).getByRole("region", { name: "综合描述" }));
     const text = s.getByText(LONG_SUMMARY);
     const box = text.closest("[data-summary]") as HTMLElement;
-    await expect(getComputedStyle(box).backgroundColor).toBe(rgb("#F5F6F8"));
+    await expect(getComputedStyle(box).backgroundColor).toBe(token("neutral-bg-subtle"));
     const line = Number.parseFloat(getComputedStyle(text).lineHeight);
     await expect(text.getBoundingClientRect().height).toBe(line * 3);
     await expect(s.getByText("11-16 生成")).toBeVisible();
@@ -82,7 +82,7 @@ export const Empty: Story = {
       const region = within(canvasElement).getByRole("region", { name: title });
       const empty = within(region).getByText("还没有记录");
       // Deviation: text-secondary, since text-disabled fails 4.5:1 (AC-UI-9).
-      await expect(getComputedStyle(empty).color).toBe(rgb("#5B6475"));
+      await expect(getComputedStyle(empty).color).toBe(token("neutral-text-secondary"));
     }
   },
 };

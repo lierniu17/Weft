@@ -8,14 +8,15 @@ export type RelationStatusTagProps = {
 };
 
 /**
- * DESIGN.md RelationStatusTag: active = green chip, distant = grey, tense = Chip.danger,
- * lost (contract value `estranged`, 断联) = grey with a dashed border.
+ * DESIGN.md RelationStatusTag (AC-3): status tags are the status-1 tint with status-6 text and
+ * no outline — active = success, tense = error; distant = the neutral bg-muted tag;
+ * lost (contract value `estranged`, 断联) = grey text in a dashed outline, no fill.
  */
 const LOOKS: Record<RelationshipStatus, string> = {
-  active: "bg-status-success-1 text-status-success-6 border-status-success-1",
-  distant: "bg-neutral-bg-layout text-neutral-text-secondary border-neutral-border",
-  tense: "bg-status-error-1 text-status-error-6 border-status-error-6",
-  estranged: "bg-neutral-bg-layout text-neutral-text-secondary border-dashed border-neutral-border",
+  active: "bg-status-success-1 text-status-success-6 border-transparent",
+  distant: "bg-neutral-bg-muted text-neutral-text-secondary border-transparent",
+  tense: "bg-status-error-1 text-status-error-6 border-transparent",
+  estranged: "bg-transparent text-neutral-text-secondary border-dashed border-neutral-border",
 };
 
 /** 关系当前状态：活跃 / 疏远 / 紧张 / 断联. */

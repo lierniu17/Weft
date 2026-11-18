@@ -67,7 +67,7 @@ const cell = (selected: boolean, emphasise: boolean) =>
     "motion-colors focus-ring h-[36px] cursor-pointer text-body-sm",
     selected
       ? "bg-primary-6 font-semibold text-on-primary"
-      : cx("enabled:hover:bg-neutral-bg-layout", emphasise ? "font-semibold text-primary-6" : ""),
+      : cx("enabled:hover:bg-neutral-bg-muted", emphasise ? "font-semibold text-primary-6" : ""),
     "disabled:cursor-not-allowed disabled:text-neutral-text-disabled",
   );
 
@@ -156,7 +156,8 @@ export function DatePicker({ value, onChange, today, disabled, className }: Date
         disabled={disabled}
         aria-label={`发生日期：${label}`}
         aria-haspopup="dialog"
-        className={className}
+        // DESIGN.md §2: inside the composer the date is a thin outlined pill, not a filled tag.
+        className={cx("border-neutral-divider bg-transparent", className)}
       >
         {label}
       </Chip>

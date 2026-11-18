@@ -62,7 +62,7 @@ export const LongName: Story = {
     await expect(Array.from(LONG).length).toBeGreaterThanOrEqual(20);
     await expect(getComputedStyle(title).textOverflow).toBe("ellipsis");
     await expect(title.scrollWidth).toBeGreaterThan(title.clientWidth);
-    await expect(title.getBoundingClientRect().height).toBe(22);
+    await expect(title.getBoundingClientRect().height).toBe(24);
     await userEvent.hover(within(canvasElement).getByRole("button"));
     await expect(await screen.findByRole("tooltip")).toHaveTextContent(`${LONG}（老赵）`);
   },

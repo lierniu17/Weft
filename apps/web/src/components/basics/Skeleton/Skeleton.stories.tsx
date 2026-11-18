@@ -54,6 +54,6 @@ export const Card: Story = {
   args: { variant: "card", height: "120px" },
   play: async ({ canvasElement }) => {
     const shape = within(canvasElement).getByRole("status").firstElementChild as HTMLElement;
-    await expect(getComputedStyle(shape).borderRadius).toBe("10px");
+    await expect(getComputedStyle(shape).borderRadius).toBe("12px");
   },
 };

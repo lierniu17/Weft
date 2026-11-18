@@ -55,7 +55,7 @@ function Frame({ title, children }: { title: string; children: React.ReactNode }
         <Brand />
         <section
           aria-label={title}
-          className="flex flex-col gap-md rounded-md border border-neutral-divider bg-neutral-bg-container p-lg shadow-card"
+          className="flex flex-col gap-md rounded-md border border-neutral-divider bg-neutral-bg-container p-lg shadow-sm"
         >
           <h1 className="text-h2 text-neutral-text-primary">{title}</h1>
           {children}

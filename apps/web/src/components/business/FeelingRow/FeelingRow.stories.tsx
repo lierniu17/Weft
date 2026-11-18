@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { FeelingRow } from "./FeelingRow.tsx";
 
 const TODAY = new Date(2026, 10, 16);
@@ -100,7 +100,7 @@ export const Unrecorded: Story = {
   play: async ({ canvasElement }) => {
     await expect(canvasElement).toHaveTextContent("李明 → 张伟：（未记录）");
     const empty = within(canvasElement).getByText("（未记录）");
-    await expect(getComputedStyle(empty).color).toBe(rgb("#5B6475"));
+    await expect(getComputedStyle(empty).color).toBe(token("neutral-text-secondary"));
     await expect(within(canvasElement).queryByRole("button")).toBeNull();
   },
 };

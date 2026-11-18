@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { FiCalendar } from "react-icons/fi";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { TRANSPARENT, token } from "../../../test/color.ts";
 import { Chip } from "./Chip.tsx";
 
 const meta = {
@@ -18,6 +18,10 @@ export const Neutral: Story = {
     const chip = within(canvasElement).getByText("张伟").parentElement as HTMLElement;
     await expect(getComputedStyle(chip).borderRadius).toBe("9999px");
     await expect(chip.getBoundingClientRect().height).toBe(24);
+    // AC-3: default chip is a bg-muted pill with no outline.
+    await expect(getComputedStyle(chip).backgroundColor).toBe(token("neutral-bg-muted"));
+    await expect(getComputedStyle(chip).borderTopColor).toBe(TRANSPARENT);
+    await expect(getComputedStyle(chip).color).toBe(token("neutral-text-secondary"));
   },
 };
 
@@ -25,14 +29,36 @@ export const Selected: Story = {
   args: { variant: "selected", children: "已匹配" },
   play: async ({ canvasElement }) => {
     const chip = within(canvasElement).getByText("已匹配").parentElement as HTMLElement;
-    await expect(getComputedStyle(chip).backgroundColor).toBe(rgb("#EEF2FF"));
-    await expect(getComputedStyle(chip).color).toBe(rgb("#4338CA"));
+    // The selected state is the ink current state (AC-1).
+    await expect(getComputedStyle(chip).backgroundColor).toBe(token("primary-6"));
+    await expect(getComputedStyle(chip).color).toBe(token("on-primary"));
   },
 };
 
-export const Danger: Story = { args: { variant: "danger", children: "小李 → ？需选择" } };
+/** AC-3: status chips use the status-1 background and status-6 text, never an outline. */
+const statusChip =
+  (text: string, bg: Parameters<typeof token>[0], fg: Parameters<typeof token>[0]): Story["play"] =>
+  async ({ canvasElement }) => {
+    const chip = within(canvasElement).getByText(text).parentElement as HTMLElement;
+    await expect(getComputedStyle(chip).backgroundColor).toBe(token(bg));
+    await expect(getComputedStyle(chip).color).toBe(token(fg));
+    await expect(getComputedStyle(chip).borderTopColor).toBe(TRANSPARENT);
+  };
 
-export const Warning: Story = { args: { variant: "warning", children: "待核实" } };
+export const Success: Story = {
+  args: { variant: "success", children: "活跃" },
+  play: statusChip("活跃", "status-success-1", "status-success-6"),
+};
+
+export const Danger: Story = {
+  args: { variant: "danger", children: "小李 → ？需选择" },
+  play: statusChip("小李 → ？需选择", "status-error-1", "status-error-6"),
+};
+
+export const Warning: Story = {
+  args: { variant: "warning", children: "待核实" },
+  play: statusChip("待核实", "status-warning-1", "status-warning-6"),
+};
 
 export const Selectable: Story = {
   name: "Selectable (candidate)",

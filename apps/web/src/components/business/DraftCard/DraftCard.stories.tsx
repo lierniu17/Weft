@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 import type { DraftStatus } from "../../../contracts/draft.ts";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { DraftCard } from "./DraftCard.tsx";
 import { CONFIRMED_PERSONS, PENDING_DRAFT } from "./fixtures.ts";
@@ -51,7 +51,7 @@ export const Pending: Story = {
     await expect(canvas.getByRole("status")).toHaveTextContent("草稿 · 2 个人物 · 4 条信息");
     await expect(canvas.getByText("老张 → 张伟")).toBeVisible();
     const ambiguous = canvas.getByText("小李 → ？需选择").parentElement as HTMLElement;
-    await expect(getComputedStyle(ambiguous).color).toBe(rgb("#C81E1E"));
+    await expect(getComputedStyle(ambiguous).color).toBe(token("status-error-6"));
     const lines = c.querySelectorAll("[data-draft-line]");
     await expect(lines).toHaveLength(3);
     for (const line of lines) {
@@ -61,7 +61,7 @@ export const Pending: Story = {
     await expect(canvas.getByText("待核实")).toBeVisible();
     await expect(canvas.getByText("还有 1 条")).toBeVisible();
     const review = canvas.getByRole("button", { name: "查看并确认" });
-    await expect(getComputedStyle(review).backgroundColor).toBe(rgb("#4F46E5"));
+    await expect(getComputedStyle(review).backgroundColor).toBe(token("primary-6"));
     await userEvent.click(review);
     await expect(args.onReview).toHaveBeenCalled();
   },
@@ -72,10 +72,10 @@ export const Failed: Story = {
   args: { status: "failed", draft: undefined },
   play: async ({ canvasElement, args }) => {
     const c = card(canvasElement);
-    await expect(getComputedStyle(c).backgroundColor).toBe(rgb("#FEF2F2"));
+    await expect(getComputedStyle(c).backgroundColor).toBe(token("status-error-1"));
     await expect(within(c).getByRole("status")).toHaveTextContent("整理失败，原文已保存");
     const retry = within(c).getByRole("button", { name: "重试" });
-    await expect(getComputedStyle(retry).backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(getComputedStyle(retry).backgroundColor).toBe(token("neutral-bg-container"));
     await userEvent.click(retry);
     await expect(args.onRetry).toHaveBeenCalled();
   },
@@ -106,7 +106,9 @@ export const Discarded: Story = {
   play: async ({ canvasElement }) => {
     const c = card(canvasElement);
     await expect(within(c).getByRole("status")).toHaveTextContent("已放弃");
-    await expect(getComputedStyle(within(c).getByRole("status")).color).toBe(rgb("#5B6475"));
+    await expect(getComputedStyle(within(c).getByRole("status")).color).toBe(
+      token("neutral-text-secondary"),
+    );
     await expect(within(c).queryByRole("button")).toBeNull();
   },
 };

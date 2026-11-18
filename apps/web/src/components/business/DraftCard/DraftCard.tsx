@@ -104,7 +104,7 @@ export function DraftCard({
         "flex max-w-[88%] flex-col gap-sm rounded-md border p-md",
         status === "failed"
           ? "border-status-error-6 bg-status-error-1"
-          : "border-neutral-divider bg-neutral-bg-container shadow-card",
+          : "border-neutral-divider bg-neutral-bg-container",
         className,
       )}
     >

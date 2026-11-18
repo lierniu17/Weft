@@ -50,7 +50,7 @@ const DEFAULT_TITLE: Partial<Record<ProfileSectionVariant, string>> = {
 };
 
 const ROW =
-  "motion-colors focus-ring flex w-full cursor-pointer items-center gap-sm rounded-sm py-sm text-left text-body-md text-neutral-text-primary hover:bg-neutral-bg-layout";
+  "motion-colors focus-ring flex w-full cursor-pointer items-center gap-sm rounded-sm py-sm text-left text-body-md text-neutral-text-primary hover:bg-neutral-bg-subtle";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -91,7 +91,7 @@ function Summary({ text, generatedAt }: { text: string; generatedAt: string }) {
   const [expanded, setExpanded] = useState(false);
   const [ref, clamped] = useTruncated<HTMLParagraphElement>();
   return (
-    <div data-summary="" className="flex flex-col gap-xs rounded-md bg-neutral-bg-layout p-md">
+    <div data-summary="" className="flex flex-col gap-xs rounded-md bg-neutral-bg-subtle p-md">
       <p
         ref={ref}
         className={cx("text-body-sm text-neutral-text-primary", !expanded && "line-clamp-3")}

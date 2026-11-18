@@ -2,7 +2,7 @@ import type { ReactNode, Ref } from "react";
 import { FiChevronRight, FiX } from "react-icons/fi";
 import { cx } from "../../../lib/cx.ts";
 
-export type ChipVariant = "neutral" | "selected" | "danger" | "warning";
+export type ChipVariant = "neutral" | "selected" | "success" | "warning" | "danger";
 
 export type ChipProps = {
   children: ReactNode;
@@ -26,22 +26,28 @@ export type ChipProps = {
   ref?: Ref<HTMLButtonElement>;
 };
 
+/**
+ * DESIGN.md Chip: default is a bg-muted pill with no border; selected is the ink current
+ * state; colour only for status (light status-1 background + status-6 text).
+ */
 const VARIANTS: Record<ChipVariant, string> = {
-  neutral: "bg-neutral-bg-container text-neutral-text-primary border-neutral-border",
-  selected: "bg-primary-1 text-primary-7 border-primary-6",
-  danger: "bg-status-error-1 text-status-error-6 border-status-error-6",
-  warning: "bg-status-warning-1 text-status-warning-6 border-transparent",
+  neutral: "bg-neutral-bg-muted text-neutral-text-secondary",
+  selected: "bg-primary-6 text-on-primary",
+  success: "bg-status-success-1 text-status-success-6",
+  warning: "bg-status-warning-1 text-status-warning-6",
+  danger: "bg-status-error-1 text-status-error-6",
 };
 
 const HOVER: Record<ChipVariant, string> = {
-  neutral: "hover:bg-neutral-bg-layout",
-  selected: "",
-  danger: "",
+  neutral: "hover:bg-neutral-border hover:text-neutral-text-primary",
+  selected: "hover:bg-primary-5",
+  success: "",
   warning: "",
+  danger: "",
 };
 
 const BASE =
-  "motion-colors inline-flex h-[24px] max-w-full shrink-0 items-center gap-xs whitespace-nowrap rounded-full border px-sm text-caption";
+  "motion-colors inline-flex h-[24px] max-w-full shrink-0 items-center gap-xs whitespace-nowrap rounded-full border border-transparent px-sm text-caption";
 
 /** Compact label or pickable option: person chips, filters, tags, candidates. */
 export function Chip({
@@ -64,7 +70,11 @@ export function Chip({
 
   if (href) {
     return (
-      <a href={href} {...aria} className={cx(look, HOVER[variant], "focus-ring no-underline")}>
+      <a
+        href={href}
+        {...aria}
+        className={cx(look, HOVER[variant], "motion-press focus-ring no-underline")}
+      >
         {lead}
         {text}
         <FiChevronRight aria-hidden="true" />
@@ -103,7 +113,7 @@ export function Chip({
         className={cx(
           look,
           HOVER[variant],
-          "focus-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-45",
+          "motion-press focus-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-45",
         )}
       >
         {lead}

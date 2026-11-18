@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Confidence } from "../../../contracts/draft.ts";
-import { rgb } from "../../../test/color.ts";
+import { type ColorToken, TRANSPARENT, token } from "../../../test/color.ts";
 import { ConfidenceBadge } from "./ConfidenceBadge.tsx";
 
 const meta = {
@@ -14,14 +14,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const LOOKS: [Confidence, string, string, string][] = [
-  ["witnessed", "亲历", "#EEF2FF", "#4338CA"],
-  ["self_told", "本人说", "#E6F6F4", "#08635A"],
-  ["hearsay", "转述", "#FFF7E6", "#B45309"],
-  ["inferred", "推测", "#F5F6F8", "#5B6475"],
+const LOOKS: [Confidence, string, ColorToken][] = [
+  ["witnessed", "亲历", "neutral-text-tertiary"],
+  ["self_told", "本人说", "neutral-text-tertiary"],
+  ["hearsay", "转述", "status-warning-6"],
+  ["inferred", "推测", "neutral-text-tertiary"],
 ];
 
-/** AC-UI-5: four looks, colour AND full text; 推测 additionally has a dashed border. */
+/**
+ * Style refresh AC-3: four levels, each with its full text, as trailing grey meta text
+ * (no fill); 转述 in warning text; 推测 grey with a dashed outline. Contrast is checked by axe.
+ */
 export const FourLevels: Story = {
   render: () => (
     <div className="flex gap-sm">
@@ -32,11 +35,12 @@ export const FourLevels: Story = {
   ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const [, label, bg, text] of LOOKS) {
+    for (const [, label, text] of LOOKS) {
       const badge = canvas.getByText(label).closest("[data-confidence]") as HTMLElement;
       const style = getComputedStyle(badge);
-      await expect(style.backgroundColor).toBe(rgb(bg));
-      await expect(style.color).toBe(rgb(text));
+      await expect(style.backgroundColor).toBe(TRANSPARENT);
+      await expect(style.color).toBe(token(text));
+      await expect(style.fontSize).toBe("13px");
       await expect(style.borderTopLeftRadius).toBe("9999px");
       // Never truncated to a colour swatch.
       await expect(badge.scrollWidth).toBeLessThanOrEqual(badge.clientWidth + 1);
@@ -44,9 +48,9 @@ export const FourLevels: Story = {
     }
     const inferred = canvas.getByText("推测").closest("[data-confidence]") as HTMLElement;
     await expect(getComputedStyle(inferred).borderTopStyle).toBe("dashed");
-    await expect(getComputedStyle(inferred).borderTopColor).toBe(rgb("#DDE1E8"));
+    await expect(getComputedStyle(inferred).borderTopColor).toBe(token("neutral-border"));
     const witnessed = canvas.getByText("亲历").closest("[data-confidence]") as HTMLElement;
-    await expect(getComputedStyle(witnessed).borderTopStyle).not.toBe("dashed");
+    await expect(getComputedStyle(witnessed).borderTopColor).toBe(TRANSPARENT);
   },
 };
 

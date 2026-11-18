@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, screen, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { CitationMark } from "./CitationMark.tsx";
 
 const meta = {
@@ -24,7 +24,7 @@ export const Default: Story = {
     const mark = within(canvasElement).getByRole("button", { name: "出处 2" });
     await expect(mark).toHaveTextContent("[2]");
     const style = getComputedStyle(mark);
-    await expect(style.color).toBe(rgb("#4F46E5"));
+    await expect(style.color).toBe(token("primary-6"));
     await expect(style.fontSize).toBe("12px");
     await expect(style.verticalAlign).toBe("super");
     await userEvent.click(mark);

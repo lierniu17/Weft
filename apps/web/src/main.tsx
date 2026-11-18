@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
 import { ApiError } from "./api/client.ts";
 import { router } from "./app/router.tsx";
+import { installInputModality } from "./lib/inputModality.ts";
 import "./styles/index.css";
 
 const queryClient = new QueryClient({
@@ -17,6 +18,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+installInputModality();
 
 const root = document.getElementById("root");
 if (root) {

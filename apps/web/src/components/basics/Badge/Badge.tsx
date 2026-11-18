@@ -24,7 +24,10 @@ export function Badge(props: BadgeProps) {
       <span
         role="img"
         aria-label={props.label}
-        className={cx("inline-block size-[8px] rounded-full bg-status-error-6", props.className)}
+        className={cx(
+          "inline-block size-[8px] rounded-full bg-status-error-graphic",
+          props.className,
+        )}
       />
     );
   }

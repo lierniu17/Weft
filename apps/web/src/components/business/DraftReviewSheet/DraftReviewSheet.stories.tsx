@@ -9,7 +9,7 @@ import {
   setConfidence,
   setRelationshipType,
 } from "../../../lib/draft.ts";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { DraftReviewSheet, type DraftReviewSheetProps } from "./DraftReviewSheet.tsx";
 import { REVIEW_DRAFT, TAXONOMY, TAXONOMY_WITH_CUSTOM } from "./fixtures.ts";
@@ -158,9 +158,12 @@ export const DiscardNeedsConfirmation: Story = {
     await expect(modal).toHaveTextContent("记录原文会保留");
     const cancel = within(modal).getByRole("button", { name: "取消" });
     const discard = within(modal).getByRole("button", { name: "放弃" });
-    await expect(cancel.getBoundingClientRect().width).toBe(discard.getBoundingClientRect().width);
-    await expect(getComputedStyle(discard).color).toBe(rgb("#C81E1E"));
-    await expect(getComputedStyle(discard).backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(cancel.getBoundingClientRect().width).toBeCloseTo(
+      discard.getBoundingClientRect().width,
+      2,
+    );
+    await expect(getComputedStyle(discard).color).toBe(token("status-error-6"));
+    await expect(getComputedStyle(discard).backgroundColor).toBe(token("neutral-bg-container"));
 
     await userEvent.click(cancel);
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
@@ -194,11 +197,11 @@ export const CustomSubtypeInPicker: Story = {
   },
 };
 
-/** Desktop D1: the same sheet as the 360px right panel. */
+/** Desktop D1: the same sheet as the 380px right panel. */
 export const SidePanel: Story = {
   args: { variant: "side-panel" },
   play: async () => {
     const s = await sheet();
-    await expect(s.getBoundingClientRect().width).toBe(360);
+    await expect(s.getBoundingClientRect().width).toBe(380);
   },
 };

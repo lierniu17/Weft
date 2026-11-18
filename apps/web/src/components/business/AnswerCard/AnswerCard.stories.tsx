@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Answer } from "../../../contracts/answer.ts";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { CitationSheet } from "../CitationSheet/CitationSheet.tsx";
 import { AnswerCard } from "./AnswerCard.tsx";
 import {
@@ -46,7 +46,9 @@ const card = (root: HTMLElement) => within(root).getByRole("article", { name: "�
 export const Text: Story = {
   play: async ({ canvasElement, args }) => {
     const c = within(card(canvasElement));
-    await expect(getComputedStyle(card(canvasElement)).backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(getComputedStyle(card(canvasElement)).backgroundColor).toBe(
+      token("neutral-bg-container"),
+    );
     await expect(card(canvasElement)).toHaveTextContent("据老张说");
     await expect(c.getAllByRole("button", { name: /^出处 \d$/ })).toHaveLength(2);
     await userEvent.click(c.getByRole("button", { name: "出处 2" }));
@@ -154,7 +156,7 @@ export const NoAnswer: Story = {
     await expect(card(canvasElement)).toHaveTextContent("图谱里没有相关信息");
     await expect(c.queryByRole("button", { name: /^出处/ })).toBeNull();
     const record = c.getByRole("button", { name: "去记一笔" });
-    await expect(getComputedStyle(record).backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(getComputedStyle(record).backgroundColor).toBe(token("neutral-bg-container"));
     await userEvent.click(record);
     await expect(args.onRecord).toHaveBeenCalled();
   },

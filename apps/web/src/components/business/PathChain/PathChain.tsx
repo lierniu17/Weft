@@ -22,7 +22,7 @@ export function PathChain({ persons, onPersonClick, className }: PathChainProps)
           <button
             type="button"
             onClick={() => onPersonClick(p)}
-            className="motion-colors focus-ring flex h-[32px] cursor-pointer items-center gap-xs rounded-full border border-neutral-border bg-neutral-bg-container pr-sm pl-xs text-body-sm text-neutral-text-primary hover:bg-neutral-bg-layout"
+            className="motion-colors focus-ring flex h-[32px] cursor-pointer items-center gap-xs rounded-full border border-neutral-border bg-neutral-bg-container pr-sm pl-xs text-body-sm text-neutral-text-primary hover:bg-neutral-bg-subtle"
           >
             <Avatar name={p.name} variant={p.is_self ? "self" : "initial"} size="sm" />
             <span data-path-name="" className="max-w-[120px] truncate">

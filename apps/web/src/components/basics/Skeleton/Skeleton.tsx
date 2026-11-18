@@ -18,8 +18,9 @@ const AVATAR = { sm: "size-[24px]", md: "size-[36px]", lg: "size-[56px]" } as co
  * tech: the loading region itself should carry aria-busy / a status label.
  */
 export function Skeleton(props: SkeletonProps) {
+  // Soft light / dark cycle (motion.skeleton); still under 「减少动态效果」.
   const base =
-    "block animate-shimmer bg-neutral-divider bg-[linear-gradient(90deg,var(--color-neutral-divider)_25%,var(--color-neutral-bg-layout)_50%,var(--color-neutral-divider)_75%)] bg-[length:200%_100%]";
+    "block animate-skeleton bg-neutral-bg-muted bg-[linear-gradient(90deg,var(--color-neutral-bg-muted),var(--color-neutral-bg-subtle),var(--color-neutral-bg-muted))] bg-[length:200%_100%]";
 
   if (props.variant === "avatar") {
     return (

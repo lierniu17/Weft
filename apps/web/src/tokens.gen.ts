@@ -1,33 +1,40 @@
 // GENERATED from DESIGN.md by scripts/design-tokens.ts — do not edit; run `pnpm tokens`.
 export const tokens = {
   "color": {
-    "primary-1": "#EEF2FF",
-    "primary-5": "#6366F1",
-    "primary-6": "#4F46E5",
-    "primary-7": "#4338CA",
-    "secondary-1": "#E6F6F4",
-    "secondary-5": "#0E9384",
-    "secondary-6": "#0B7A6E",
-    "secondary-7": "#08635A",
-    "neutral-bg-layout": "#F5F6F8",
+    "primary-1": "#F4F4F5",
+    "primary-5": "#27272A",
+    "primary-6": "#18181B",
+    "primary-7": "#09090B",
+    "secondary-1": "#F4F4F5",
+    "secondary-5": "#3F3F46",
+    "secondary-6": "#52525B",
+    "secondary-7": "#27272A",
+    "neutral-bg-layout": "#FFFFFF",
     "neutral-bg-container": "#FFFFFF",
-    "neutral-border": "#DDE1E8",
-    "neutral-divider": "#EBEEF2",
-    "neutral-text-primary": "#1D2433",
-    "neutral-text-secondary": "#5B6475",
-    "neutral-text-disabled": "#9AA3B2",
-    "status-success-1": "#ECFDF3",
+    "neutral-bg-subtle": "#F7F7F8",
+    "neutral-bg-muted": "#F0F0F2",
+    "neutral-border": "#E4E4E7",
+    "neutral-divider": "#ECECEF",
+    "neutral-text-primary": "#18181B",
+    "neutral-text-secondary": "#52525B",
+    "neutral-text-tertiary": "#71717A",
+    "neutral-text-disabled": "#A1A1AA",
+    "status-success-1": "#F0FDF4",
     "status-success-6": "#15803D",
     "status-success-7": "#166534",
-    "status-warning-1": "#FFF7E6",
+    "status-success-graphic": "#16A34A",
+    "status-warning-1": "#FFFBEB",
     "status-warning-6": "#B45309",
     "status-warning-7": "#92400E",
+    "status-warning-graphic": "#D97706",
     "status-error-1": "#FEF2F2",
-    "status-error-6": "#C81E1E",
-    "status-error-7": "#A51A1A",
+    "status-error-6": "#B91C1C",
+    "status-error-7": "#991B1B",
+    "status-error-graphic": "#DC2626",
     "status-info-1": "#EFF6FF",
-    "status-info-6": "#2563EB",
-    "status-info-7": "#1D4ED8",
+    "status-info-6": "#1D4ED8",
+    "status-info-7": "#1E40AF",
+    "status-info-graphic": "#2563EB",
     "graph-kin": "#0B7A6E",
     "graph-romance": "#DB2777",
     "graph-social": "#4F46E5",
@@ -55,14 +62,14 @@ export const tokens = {
     "graph-dark-panel": "rgba(14, 20, 40, 0.92)",
     "graph-dark-panel-border": "#24304F",
     "on-primary": "#FFFFFF",
-    "mask": "rgba(31, 36, 48, 0.45)"
+    "mask": "rgba(9, 9, 11, 0.32)"
   },
   "opacity": {
     "graph-fade": "0.15"
   },
   "font": {
-    "sans": "'PingFang SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif",
-    "heading": "'PingFang SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif",
+    "sans": "'PingFang SC', 'HarmonyOS Sans SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif",
+    "heading": "'PingFang SC', 'HarmonyOS Sans SC', 'Inter', 'Noto Sans SC', 'Microsoft YaHei', sans-serif",
     "mono": "'JetBrains Mono', 'SFMono-Regular', Consolas, monospace"
   },
   "text": {
@@ -89,7 +96,7 @@ export const tokens = {
     "body-md": {
       "size": "15px",
       "weight": "400",
-      "line-height": "22px"
+      "line-height": "24px"
     },
     "body-sm": {
       "size": "14px",
@@ -100,6 +107,18 @@ export const tokens = {
       "size": "12px",
       "weight": "400",
       "line-height": "18px"
+    },
+    "section": {
+      "size": "13px",
+      "weight": "600",
+      "line-height": "20px",
+      "color": "colors.neutral.text-tertiary"
+    },
+    "meta": {
+      "size": "13px",
+      "weight": "400",
+      "line-height": "20px",
+      "color": "colors.neutral.text-tertiary"
     }
   },
   "fontWeight": {
@@ -116,19 +135,33 @@ export const tokens = {
     "xxxl": "64px"
   },
   "radius": {
-    "sm": "6px",
-    "md": "10px",
-    "lg": "16px",
+    "sm": "8px",
+    "md": "12px",
+    "lg": "20px",
+    "xl": "24px",
+    "bubble": "18px 18px 6px 18px",
     "full": "9999px"
   },
   "shadow": {
-    "card": "0 1px 2px rgba(29, 36, 51, 0.06), 0 2px 8px rgba(29, 36, 51, 0.06)",
-    "overlay": "0 -8px 24px rgba(0, 0, 0, 0.12)"
+    "sm": "0 1px 2px rgba(0, 0, 0, 0.04)",
+    "md": "0 4px 16px rgba(0, 0, 0, 0.06)",
+    "lg": "0 12px 32px rgba(0, 0, 0, 0.10)"
   },
   "motion": {
-    "fast": "120ms cubic-bezier(0.2, 0, 0, 1)",
-    "base": "200ms cubic-bezier(0.2, 0, 0, 1)",
-    "sheet": "240ms cubic-bezier(0.2, 0, 0, 1)"
+    "easing-standard": "cubic-bezier(0.2, 0, 0, 1)",
+    "easing-decelerate": "cubic-bezier(0, 0, 0, 1)",
+    "easing-accelerate": "cubic-bezier(0.3, 0, 1, 1)",
+    "fast": "120ms",
+    "base": "200ms",
+    "exit": "150ms",
+    "sheet": "250ms",
+    "emphasis": "300ms",
+    "stagger": "30ms",
+    "stagger-max": "6",
+    "sheet-exit": "200ms",
+    "rise": "8px",
+    "skeleton": "1.6s",
+    "press-scale": "0.98"
   },
   "breakpoint": {
     "md": "768px",

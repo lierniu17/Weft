@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { token } from "../../../test/color.ts";
 import { QuotaMeter } from "./QuotaMeter.tsx";
 
 const meta = {
@@ -35,7 +35,7 @@ export const Normal: Story = {
     await expect(getComputedStyle(record).fontVariantNumeric).toBe("tabular-nums");
     // Right edges line up.
     await expect(record.getBoundingClientRect().right).toBe(ask.getBoundingClientRect().right);
-    await expect(getComputedStyle(record).color).toBe(rgb("#1D2433"));
+    await expect(getComputedStyle(record).color).toBe(token("neutral-text-primary"));
   },
 };
 
@@ -44,9 +44,11 @@ export const Low: Story = {
   args: { record: { used: 46, limit: 50 } },
   play: async ({ canvasElement }) => {
     const record = value(canvasElement, "record");
-    await expect(getComputedStyle(record).color).toBe(rgb("#B45309"));
+    await expect(getComputedStyle(record).color).toBe(token("status-warning-6"));
     await expect(canvasElement.querySelector("[data-quota=record]")).toHaveTextContent("即将用完");
-    await expect(getComputedStyle(value(canvasElement, "ask")).color).toBe(rgb("#1D2433"));
+    await expect(getComputedStyle(value(canvasElement, "ask")).color).toBe(
+      token("neutral-text-primary"),
+    );
   },
 };
 
@@ -55,7 +57,7 @@ export const Exhausted: Story = {
   args: { record: { used: 50, limit: 50 }, resetHint: "北京时间 0 点重置" },
   play: async ({ canvasElement }) => {
     const record = value(canvasElement, "record");
-    await expect(getComputedStyle(record).color).toBe(rgb("#C81E1E"));
+    await expect(getComputedStyle(record).color).toBe(token("status-error-6"));
     await expect(canvasElement.querySelector("[data-quota=record]")).toHaveTextContent("已用完");
     await expect(within(canvasElement).getByText("北京时间 0 点重置")).toBeVisible();
   },

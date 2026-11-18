@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
-import { rgb } from "../../../test/color.ts";
+import { TRANSPARENT, token } from "../../../test/color.ts";
 import { Button } from "./Button.tsx";
 
 const meta = {
@@ -15,6 +15,11 @@ type Story = StoryObj<typeof meta>;
 export const Primary: Story = {
   play: async ({ canvasElement, args }) => {
     const button = within(canvasElement).getByRole("button", { name: "确认入图谱" });
+    // AC-1: the primary button is the ink colour, a full pill.
+    await expect(getComputedStyle(button).backgroundColor).toBe(token("primary-6"));
+    await expect(getComputedStyle(button).color).toBe(token("on-primary"));
+    await expect(getComputedStyle(button).borderRadius).toBe("9999px");
+
     await userEvent.click(button);
     await expect(args.onClick).toHaveBeenCalledTimes(1);
 
@@ -26,9 +31,26 @@ export const Primary: Story = {
   },
 };
 
-export const Secondary: Story = { args: { variant: "secondary", children: "放弃" } };
+export const Secondary: Story = {
+  args: { variant: "secondary", children: "放弃" },
+  play: async ({ canvasElement }) => {
+    // A thin outline on white.
+    const button = within(canvasElement).getByRole("button", { name: "放弃" });
+    await expect(getComputedStyle(button).backgroundColor).toBe(token("neutral-bg-container"));
+    await expect(getComputedStyle(button).borderTopColor).toBe(token("neutral-border"));
+    await expect(getComputedStyle(button).color).toBe(token("neutral-text-primary"));
+  },
+};
 
-export const Ghost: Story = { args: { variant: "ghost", children: "去记一笔" } };
+export const Ghost: Story = {
+  args: { variant: "ghost", children: "在图上查看" },
+  play: async ({ canvasElement }) => {
+    // AC-1: text buttons / links are neutral grey, never coloured.
+    const button = within(canvasElement).getByRole("button", { name: "在图上查看" });
+    await expect(getComputedStyle(button).color).toBe(token("neutral-text-secondary"));
+    await expect(getComputedStyle(button).backgroundColor).toBe(TRANSPARENT);
+  },
+};
 
 export const Danger: Story = {
   args: { variant: "danger", children: "删除人物" },
@@ -36,9 +58,9 @@ export const Danger: Story = {
     // Danger is an outlined secondary, never a solid primary (AC-UI-6).
     const button = within(canvasElement).getByRole("button", { name: "删除人物" });
     const style = getComputedStyle(button);
-    await expect(style.color).toBe(rgb("#C81E1E"));
-    await expect(style.borderTopColor).toBe(rgb("#C81E1E"));
-    await expect(style.backgroundColor).toBe(rgb("#FFFFFF"));
+    await expect(style.color).toBe(token("status-error-6"));
+    await expect(style.borderTopColor).toBe(token("neutral-border"));
+    await expect(style.backgroundColor).toBe(token("neutral-bg-container"));
   },
 };
 

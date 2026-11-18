@@ -279,7 +279,7 @@ export function RelationGraph({
         {hover && (
           <div
             role="tooltip"
-            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-sm bg-neutral-text-primary px-sm py-xs text-caption text-neutral-bg-container shadow-card"
+            className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-full rounded-sm bg-neutral-text-primary px-sm py-xs text-caption text-neutral-bg-container shadow-md"
             style={{ left: hover.x, top: hover.y - 14 }}
           >
             {hover.name}

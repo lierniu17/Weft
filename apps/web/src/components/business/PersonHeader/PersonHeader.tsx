@@ -112,7 +112,7 @@ export function PersonHeader({
                 <DropdownMenu.Content
                   align="end"
                   sideOffset={4}
-                  className="z-50 min-w-[140px] animate-fade-in rounded-md border border-neutral-divider bg-neutral-bg-container p-xs shadow-card"
+                  className="z-50 min-w-[140px] animate-fade-in rounded-md border border-neutral-divider bg-neutral-bg-container p-xs shadow-md"
                 >
                   <DropdownMenu.Item
                     onSelect={() => onDelete?.()}

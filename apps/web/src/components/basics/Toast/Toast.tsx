@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect } from "react";
 import { FiAlertCircle, FiCheck } from "react-icons/fi";
 import { cx } from "../../../lib/cx.ts";
+import { usePresence } from "../../../lib/useMotion.ts";
 
 export type ToastVariant = "info" | "success" | "error";
 
@@ -38,13 +39,16 @@ export function Toast({
     return () => clearTimeout(timer);
   }, [open, duration, onOpenChange]);
 
-  if (!open) return null;
+  // Fades out over motion.exit before unmounting.
+  const { mounted, state } = usePresence(open);
+  if (!mounted) return null;
   const icon = ICONS[variant];
   return (
     <div
       role={variant === "error" ? "alert" : "status"}
+      data-state={state}
       className={cx(
-        "fixed bottom-xxl left-1/2 z-50 flex -translate-x-1/2 animate-fade-in items-center gap-sm rounded-sm bg-neutral-text-primary px-md py-sm text-body-sm text-neutral-bg-container shadow-card",
+        "fixed bottom-xxl left-1/2 z-50 flex -translate-x-1/2 data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in items-center gap-sm rounded-full bg-neutral-text-primary px-md py-sm text-body-sm text-neutral-bg-container shadow-lg",
         className,
       )}
     >
