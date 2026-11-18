@@ -1,10 +1,20 @@
-/** 对话: the chat-centred home — record or ask in one composer, drafts and answers in the feed. */
+/**
+ * 对话: the chat-centred home. One composer; every message is handled by its 意图 (ADR 0005)
+ * — drafts, answers and short replies appear in the feed under the message, with 纠正.
+ */
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ApiError, enc } from "../../api/client.ts";
-import { useEntries, useSubmitEntry } from "../../api/entries.ts";
-import { useAsk, useUsage } from "../../api/graph.ts";
-import { useChatSession } from "../../app/chatSession.tsx";
+import { useUsage } from "../../api/graph.ts";
+import { keys } from "../../api/keys.ts";
+import {
+  chronological,
+  type Message,
+  useMessages,
+  useReroute,
+  useSendMessage,
+} from "../../api/messages.ts";
 import {
   CONTENT_COLUMN,
   RIGHT_COLUMN,
@@ -16,53 +26,44 @@ import { Button } from "../../components/basics/Button/Button.tsx";
 import { Drawer } from "../../components/basics/Drawer/Drawer.tsx";
 import { Skeleton } from "../../components/basics/Skeleton/Skeleton.tsx";
 import { Toast } from "../../components/basics/Toast/Toast.tsx";
-import { AnswerCard } from "../../components/business/AnswerCard/AnswerCard.tsx";
-import {
-  ChatComposer,
-  type ComposerMode,
-  type ComposerSubmit,
-} from "../../components/business/ChatComposer/ChatComposer.tsx";
+import { ChatComposer } from "../../components/business/ChatComposer/ChatComposer.tsx";
 import { CitationSheet } from "../../components/business/CitationSheet/CitationSheet.tsx";
 import { MessageBubble } from "../../components/business/MessageBubble/MessageBubble.tsx";
 import { EmptyState } from "../../components/composites/EmptyState/EmptyState.tsx";
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
 import type { Answer, Citation } from "../../contracts/answer.ts";
 import { cx } from "../../lib/cx.ts";
-import { type OccurredOn, todayOccurredOn } from "../../lib/datePrecision.ts";
-import { draftCardLabels, quotaMessages, toPartialDate } from "../../lib/pageModels.ts";
+import { composerQuota, type MessageActionTarget, problemText } from "../../lib/messages.ts";
+import { draftCardLabels } from "../../lib/pageModels.ts";
 import { PanoramaBody } from "../panorama/PanoramaView.tsx";
 import { CurrentPersonPanel } from "./CurrentPersonPanel.tsx";
 import { DraftReview } from "./DraftReview.tsx";
-import { EntryThread } from "./EntryThread.tsx";
+import { MessageThread, Searching } from "./MessageThread.tsx";
 
 const EXAMPLES = [
   "今天和老张吃饭，他说女儿明年高考",
-  "读大学时在社团认识了小李",
+  "2015 年读大学时在社团认识了小李",
   "小王是我通过老张认识的客户",
 ];
 
-/** How many earlier Entries the feed shows; the full history is in 记录. */
-const HISTORY = 20;
-
 export function ChatPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const today = useToday();
   const layout = useLayout();
   const sheetVariant = useSheetVariant();
-  const session = useChatSession();
-  const entries = useEntries();
+  const chat = useMessages();
   const usage = useUsage();
-  const submitEntry = useSubmitEntry();
-  const ask = useAsk();
+  const send = useSendMessage();
+  const reroute = useReroute();
 
-  const [mode, setMode] = useState<ComposerMode>("record");
   const [text, setText] = useState("");
-  const [occurredOn, setOccurredOn] = useState<OccurredOn>(() => todayOccurredOn(today));
   const [reviewing, setReviewing] = useState<{ draftId: string; occurredOn: string } | null>(null);
   const [citations, setCitations] = useState<Citation[] | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   /** Desktop: the panorama in the right column, with the answer lit (清除 keeps the graph). */
   const [graphPanel, setGraphPanel] = useState<{ answer: Answer | null } | null>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
   const feed = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
@@ -87,32 +88,23 @@ export function ChatPage() {
     };
   });
 
-  const byId = useMemo(() => new Map((entries.data ?? []).map((e) => [e.id, e])), [entries.data]);
-  const sessionEntryIds = new Set(session.items.filter((i) => i.kind === "entry").map((i) => i.id));
-  const history = (entries.data ?? [])
-    .filter((e) => e.kind === "user" && !sessionEntryIds.has(e.id))
-    .slice(0, HISTORY)
-    .reverse();
+  const messages = useMemo(() => chronological(chat.data), [chat.data]);
+  const entries = messages.flatMap((m) => (m.entry ? [m.entry] : []));
   // Every draft card is a region: each gets its own name (AC-UI-9, axe landmark-unique).
-  const labels = draftCardLabels(
-    (entries.data ?? []).filter((e) => e.kind === "user"),
-    today,
-  );
-  const firstUse = entries.isSuccess && history.length === 0 && session.items.length === 0;
-  const latestConfirmed = (entries.data ?? []).find(
-    (e) => e.kind === "user" && e.draft?.status === "confirmed",
-  );
+  const labels = draftCardLabels(entries, today);
+  const sending = send.isPending ? send.variables : null;
+  const rerouting = reroute.isPending ? reroute.variables : null;
+  const firstUse = chat.isSuccess && messages.length === 0 && sending === null;
+  const latestConfirmed = [...entries].reverse().find((e) => e.draft?.status === "confirmed");
 
-  // Keep the newest message in view.
-  const count =
-    history.length +
-    session.items.length +
-    session.items.filter((i) => i.kind === "ask" && (i.answer || i.error)).length;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the feed grows
+  // Keep the newest message in view when one is sent or handled (not when older ones load).
+  const last = messages.at(-1);
+  const newest = `${last?.message_id}:${last?.intent}:${sending ?? ""}`;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll when the newest message changes
   useEffect(() => {
     pinned.current = true;
     bottom.current?.scrollIntoView({ block: "end" });
-  }, [count]);
+  }, [newest]);
 
   const openPerson = (id: string) => navigate(`/people/${enc(id)}`);
   // Desktop (wireframe D1/D2): review / 出处 open in the right column beside the chat,
@@ -124,33 +116,31 @@ export function ChatPage() {
     setReviewing({ draftId, occurredOn: entryOccurredOn });
   };
 
-  const onSubmit = (payload: ComposerSubmit) => {
-    if (payload.mode === "record") {
-      submitEntry.mutate(
-        { text: payload.text, occurred_on: toPartialDate(payload.occurredOn) },
-        {
-          onSuccess: (s) => {
-            session.addEntry(s.entry.id);
-            setOccurredOn(todayOccurredOn(new Date()));
-          },
-          onError: (e) => {
-            setText(payload.text);
-            if (!(e instanceof ApiError && e.quotaExceeded)) {
-              setToast(e instanceof ApiError ? e.message : "提交失败，请稍后再试");
-            }
-          },
-        },
-      );
-      return;
-    }
-    const id = session.addAsk(payload.text);
-    ask.mutate(payload.text, {
-      onSuccess: (answer) => session.settleAsk(id, { answer }),
-      onError: (e) =>
-        session.settleAsk(id, {
-          error: e instanceof ApiError ? e.message : "问答暂时不可用，请稍后再试",
-        }),
+  const onSubmit = (message: string) => {
+    send.mutate(message, {
+      onError: (e) => {
+        setText(message);
+        setToast(e instanceof ApiError ? e.message : "发送失败，请稍后再试");
+      },
     });
+  };
+
+  // 改为记录 / 改为提问 / 记下来 / 帮我查 (AC-6, AC-10): the message is replaced in place.
+  const onReroute = (message: Message, target: MessageActionTarget) => {
+    reroute.mutate(
+      { id: message.message_id, as: target },
+      {
+        onError: (e) => {
+          if (!(e instanceof ApiError)) {
+            setToast("操作失败，请稍后再试");
+            return;
+          }
+          // 409: the message changed meanwhile (its draft was confirmed): show it as it is.
+          if (e.status === 409) void qc.invalidateQueries({ queryKey: keys.messages });
+          setToast(problemText({ part: target, error: e.code, message: e.message }, usage.data));
+        },
+      },
+    );
   };
 
   // 在图上查看 (graph-viz AC-17): phones and tablets go to 全景图; desktop keeps the chat
@@ -165,15 +155,25 @@ export function ChatPage() {
     }
   };
 
-  const answerHandlers = {
+  const answerProps = {
     today,
     onPersonClick: (p: { person_id: string }) => openPerson(p.person_id),
     onFollowUp: (q: string) => {
-      setMode("ask");
       setText(q);
+      input.current?.focus();
     },
-    onRecord: () => setMode("record"),
+    // no_answer 「去记一笔」: just say it — the composer takes records and questions alike.
+    onRecord: () => input.current?.focus(),
+    onCitationOpen: (answer: Answer, i: number) => {
+      const c = answer.citations.find((x) => x.index === i);
+      if (!c) return;
+      setReviewing(null);
+      setGraphPanel(null);
+      setCitations([c]);
+    },
+    onShowOnGraph: showOnGraph,
   };
+  const quota = composerQuota(usage.data);
 
   return (
     <div className="flex min-h-[0] flex-1">
@@ -187,7 +187,7 @@ export function ChatPage() {
           }
         />
         <div ref={feed} className="min-h-[0] flex-1 overflow-y-auto" aria-live="off">
-          {entries.isPending ? (
+          {chat.isPending ? (
             <div
               role="status"
               aria-busy="true"
@@ -198,98 +198,62 @@ export function ChatPage() {
               <Skeleton variant="card" />
             </div>
           ) : firstUse ? (
-            <EmptyState
-              variant="first-use"
-              examples={EXAMPLES}
-              onExample={(t) => {
-                setMode("record");
-                setText(t);
-              }}
-            />
+            <EmptyState variant="first-use" examples={EXAMPLES} onExample={setText} />
           ) : (
-            <ol
-              aria-label="对话"
-              data-page-content=""
-              className={cx(CONTENT_COLUMN, "motion-stagger flex flex-col gap-lg py-md")}
-            >
-              {history.map((e) => (
-                <EntryThread
-                  key={e.id}
-                  entry={e}
-                  today={today}
-                  label={labels.get(e.id)}
-                  onReview={(id) => review(id, e.occurred_on)}
-                  onPersonClick={openPerson}
-                />
-              ))}
-              {session.items.map((item) => {
-                if (item.kind === "entry") {
-                  const e = byId.get(item.id);
-                  return e ? (
-                    <EntryThread
-                      key={item.id}
-                      entry={e}
-                      today={today}
-                      label={labels.get(e.id)}
-                      onReview={(id) => review(id, e.occurred_on)}
-                      onPersonClick={openPerson}
-                    />
-                  ) : null;
-                }
-                return (
-                  <li key={item.id} className="flex flex-col gap-sm">
-                    <MessageBubble variant="question" today={today}>
-                      {item.question}
+            <div>
+              {chat.hasNextPage && (
+                <div className={cx(CONTENT_COLUMN, "flex justify-center pt-md")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    loading={chat.isFetchingNextPage}
+                    onClick={() => void chat.fetchNextPage()}
+                  >
+                    更早的消息
+                  </Button>
+                </div>
+              )}
+              <ol
+                aria-label="对话"
+                data-page-content=""
+                className={cx(CONTENT_COLUMN, "motion-stagger flex flex-col gap-lg py-md")}
+              >
+                {messages.map((m) => (
+                  <MessageThread
+                    key={m.message_id}
+                    message={m}
+                    today={today}
+                    usage={usage.data}
+                    label={m.entry ? labels.get(m.entry.id) : undefined}
+                    onReview={review}
+                    onPersonClick={openPerson}
+                    onReroute={(target) => onReroute(m, target)}
+                    rerouting={rerouting?.id === m.message_id ? rerouting.as : null}
+                    answerProps={answerProps}
+                  />
+                ))}
+                {sending !== null && (
+                  <li className="flex flex-col gap-sm">
+                    <MessageBubble variant="plain" today={today}>
+                      {sending}
                     </MessageBubble>
-                    {item.answer ? (
-                      <AnswerCard
-                        answer={item.answer}
-                        onCitationOpen={(i) => {
-                          const c = item.answer?.citations.find((x) => x.index === i);
-                          if (!c) return;
-                          setReviewing(null);
-                          setGraphPanel(null);
-                          setCitations([c]);
-                        }}
-                        onShowOnGraph={() => item.answer && showOnGraph(item.answer)}
-                        {...answerHandlers}
-                      />
-                    ) : item.error ? (
-                      <p className="py-xs text-body-md text-status-error-6" role="alert">
-                        {item.error}
-                      </p>
-                    ) : (
-                      // answers are never boxed (AC-4): the wait is set on the page too
-                      <div
-                        role="status"
-                        aria-busy="true"
-                        aria-label="正在查找"
-                        className="flex flex-col gap-sm py-xs"
-                      >
-                        <p className="text-body-md text-neutral-text-secondary">正在图谱里查找…</p>
-                        <Skeleton width="80%" />
-                        <Skeleton width="60%" />
-                      </div>
-                    )}
+                    <Searching label="正在处理…" name="正在处理" />
                   </li>
-                );
-              })}
-            </ol>
+                )}
+              </ol>
+            </div>
           )}
           <div ref={bottom} />
         </div>
         <ChatComposer
           className="mx-auto w-full max-w-[720px]"
-          mode={mode}
-          onModeChange={setMode}
           value={text}
           onValueChange={setText}
-          occurredOn={occurredOn}
-          onOccurredOnChange={setOccurredOn}
-          today={today}
           onSubmit={onSubmit}
-          sending={submitEntry.isPending}
-          exhausted={quotaMessages(usage.data)}
+          sending={send.isPending}
+          blocked={quota.blocked}
+          notice={quota.notice}
+          inputRef={input}
         />
       </div>
       {inline && graphPanel && (

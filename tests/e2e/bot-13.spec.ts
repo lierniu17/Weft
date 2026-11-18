@@ -7,8 +7,9 @@ import {
   recordConfirmed,
   registerUser,
   replayedOr,
+  say,
   shot,
-  submitRecord,
+  threadOf,
 } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
@@ -27,8 +28,11 @@ test("BOT-13 放弃草稿、自定义小类与不对称感受", { tag: "@llm" },
   const graphBefore = await (await page.request.get("/api/graph")).json();
   await page.goto("/");
 
-  // 1. 写一条随便的记录并提交，在草稿页点放弃并确认。
-  await submitRecord(page, "随便写的一句话");
+  // 1. 写一条随便的记录并提交，在草稿页点放弃并确认。Intent routing: a test sentence is
+  //    无关 — nothing is recorded until the user picks 记下来.
+  await say(page, "随便写的一句话");
+  const reply = threadOf(page, "随便写的一句话").locator("[data-chitchat-reply]");
+  await reply.getByRole("button", { name: "记下来" }).click({ timeout: LLM_WAIT });
   const casual = draftCardOf(page, "随便写的一句话");
   await expect(casual.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   await casual.getByRole("button", { name: "查看并确认" }).click();
@@ -53,7 +57,7 @@ test("BOT-13 放弃草稿、自定义小类与不对称感受", { tag: "@llm" },
 
   // 3. 写记录，提交。
   await page.goto("/");
-  await submitRecord(page, BALL);
+  await say(page, BALL);
   const card = draftCardOf(page, BALL);
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
 
@@ -91,7 +95,8 @@ test("BOT-13 放弃草稿、自定义小类与不对称感受", { tag: "@llm" },
   await expect(theirs).toContainText(/小李 → 我：(一般|疏远)/);
   await theirs.getByRole("button", { name: "历史" }).click();
   const history = theirs.getByRole("list", { name: "小李 → 我 的感受变化" });
-  await expect(history).toContainText("今天");
+  // 「周末」 said on Monday 11-16 is Saturday 11-14 (the occurred date read from the message).
+  await expect(history).toContainText(replayedOr<string | RegExp>("11-14", /今天|\d{2}-\d{2}/));
   // Spec: 一般或疏远 (the replayed fixture says 一般).
   await expect(history).toContainText(
     replayedOr<string | RegExp>("亲密度 一般", /亲密度 (一般|疏远)/),

@@ -7,9 +7,10 @@ import type {
   PersonChoice,
 } from "../../../contracts/draft.ts";
 import type { Taxonomy } from "../../../contracts/taxonomy.ts";
-import { formatOccurredOn, type OccurredOn } from "../../../lib/datePrecision.ts";
+import type { OccurredOn } from "../../../lib/datePrecision.ts";
 import { canConfirm, itemSentence, unresolvedPersons } from "../../../lib/draft.ts";
 import { Button } from "../../basics/Button/Button.tsx";
+import { DatePicker } from "../../basics/DatePicker/DatePicker.tsx";
 import { Drawer, type DrawerVariant } from "../../basics/Drawer/Drawer.tsx";
 import { Modal } from "../../basics/Modal/Modal.tsx";
 import { SectionHeader } from "../../composites/SectionHeader/SectionHeader.tsx";
@@ -25,9 +26,18 @@ export type DraftReviewSheetProps = {
   /** `false`: the desktop right column (side-panel in place, page stays interactive). */
   modal?: boolean;
   draft: Draft;
-  /** The Entry's 发生日期, shown in the sheet's description. */
+  /** The Entry's 发生日期: 「发生在：…」 at the top of the sheet. */
   occurredOn: OccurredOn;
   today: Date;
+  /**
+   * The user picked another 发生日期 (year / month / day, never the future). Omit to show
+   * the date read-only.
+   */
+  onOccurredOnChange?: (value: OccurredOn) => void;
+  /** The new 发生日期 is being saved (and the draft re-timed). */
+  retiming?: boolean;
+  /** The 发生日期 was changed: the draft's relative times were re-timed; ask to check them. */
+  retimed?: boolean;
   /** The user's relationship vocabulary (built-in + custom subtypes). */
   taxonomy: Taxonomy;
   onChoosePerson: (personItemId: string, choice: PersonChoice) => void;
@@ -55,7 +65,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /**
- * Where a draft is checked before it enters the graph: persons (with matching), facts,
+ * Where a draft is checked before it enters the graph: 「发生在：…」 (tap to change the
+ * 发生日期, intent-routing AC-9), persons (with matching), facts,
  * profile changes, relationship changes, feeling changes. Every item shows a pickable
  * confidence and can be removed. 确认入图谱 stays disabled while any person is 需选择 (AC-12);
  * 放弃 asks again in a danger Modal (AC-17).
@@ -68,6 +79,9 @@ export function DraftReviewSheet({
   draft,
   occurredOn,
   today,
+  onOccurredOnChange,
+  retiming,
+  retimed,
   taxonomy,
   onChoosePerson,
   onConfidenceChange,
@@ -108,7 +122,7 @@ export function DraftReviewSheet({
         variant={variant}
         modal={modal}
         title="确认草稿"
-        description={`${formatOccurredOn(occurredOn, today)} · 确认后才会写进图谱`}
+        description="确认后才会写进图谱"
         className={variant === "bottom-sheet" ? "h-[92vh]" : undefined}
         footer={
           <div className="flex w-full flex-col gap-sm">
@@ -140,6 +154,22 @@ export function DraftReviewSheet({
           </div>
         }
       >
+        <div data-occurred="" className="flex flex-col gap-xs pt-sm">
+          <DatePicker
+            trigger="line"
+            prefix="发生在"
+            value={occurredOn}
+            onChange={(v) => onOccurredOnChange?.(v)}
+            today={today}
+            disabled={!onOccurredOnChange || retiming}
+            className="self-start"
+          />
+          {retimed && (
+            <p role="status" className="text-meta text-neutral-text-secondary">
+              已按新的发生日期重新换算草稿里的时间，请检查一遍
+            </p>
+          )}
+        </div>
         {draft.persons.length > 0 && (
           <Section title="涉及的人物">
             {draft.persons.map((p) => (

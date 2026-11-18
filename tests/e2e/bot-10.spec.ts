@@ -10,7 +10,11 @@ test.skip(
   "remote: needs E2E_LIMITED_BASE_URL (an API with DAILY_ENTRY_LIMIT=2)",
 );
 
-/** BOT-10 〔AC-40〕 the third Entry of the day is refused, with the reset time. */
+/**
+ * BOT-10 〔AC-40〕 the third Entry of the day is refused, with the reset time. Intent
+ * routing: the composer only warns (a question still goes through, AC-7); the record part
+ * of a message is what gets refused (intent BOT-5).
+ */
 test("BOT-10 录入额度用完", async ({ page }) => {
   await pinClock(page);
   await registerUser(page);
@@ -22,9 +26,8 @@ test("BOT-10 录入额度用完", async ({ page }) => {
   // 1. 提交第 3 条记录。
   const banner = page.getByRole("status").filter({ hasText: "今日已达上限" });
   await expect(banner).toContainText("北京时间 0 点重置");
-  const box = page.getByRole("textbox", { name: "记录内容" });
-  await expect(box).toBeDisabled();
-  await expect(page.getByRole("button", { name: "发送" })).toBeDisabled();
+  await expect(banner).toContainText("今天的 2 条记录已用完");
+  await expect(page.getByRole("textbox", { name: "消息内容" })).toBeEnabled();
   await shot(page, "BOT-10-step1-quota");
   // The server refuses it too (a stale page could still try).
   const refused = await page.request.post("/api/entries", { data: { text: "第三条记录" } });

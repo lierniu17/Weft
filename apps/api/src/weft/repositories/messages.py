@@ -1,0 +1,186 @@
+"""Postgres: messages (消息) the user sent in the chat, tenant-scoped (ADR 0005)."""
+
+from __future__ import annotations
+
+import uuid
+from typing import Any
+
+from sqlalchemy import and_, or_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from weft.domain.answer import Answer
+from weft.domain.dates import PartialDate
+from weft.domain.intent import Intent
+from weft.domain.message import Problem
+from weft.domain.tenancy import TenantContext, tenant_scoped
+from weft.models.tables import DraftRow, Entry, MessageRow
+from weft.repositories.entries import draft_record, entry_record
+from weft.repositories.records import DraftRecord, EntryRecord, MessageRecord
+
+# Columns a re-route (or the second half of handling) may change.
+HANDLING_FIELDS = frozenset({"intent", "entry_id", "answer", "reply", "problems", "uncertain"})
+
+
+def _message(row: MessageRow) -> MessageRecord:
+    return MessageRecord(
+        id=row.id,
+        text=row.text,
+        intent=Intent(row.intent),
+        recognized_intent=Intent(row.recognized_intent) if row.recognized_intent else None,
+        confidence=row.confidence,
+        uncertain=row.uncertain,
+        occurred=PartialDate.parse(row.occurred_on) if row.occurred_on else None,
+        record_text=row.record_text,
+        question=row.question,
+        entry_id=row.entry_id,
+        answer=None if row.answer is None else Answer.model_validate(row.answer),
+        reply=row.reply,
+        problems=tuple(Problem.from_json(p) for p in row.problems or []),
+        created_at=row.created_at,
+    )
+
+
+def _column_values(values: dict[str, Any]) -> dict[str, Any]:
+    out = dict(values)
+    if "intent" in out:
+        out["intent"] = Intent(out["intent"]).value
+    if "answer" in out and out["answer"] is not None:
+        out["answer"] = out["answer"].model_dump(mode="json")
+    if "problems" in out:
+        out["problems"] = [p.to_json() for p in out["problems"]]
+    return out
+
+
+MessageWithEntry = tuple[MessageRecord, EntryRecord | None, DraftRecord | None]
+
+
+class MessageRepository:
+    def __init__(self, session: AsyncSession, tenant: TenantContext) -> None:
+        self._s = session
+        self.tenant = tenant
+
+    @tenant_scoped
+    async def create(
+        self,
+        *,
+        text: str,
+        intent: Intent,
+        recognized_intent: Intent | None,
+        confidence: float | None,
+        uncertain: bool,
+        occurred: PartialDate | None,
+        record_text: str | None = None,
+        question: str | None = None,
+        entry_id: uuid.UUID | None = None,
+        answer: Answer | None = None,
+        reply: str | None = None,
+        problems: tuple[Problem, ...] = (),
+    ) -> MessageRecord:
+        row = MessageRow(
+            user_id=self.tenant.user_id,
+            text=text,
+            recognized_intent=None if recognized_intent is None else recognized_intent.value,
+            confidence=confidence,
+            occurred_on=None if occurred is None else occurred.isoformat(),
+            record_text=record_text,
+            question=question,
+            **_column_values(
+                {
+                    "intent": intent,
+                    "uncertain": uncertain,
+                    "entry_id": entry_id,
+                    "answer": answer,
+                    "reply": reply,
+                    "problems": problems,
+                }
+            ),
+        )
+        self._s.add(row)
+        await self._s.flush()
+        await self._s.refresh(row)
+        return _message(row)
+
+    @tenant_scoped
+    async def get(self, message_id: uuid.UUID) -> MessageRecord | None:
+        row = await self._s.scalar(
+            select(MessageRow).where(
+                MessageRow.id == message_id, MessageRow.user_id == self.tenant.user_id
+            )
+        )
+        return None if row is None else _message(row)
+
+    @tenant_scoped
+    async def update_handling(self, message_id: uuid.UUID, **values: Any) -> MessageRecord | None:
+        """Change how the message is handled (``HANDLING_FIELDS`` only)."""
+        unknown = set(values) - HANDLING_FIELDS
+        if unknown:
+            raise ValueError(f"not a handling field: {sorted(unknown)}")
+        row = await self._s.scalar(
+            update(MessageRow)
+            .where(MessageRow.id == message_id, MessageRow.user_id == self.tenant.user_id)
+            .values(**_column_values(values))
+            .returning(MessageRow)
+        )
+        return None if row is None else _message(row)
+
+    @tenant_scoped
+    async def with_entry(self, message: MessageRecord) -> MessageWithEntry:
+        """The message with its Entry and that Entry's Draft (if any)."""
+        if message.entry_id is None:
+            return message, None, None
+        row = (
+            await self._s.execute(
+                select(Entry, DraftRow)
+                .outerjoin(DraftRow, DraftRow.entry_id == Entry.id)
+                .where(Entry.id == message.entry_id, Entry.user_id == self.tenant.user_id)
+            )
+        ).first()
+        if row is None:
+            return message, None, None
+        entry, draft = row
+        return message, entry_record(entry), None if draft is None else draft_record(draft)
+
+    @tenant_scoped
+    async def page(
+        self, *, before: uuid.UUID | None, limit: int
+    ) -> tuple[list[MessageWithEntry], bool] | None:
+        """The ``limit`` latest messages (older than ``before``), oldest first, and whether
+        older ones exist. ``None`` if ``before`` is not one of this user's messages."""
+        mine = MessageRow.user_id == self.tenant.user_id
+        query = (
+            select(MessageRow, Entry, DraftRow)
+            .outerjoin(
+                Entry, and_(Entry.id == MessageRow.entry_id, Entry.user_id == self.tenant.user_id)
+            )
+            .outerjoin(DraftRow, DraftRow.entry_id == Entry.id)
+            .where(mine)
+        )
+        if before is not None:
+            anchor = await self._s.scalar(select(MessageRow).where(MessageRow.id == before, mine))
+            if anchor is None:
+                return None
+            query = query.where(
+                or_(
+                    MessageRow.created_at < anchor.created_at,
+                    and_(MessageRow.created_at == anchor.created_at, MessageRow.id < anchor.id),
+                )
+            )
+        rows = (
+            await self._s.execute(
+                query.order_by(MessageRow.created_at.desc(), MessageRow.id.desc()).limit(limit + 1)
+            )
+        ).all()
+        has_more = len(rows) > limit
+        out: list[MessageWithEntry] = [
+            (
+                _message(m),
+                None if e is None else entry_record(e),
+                None if d is None else draft_record(d),
+            )
+            for m, e, d in rows[:limit]
+        ]
+        out.reverse()
+        return out, has_more
+
+
+__all__ = ["MessageRepository", "MessageWithEntry"]

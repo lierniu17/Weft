@@ -69,21 +69,36 @@ def _quota_err(infra: Infra) -> Err:
     )
 
 
-async def ask(infra: Infra, question: str) -> Result[Asked]:
+def check_question(question: str) -> Err | None:
+    """Why ``question`` cannot be asked at all (before anything is counted), if it can't."""
     text = question.strip()
     if not text:
         return Err("blank_question", "问题不能为空")
     if len(text) > MAX_QUESTION_LENGTH:
         return Err("question_too_long", f"问题不能超过 {MAX_QUESTION_LENGTH} 字")
-    scope = tenant()
+    return None
+
+
+async def charge(infra: Infra) -> Err | None:
+    """Count one ask against today's quota (AC-40); the quota error if it is used up."""
     async with infra.sql() as session, session.begin():
         kind = QuotaKind.ASK
-        allowed = await UsageRepository(session, scope).increment_if_below(
+        allowed = await UsageRepository(session, tenant()).increment_if_below(
             kind, beijing_day(infra.clock()), limit=limit_for(infra, kind)
         )
-    if not allowed:
-        return _quota_err(infra)
+    return None if allowed else _quota_err(infra)
 
+
+async def ask(infra: Infra, question: str) -> Result[Asked]:
+    refused = check_question(question) or await charge(infra)
+    if refused is not None:
+        return refused
+    return await answer(infra, question)
+
+
+async def answer(infra: Infra, question: str) -> Result[Asked]:
+    """Answer an already counted question from the session's graph (writes nothing)."""
+    text = question.strip()
     tools = AskSession(infra)
     try:
         final = await _converse(infra, tools, text)
@@ -138,4 +153,12 @@ async def _converse(infra: Infra, tools: AskSession, question: str) -> FinalAnsw
     return None
 
 
-__all__ = ["ASK_SYSTEM", "MAX_TOOL_ROUNDS", "Asked", "ask"]
+__all__ = [
+    "ASK_SYSTEM",
+    "MAX_TOOL_ROUNDS",
+    "Asked",
+    "answer",
+    "ask",
+    "charge",
+    "check_question",
+]

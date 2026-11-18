@@ -41,16 +41,6 @@ export function isFuture(value: OccurredOn, today: Date): boolean {
   return value.day > td;
 }
 
-/** Today as a day-precision value. */
-export function todayOccurredOn(today: Date): OccurredOn {
-  return {
-    precision: "day",
-    year: today.getFullYear(),
-    month: today.getMonth() + 1,
-    day: today.getDate(),
-  };
-}
-
 /**
  * Contract dates carry their precision in their length: "2015" | "2015-06" | "2026-11-16"
  * (apps/api PartialDate). Throws on anything else; the API validates the pattern.

@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from weft import __version__
 from weft.infra import Infra, build_infra
 from weft.repositories.graph_schema import ensure_graph_schema
-from weft.routes import ask, auth, entries, graph, health, persons, preferences
+from weft.routes import ask, auth, entries, graph, health, messages, persons, preferences
 from weft.routes.deps import install_error_handlers
 from weft.settings import Settings, get_settings
 
@@ -44,7 +44,7 @@ def create_app(settings: Settings | None = None, *, infra: Infra | None = None) 
     app.state.settings = settings
     app.state.infra = infra
     install_error_handlers(app)
-    for module in (health, auth, entries, persons, graph, ask, preferences):
+    for module in (health, auth, messages, entries, persons, graph, ask, preferences):
         app.include_router(module.router, prefix="/api")
     return app
 

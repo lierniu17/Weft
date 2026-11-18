@@ -3,6 +3,7 @@ import { useState } from "react";
 import { expect, fn, screen, userEvent, waitFor, within } from "storybook/test";
 import type { Draft } from "../../../contracts/draft.ts";
 import type { Taxonomy } from "../../../contracts/taxonomy.ts";
+import type { OccurredOn } from "../../../lib/datePrecision.ts";
 import {
   choosePerson,
   removeItem,
@@ -17,17 +18,23 @@ import { REVIEW_DRAFT, TAXONOMY, TAXONOMY_WITH_CUSTOM } from "./fixtures.ts";
 const today = new Date(2026, 10, 16);
 const onConfirm = fn();
 const onDiscard = fn();
+const onOccurredOnChange = fn();
 
 type HarnessProps = {
   initial: Draft;
+  occurredOn?: OccurredOn;
   taxonomy?: Taxonomy;
   variant?: DraftReviewSheetProps["variant"];
 };
 
 /** Applies the sheet's keyed callbacks with lib/draft.ts, as the page will. */
-function Harness({ initial, taxonomy = TAXONOMY, variant }: HarnessProps) {
+function Harness({ initial, occurredOn: initialDate, taxonomy = TAXONOMY, variant }: HarnessProps) {
   const [open, setOpen] = useState(true);
   const [draft, setDraft] = useState(initial);
+  const [occurredOn, setOccurredOn] = useState<OccurredOn>(
+    initialDate ?? { precision: "day", year: 2026, month: 11, day: 16 },
+  );
+  const [retimed, setRetimed] = useState(false);
   return (
     <>
       <Button variant="secondary" onClick={() => setOpen(true)}>
@@ -38,7 +45,13 @@ function Harness({ initial, taxonomy = TAXONOMY, variant }: HarnessProps) {
         onOpenChange={setOpen}
         variant={variant}
         draft={draft}
-        occurredOn={{ precision: "day", year: 2026, month: 11, day: 16 }}
+        occurredOn={occurredOn}
+        onOccurredOnChange={(v) => {
+          onOccurredOnChange(v);
+          setOccurredOn(v);
+          setRetimed(true);
+        }}
+        retimed={retimed}
         today={today}
         taxonomy={taxonomy}
         onChoosePerson={(id, c) => setDraft((d) => choosePerson(d, id, c))}
@@ -70,7 +83,12 @@ const meta = {
     onDiscard: () => {},
   },
   render: (args) => (
-    <Harness initial={args.draft} taxonomy={args.taxonomy} variant={args.variant} />
+    <Harness
+      initial={args.draft}
+      occurredOn={args.occurredOn}
+      taxonomy={args.taxonomy}
+      variant={args.variant}
+    />
   ),
   parameters: { a11y: { context: "body" } },
 } satisfies Meta<typeof DraftReviewSheet>;
@@ -88,7 +106,7 @@ const sheet = () => screen.findByRole("dialog", { name: "确认草稿" });
 export const Grouped: Story = {
   play: async () => {
     const s = await sheet();
-    await expect(s).toHaveAccessibleDescription("今天 · 确认后才会写进图谱");
+    await expect(s).toHaveAccessibleDescription("确认后才会写进图谱");
     const headings = within(s)
       .getAllByRole("heading", { level: 3 })
       .map((h) => h.textContent);
@@ -233,5 +251,86 @@ export const SidePanel: Story = {
   play: async () => {
     const s = await sheet();
     await expect(s.getBoundingClientRect().width).toBe(380);
+  },
+};
+
+/** Intent routing AC-9: 「发生在：…」 is the sheet's first line, by precision. */
+export const OccurredOnLine: Story = {
+  play: async () => {
+    const s = await sheet();
+    const line = within(s).getByRole("button", { name: "发生在：今天" });
+    await expect(line).toHaveAttribute("aria-haspopup", "dialog");
+    // above the persons
+    const persons = within(s).getByRole("heading", { name: "涉及的人物" });
+    await expect(line.getBoundingClientRect().bottom).toBeLessThan(
+      persons.getBoundingClientRect().top,
+    );
+    await expect(within(s).queryByRole("status")).toBeNull();
+  },
+};
+
+export const OccurredOnYear: Story = {
+  args: { occurredOn: { precision: "year", year: 2015 } },
+  play: async () => {
+    const s = await sheet();
+    await expect(within(s).getByRole("button", { name: "发生在：2015 年" })).toBeVisible();
+  },
+};
+
+export const OccurredOnMonth: Story = {
+  args: { occurredOn: { precision: "month", year: 2026, month: 3 } },
+  play: async () => {
+    const s = await sheet();
+    await expect(within(s).getByRole("button", { name: "发生在：2026 年 3 月" })).toBeVisible();
+  },
+};
+
+/**
+ * AC-9: tapping 「发生在」 opens the DatePicker (年 / 月 / 日, no future); the new date
+ * shows at once with a hint to check the re-timed relative times.
+ */
+export const ChangeOccurredOn: Story = {
+  args: { occurredOn: { precision: "year", year: 2015 } },
+  play: async () => {
+    const s = await sheet();
+    await userEvent.click(within(s).getByRole("button", { name: "发生在：2015 年" }));
+    const picker = await screen.findByRole("dialog", { name: "发生日期" });
+    await expect(within(picker).getByRole("radio", { name: "年" })).toBeChecked();
+    await expect(within(picker).getByRole("radio", { name: "月" })).toBeVisible();
+    await expect(within(picker).getByRole("radio", { name: "日" })).toBeVisible();
+    // the future is never selectable
+    await expect(within(picker).getByRole("button", { name: "更晚" })).toBeDisabled();
+    await userEvent.click(within(picker).getByRole("button", { name: "2016 年" }));
+    await userEvent.click(within(picker).getByRole("button", { name: "确定" }));
+    await expect(onOccurredOnChange).toHaveBeenLastCalledWith({ precision: "year", year: 2016 });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "发生日期" })).toBeNull());
+    await expect(within(s).getByRole("button", { name: "发生在：2016 年" })).toBeVisible();
+    await expect(within(s).getByRole("status")).toHaveTextContent(
+      "已按新的发生日期重新换算草稿里的时间，请检查一遍",
+    );
+  },
+};
+
+/** AC-9: no future day — tomorrow cannot be picked, nor the next month. */
+export const OccurredOnNoFuture: Story = {
+  play: async () => {
+    const s = await sheet();
+    await userEvent.click(within(s).getByRole("button", { name: "发生在：今天" }));
+    const picker = await screen.findByRole("dialog", { name: "发生日期" });
+    await expect(within(picker).getByRole("radio", { name: "日" })).toBeChecked();
+    await expect(
+      within(picker).getByRole("button", { name: "2026 年 11 月 17 日" }),
+    ).toBeDisabled();
+    await expect(within(picker).getByRole("button", { name: "2026 年 11 月 15 日" })).toBeEnabled();
+    await expect(within(picker).getByRole("button", { name: "下个月" })).toBeDisabled();
+  },
+};
+
+/** While the new date is saved the line cannot be tapped again. */
+export const Retiming: Story = {
+  render: (args) => <DraftReviewSheet {...args} onOccurredOnChange={onOccurredOnChange} retiming />,
+  play: async () => {
+    const s = await sheet();
+    await expect(within(s).getByRole("button", { name: "发生在：今天" })).toBeDisabled();
   },
 };

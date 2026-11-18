@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ask, personId, pinClock, registerUser, seedGraph, shot } from "./support/bot.ts";
+import { personId, pinClock, registerUser, say, seedGraph, shot } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 import { clickPerson, enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
@@ -18,7 +18,7 @@ for (const viewport of [
     await page.goto("/");
 
     // 1. 在问答里问“我是怎么认识小王的？”。
-    await ask(page, "我是怎么认识小王的？");
+    await say(page, "我是怎么认识小王的？");
     const answer = page.getByRole("article", { name: "回答" }).first();
     await expect(answer.getByRole("list", { name: "人脉路径" })).toBeVisible({ timeout: LLM_WAIT });
 

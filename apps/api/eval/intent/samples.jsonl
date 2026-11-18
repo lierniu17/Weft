@@ -1,0 +1,120 @@
+{"id": "record-01", "category": "记录", "text": "今天在电梯里碰到楼下的王阿姨，她说她孙子考上研究生了", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-02", "category": "记录", "text": "小钱换了新工作，去了一家做新能源的公司", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-03", "category": "记录", "text": "表哥家的二胎是个女儿，小名叫朵朵", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-04", "category": "记录", "text": "晓雯不吃香菜，跟她吃饭点菜时要注意", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-05", "category": "记录", "text": "老郑这人特别抠门，AA 都要算到分", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-06", "category": "记录", "text": "跟阿彬吵了一架，因为他又放我鸽子", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-07", "category": "记录", "text": "我同事孟姐的老公是开出租的", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-08", "category": "记录", "text": "小米最近在学吉他，说想组个乐队", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-09", "category": "记录", "text": "二舅退休了，打算回老家种地", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-10", "category": "记录", "text": "丁丁跟她男朋友分手了", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-11", "category": "记录", "text": "健身房认识的大鹏是做保险的，人挺热情", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-12", "category": "记录", "text": "今天老板夸了我的方案，说下个季度让我带项目", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-13", "category": "记录", "text": "室友阿凯搬去深圳了", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-14", "category": "记录", "text": "小唐说她怀孕了，预产期在明年四月", "gold": {"intent": "record", "occurred": null}}
+{"id": "record-15", "category": "记录", "text": "新来的实习生叫林可，北邮毕业的，挺机灵", "gold": {"intent": "record", "occurred": null}}
+{"id": "ask-01", "category": "提问", "text": "小钱现在在哪家公司？", "gold": {"intent": "ask"}}
+{"id": "ask-02", "category": "提问", "text": "我和阿彬是怎么认识的？", "gold": {"intent": "ask"}}
+{"id": "ask-03", "category": "提问", "text": "谁是做保险的？", "gold": {"intent": "ask"}}
+{"id": "ask-04", "category": "提问", "text": "二舅今年多大了？", "gold": {"intent": "ask"}}
+{"id": "ask-05", "category": "提问", "text": "晓雯有什么忌口吗？", "gold": {"intent": "ask"}}
+{"id": "ask-06", "category": "提问", "text": "我有哪些朋友在深圳？", "gold": {"intent": "ask"}}
+{"id": "ask-07", "category": "提问", "text": "孟姐老公是干什么的", "gold": {"intent": "ask"}}
+{"id": "ask-08", "category": "提问", "text": "上个月我见过哪些人？", "gold": {"intent": "ask"}}
+{"id": "ask-09", "category": "提问", "text": "林可是哪个学校毕业的？", "gold": {"intent": "ask"}}
+{"id": "ask-10", "category": "提问", "text": "老郑和阿彬认识吗？", "gold": {"intent": "ask"}}
+{"id": "ask-11", "category": "提问", "text": "我认识的人里有几个是医生？", "gold": {"intent": "ask"}}
+{"id": "ask-12", "category": "提问", "text": "丁丁的前男友叫什么来着", "gold": {"intent": "ask"}}
+{"id": "ask-13", "category": "提问", "text": "小米喜欢什么乐器", "gold": {"intent": "ask"}}
+{"id": "ask-14", "category": "提问", "text": "大鹏是谁介绍我认识的？", "gold": {"intent": "ask"}}
+{"id": "ask-15", "category": "提问", "text": "王阿姨的孙子在哪读研究生？", "gold": {"intent": "ask"}}
+{"id": "mixed-01", "category": "混合", "text": "小钱下周要去杭州出差，他之前是不是在杭州待过？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-02", "category": "混合", "text": "晓雯生了个儿子，她老公叫什么来着？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-03", "category": "混合", "text": "阿彬今天又迟到了，他上次迟到是什么时候？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-04", "category": "混合", "text": "二舅昨天住院了，他有什么慢性病吗？", "gold": {"intent": "record_ask", "occurred": "2026-11-15"}}
+{"id": "mixed-05", "category": "混合", "text": "孟姐升主管了，她是哪年进公司的？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-06", "category": "混合", "text": "大鹏刚买了辆车，他住在哪个区来着？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-07", "category": "混合", "text": "丁丁说她要考公务员，她大学是学什么专业的？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-08", "category": "混合", "text": "室友阿凯结婚了，我们是哪年认识的来着？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-09", "category": "混合", "text": "林可转正了，当初是谁把她招进来的？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-10", "category": "混合", "text": "小唐辞职了，她之前在哪家公司上班？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-11", "category": "混合", "text": "老郑又找我借了五百块，他上次借的钱还了没？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-12", "category": "混合", "text": "小米的乐队第一次去 livehouse 演出，挺成功的，他们乐队叫什么名字？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-13", "category": "混合", "text": "表哥换了辆新车，他家住哪个小区？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-14", "category": "混合", "text": "王阿姨下个月要搬去女儿家住，她女儿在哪个城市？", "gold": {"intent": "record_ask", "occurred": null}}
+{"id": "mixed-15", "category": "混合", "text": "前天见了老同学阿伟，他现在是做什么工作的来着？", "gold": {"intent": "record_ask", "occurred": "2026-11-14"}}
+{"id": "chat-01", "category": "寒暄", "text": "谢谢", "gold": {"intent": "chitchat"}}
+{"id": "chat-02", "category": "寒暄", "text": "你好呀", "gold": {"intent": "chitchat"}}
+{"id": "chat-03", "category": "寒暄", "text": "晚安", "gold": {"intent": "chitchat"}}
+{"id": "chat-04", "category": "寒暄", "text": "哈哈哈哈", "gold": {"intent": "chitchat"}}
+{"id": "chat-05", "category": "寒暄", "text": "好的", "gold": {"intent": "chitchat"}}
+{"id": "chat-06", "category": "寒暄", "text": "今天天气真不错", "gold": {"intent": "chitchat"}}
+{"id": "chat-07", "category": "寒暄", "text": "你是机器人吗？", "gold": {"intent": "chitchat"}}
+{"id": "chat-08", "category": "寒暄", "text": "测试一下", "gold": {"intent": "chitchat"}}
+{"id": "chat-09", "category": "寒暄", "text": "辛苦啦", "gold": {"intent": "chitchat"}}
+{"id": "chat-10", "category": "寒暄", "text": "早上好", "gold": {"intent": "chitchat"}}
+{"id": "chat-11", "category": "寒暄", "text": "嗯嗯", "gold": {"intent": "chitchat"}}
+{"id": "chat-12", "category": "寒暄", "text": "你都能干什么？", "gold": {"intent": "chitchat"}}
+{"id": "chat-13", "category": "寒暄", "text": "好累啊，不想上班", "gold": {"intent": "chitchat"}}
+{"id": "chat-14", "category": "寒暄", "text": "666", "gold": {"intent": "chitchat"}}
+{"id": "chat-15", "category": "寒暄", "text": "帮我把字体调大一点", "gold": {"intent": "chitchat"}}
+{"id": "stmtq-01", "category": "陈述句式的提问", "text": "帮我查一下二舅的生日", "gold": {"intent": "ask"}}
+{"id": "stmtq-02", "category": "陈述句式的提问", "text": "想不起来晓雯老公叫什么了", "gold": {"intent": "ask"}}
+{"id": "stmtq-03", "category": "陈述句式的提问", "text": "告诉我阿彬在哪上班", "gold": {"intent": "ask"}}
+{"id": "stmtq-04", "category": "陈述句式的提问", "text": "我想知道上次和老郑吃饭是什么时候", "gold": {"intent": "ask"}}
+{"id": "stmtq-05", "category": "陈述句式的提问", "text": "列一下我认识的所有设计师", "gold": {"intent": "ask"}}
+{"id": "stmtq-06", "category": "陈述句式的提问", "text": "看看孟姐有什么喜好", "gold": {"intent": "ask"}}
+{"id": "stmtq-07", "category": "陈述句式的提问", "text": "查下小钱的老家在哪", "gold": {"intent": "ask"}}
+{"id": "stmtq-08", "category": "陈述句式的提问", "text": "说说我和丁丁的关系", "gold": {"intent": "ask"}}
+{"id": "stmtq-09", "category": "陈述句式的提问", "text": "我忘了大鹏是谁介绍给我的", "gold": {"intent": "ask"}}
+{"id": "stmtq-10", "category": "陈述句式的提问", "text": "给我讲讲林可这个人", "gold": {"intent": "ask"}}
+{"id": "stmtq-11", "category": "陈述句式的提问", "text": "统计一下我有多少个大学同学", "gold": {"intent": "ask"}}
+{"id": "stmtq-12", "category": "陈述句式的提问", "text": "找一下在北京工作的朋友", "gold": {"intent": "ask"}}
+{"id": "stmtq-13", "category": "陈述句式的提问", "text": "不记得小米的乐队叫啥了", "gold": {"intent": "ask"}}
+{"id": "stmtq-14", "category": "陈述句式的提问", "text": "搜一下谁跟表哥认识", "gold": {"intent": "ask"}}
+{"id": "stmtq-15", "category": "陈述句式的提问", "text": "我想看看王阿姨家里都有哪些人", "gold": {"intent": "ask"}}
+{"id": "rhet-01", "category": "反问", "text": "阿彬怎么又放我鸽子了？这都第三次了", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-02", "category": "反问", "text": "小钱不是刚换工作吗？怎么又要跳槽", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-03", "category": "反问", "text": "我能不知道老郑抠吗？他连停车费都让我出", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-04", "category": "反问", "text": "丁丁哪会做饭？她连鸡蛋都不会煎", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-05", "category": "反问", "text": "难道晓雯还没跟她老公和好？我看他们还在冷战", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-06", "category": "反问", "text": "谁不知道大鹏是个酒鬼？每次聚会都喝到吐", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-07", "category": "反问", "text": "孟姐那脾气谁受得了？今天又把实习生骂哭了", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-08", "category": "反问", "text": "表哥这人还用说吗，最讲义气了", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-09", "category": "反问", "text": "林可这么拼，能不升职吗？天天加班到十点", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-10", "category": "反问", "text": "二舅哪是退休了，他是被原单位返聘了！", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-11", "category": "反问", "text": "小米居然要去当兵，谁敢信？", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-12", "category": "反问", "text": "阿凯结婚怎么都没叫我？太不够意思了", "gold": {"intent": "record", "occurred": null}}
+{"id": "rhet-13", "category": "反问", "text": "这还用问吗？", "gold": {"intent": "chitchat"}}
+{"id": "rhet-14", "category": "反问", "text": "有什么好说的呢", "gold": {"intent": "chitchat"}}
+{"id": "rhet-15", "category": "反问", "text": "真是的，怎么会这样呢", "gold": {"intent": "chitchat"}}
+{"id": "backfill-01", "category": "带时间的补记", "text": "2015 年在大学社团认识了阿伟", "gold": {"intent": "record", "occurred": "2015"}}
+{"id": "backfill-02", "category": "带时间的补记", "text": "去年国庆和表哥去了趟西藏", "gold": {"intent": "record", "occurred": "2025-10"}}
+{"id": "backfill-03", "category": "带时间的补记", "text": "昨天晚上和小钱撸串，他说他明年要结婚", "gold": {"intent": "record", "occurred": "2026-11-15"}}
+{"id": "backfill-04", "category": "带时间的补记", "text": "前天孟姐请全组喝奶茶", "gold": {"intent": "record", "occurred": "2026-11-14"}}
+{"id": "backfill-05", "category": "带时间的补记", "text": "上周三在地铁上碰到了老同学阿伟", "gold": {"intent": "record", "occurred": "2026-11-11"}}
+{"id": "backfill-06", "category": "带时间的补记", "text": "2019 年在青岛实习的时候认识了大鹏", "gold": {"intent": "record", "occurred": "2019"}}
+{"id": "backfill-07", "category": "带时间的补记", "text": "上个月二舅做了个小手术，现在恢复得不错", "gold": {"intent": "record", "occurred": "2026-10"}}
+{"id": "backfill-08", "category": "带时间的补记", "text": "前年在姥姥家见到了远房表姐小芸", "gold": {"intent": "record", "occurred": "2024"}}
+{"id": "backfill-09", "category": "带时间的补记", "text": "10 月 3 号参加了丁丁的生日聚会", "gold": {"intent": "record", "occurred": "2026-10-03"}}
+{"id": "backfill-10", "category": "带时间的补记", "text": "今年 3 月林可来面试，是我面的她", "gold": {"intent": "record", "occurred": "2026-03"}}
+{"id": "backfill-11", "category": "带时间的补记", "text": "2008 年高中毕业那会儿，阿凯是我同桌", "gold": {"intent": "record", "occurred": "2008"}}
+{"id": "backfill-12", "category": "带时间的补记", "text": "上周末带晓雯一家去爬了香山", "gold": {"intent": "record", "occurred": "2026-11-14"}}
+{"id": "backfill-13", "category": "带时间的补记", "text": "去年 12 月王阿姨搬到了我们楼下", "gold": {"intent": "record", "occurred": "2025-12"}}
+{"id": "backfill-14", "category": "带时间的补记", "text": "9 月 20 号老郑请我吃了顿饭，难得", "gold": {"intent": "record", "occurred": "2026-09-20"}}
+{"id": "backfill-15", "category": "带时间的补记", "text": "上上周五和小米去看了场演唱会", "gold": {"intent": "record", "occurred": "2026-11-06"}}
+{"id": "ambig-01", "category": "模糊句", "text": "老郑是不是又换车了", "gold": {"intent": "chitchat"}}
+{"id": "ambig-02", "category": "模糊句", "text": "小钱好像要结婚了吧", "gold": {"intent": "chitchat"}}
+{"id": "ambig-03", "category": "模糊句", "text": "阿彬那事", "gold": {"intent": "chitchat"}}
+{"id": "ambig-04", "category": "模糊句", "text": "那个谁，就上次说的那个", "gold": {"intent": "chitchat"}}
+{"id": "ambig-05", "category": "模糊句", "text": "丁丁和她男朋友", "gold": {"intent": "chitchat"}}
+{"id": "ambig-06", "category": "模糊句", "text": "孟姐生日", "gold": {"intent": "chitchat"}}
+{"id": "ambig-07", "category": "模糊句", "text": "大鹏的电话", "gold": {"intent": "chitchat"}}
+{"id": "ambig-08", "category": "模糊句", "text": "表哥现在应该还在上海吧", "gold": {"intent": "chitchat"}}
+{"id": "ambig-09", "category": "模糊句", "text": "林可", "gold": {"intent": "chitchat"}}
+{"id": "ambig-10", "category": "模糊句", "text": "二舅那边怎么说", "gold": {"intent": "chitchat"}}
+{"id": "ambig-11", "category": "模糊句", "text": "小米最近不知道咋样了", "gold": {"intent": "chitchat"}}
+{"id": "ambig-12", "category": "模糊句", "text": "王阿姨家的事", "gold": {"intent": "chitchat"}}
+{"id": "ambig-13", "category": "模糊句", "text": "阿凯他们", "gold": {"intent": "chitchat"}}
+{"id": "ambig-14", "category": "模糊句", "text": "老同学聚会的事回头再说", "gold": {"intent": "chitchat"}}
+{"id": "ambig-15", "category": "模糊句", "text": "小唐那个孩子", "gold": {"intent": "chitchat"}}

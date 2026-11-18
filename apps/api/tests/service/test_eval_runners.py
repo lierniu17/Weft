@@ -10,17 +10,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 
 from tests.support import asks
 from tests.support import scenarios as sc
-from tests.support.llm_script import LLMScript
+from tests.support.llm_script import LLMScript, ScriptGate
 from weft.domain.draft import Draft
 from weft.eval import extraction as extraction_eval
+from weft.eval import intent as intent_eval
 from weft.eval import qa as qa_eval
 from weft.eval.__main__ import main as eval_main
 from weft.eval.qa_score import Question
-from weft.infra import Infra
+from weft.infra import Infra, build_infra
 from weft.settings import Settings
 
 pytestmark = pytest.mark.service
@@ -129,3 +131,45 @@ def test_the_evals_refuse_to_run_without_api_keys(
     err = capsys.readouterr().err
     assert "DEEPSEEK_API_KEY" in err and "DASHSCOPE_API_KEY" in err
     assert f"python -m weft.eval {which}" in err
+
+
+def test_the_intent_eval_needs_only_the_deepseek_key(capsys: pytest.CaptureFixture[str]) -> None:
+    keyless = Settings(_env_file=None)
+    assert eval_main(["intent"], settings=keyless) == 2
+    err = capsys.readouterr().err
+    assert "DEEPSEEK_API_KEY" in err and "missing: DEEPSEEK_API_KEY\n" in err
+
+
+def intent_sample(sample_id: str) -> dict[str, object]:
+    for line in intent_eval.SAMPLES_PATH.read_text(encoding="utf-8").splitlines():
+        row = json.loads(line)
+        if row["id"] == sample_id:
+            return dict(row)
+    raise LookupError(sample_id)
+
+
+async def test_the_intent_eval_recognizes_each_sample_on_the_eval_day_and_scores_it(
+    settings: Settings, llm: LLMScript
+) -> None:
+    backfill = intent_sample("backfill-03")  # 昨天晚上和小钱撸串 -> 2026-11-15
+    vague = intent_sample("ambig-02")  # 小钱好像要结婚了吧 -> 拿不准
+    clear = intent_sample("ask-01")  # 小钱现在在哪家公司？ -> the fast path, no model call
+    llm.intent(str(backfill["text"]), "record", confidence=0.95, occurred="2026-11-15")
+    llm.intent(str(vague["text"]), "record", confidence=0.5)
+
+    http = httpx.AsyncClient(transport=ScriptGate(llm))
+    infra = build_infra(settings, http=http, clock=intent_eval.eval_clock)
+    try:
+        predictions, report = await intent_eval.run(infra, [backfill, vague, clear])
+    finally:
+        await infra.aclose()
+
+    by_id = {p["id"]: p for p in predictions}
+    assert by_id["backfill-03"]["intent"] == "record"
+    assert by_id["backfill-03"]["occurred"] == "2026-11-15"
+    assert by_id["ambig-02"]["intent"] == "chitchat" and by_id["ambig-02"]["uncertain"]
+    assert by_id["ambig-02"]["raw"]["intent"] == "record"  # what the model said, for diagnosis
+    assert by_id["ask-01"]["fast_path"] and by_id["ask-01"]["raw"] is None
+    assert report["accuracy"] == 1.0 and report["time_accuracy"] == 1.0
+    assert report["errors"] == {} and report["missing_predictions"] == []
+    assert set(report["splits"]) <= {"dev", "heldout"}

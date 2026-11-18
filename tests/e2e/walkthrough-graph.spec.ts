@@ -7,7 +7,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, type Page, test } from "@playwright/test";
-import { ask, pinClock, registerUser, seedGraph } from "./support/bot.ts";
+import { pinClock, registerUser, say, seedGraph } from "./support/bot.ts";
 import { ROOT, SCREENSHOTS } from "./support/env.ts";
 import { enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
@@ -93,7 +93,7 @@ test("graph-viz walkthrough", { tag: "@llm" }, async ({ page }) => {
   for (const width of [375, 1440]) {
     await page.setViewportSize({ width, height: width < 768 ? 812 : 900 });
     await page.goto("/");
-    await ask(page, "我是怎么认识小王的？");
+    await say(page, "我是怎么认识小王的？");
     const answer = page.getByRole("article", { name: "回答" }).last();
     await expect(answer.getByRole("button", { name: "在图上查看" })).toBeVisible({
       timeout: 60_000,

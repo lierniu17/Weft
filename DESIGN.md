@@ -185,7 +185,7 @@ components:
       sizes: { sm: { height: "28px" }, md: { height: "32px" } }
       radius: "rounded.full"
     DatePicker:
-      description: "发生日期选择。支持年 / 月 / 日三种精度，未来日期不可选。触发器是细边透明的 Chip（divider 边，无底色），弹出底部抽屉。"
+      description: "发生日期选择。支持年 / 月 / 日三种精度，未来日期不可选。触发器默认是细边透明的 Chip（divider 边，无底色）；line 触发器是一行正文“发生在：2015 年”（确认草稿顶部用），都弹出底部抽屉。"
       trigger: { bg: "transparent", border: "colors.neutral.divider", text: "colors.neutral.text-secondary" }
       cell: { hover-bg: "colors.neutral.bg-muted", selected: "colors.primary.6 底 + 白字", today: "colors.primary.6 600 字" }
       variants:
@@ -341,20 +341,28 @@ components:
   # ───────────── Business：带 Weft 业务含义的组件 ─────────────
   business:
     ChatComposer:
-      description: "对话页底部的输入区，页面的视觉焦点：一个 rounded.xl + border + shadow.md 的框（聚焦 shadow.lg），框内上方是自动增高的输入（TextArea.bare，无自身边框），下方一行是 记录 / 提问 小分段（SegmentedControl.sm）+ 发生日期（DatePicker，仅记录模式）+ 圆形近黑发送（空内容 25% 不透明）。提问发出后自动切回记录。桌面与内容同宽（720 居中）。"
-      variants:
-        record: { placeholder: "今天和谁发生了什么？", date-chip: true }
-        ask: { placeholder: "想问关于谁的什么事？", date-chip: false }
+      description: "对话页底部的输入区，页面的视觉焦点：一个 rounded.xl + border + shadow.md 的框（聚焦 shadow.lg），框内只有自动增高的输入（TextArea.bare，无自身边框）和右侧圆形近黑发送（空内容 25% 不透明）。没有“记录 / 提问”切换，也没有日期：发什么由系统按意图分发，发生日期从原话里读（ADR 0005）。占位“记点什么，或问点什么……”。桌面与内容同宽（720 居中）。"
+      placeholder: "记点什么，或问点什么……"
       states:
-        quota-exhausted: { input: "TextArea.disabled", send: "IconButton.disabled", banner: "Banner.warning" }
-        sending: { send: "IconButton loading" }
+        one-quota-exhausted: { banner: "Banner.warning（今日已达上限：…·另一类还剩 N）", input: "仍可发送（另一类不受影响）" }
+        both-quotas-exhausted: { input: "TextArea.disabled", send: "IconButton.disabled", banner: "Banner.warning" }
+        sending: { send: "IconButton loading", feed: "先显示用户气泡 + “正在处理…”骨架" }
     MessageBubble:
-      description: "对话中的用户消息，右对齐，下方显示类型与日期（记录 · 11-16 / 提问）。"
+      description: "对话中的用户消息，右对齐；下方一行元信息说明这条消息被怎么处理（记录 · 11-16 / 提问 / 记录 · 今天 · 提问；无关消息不显示），行尾接 MessageActions（纠正按钮）。"
       bg: "colors.neutral.bg-muted"
       text: "colors.neutral.text-primary"
       max-width: "78%"
       radius: "rounded.bubble"
-      variants: { record: { meta: "记录 · 发生日期" }, question: { meta: "提问" } }
+      variants: { record: { meta: "记录 · 发生日期" }, question: { meta: "提问" }, both: { meta: "记录 · 发生日期 · 提问" }, plain: { meta: "无" } }
+    MessageActions:
+      description: "消息下方的低调文字按钮行（意图纠正，intent-routing AC-6 / AC-10）。用户气泡下：已按记录处理且草稿未确认 → “改为提问”；已按提问处理 → “改为记录”；记录 + 提问 → 不显示。无关消息的回应下：“记下来 / 帮我查”。点击后原消息按另一种方式重新处理并原地替换。不上色、不加框，永远比消息本身安静。"
+      button: "Button.ghost sm（28px、caption 字号、neutral.text-secondary，悬停 bg-muted + text-primary）"
+      layout: "气泡下：与元信息同一行、右对齐；无关回应下：左对齐"
+      states:
+        pending: { clicked: "Button loading（转圈）", others: "disabled" }
+        error: { feedback: "Toast.error（409 已确认 / 不能改、429 额度用完、503 问答不可用）" }
+    ChitchatReply:
+      description: "对无关消息（寒暄、道谢、拿不准）的简短回应：像回答一样不套卡片，一句 body-md 正文直接排在白底上；拿不准时固定为“我没确定你是想记下来还是查询”；下方 MessageActions “记下来 / 帮我查”。不建记录、不查图谱、不扣额度。"
     DraftCard:
       description: "对话里的草稿卡片，一条记录一张，状态变化原地更新（同一 DOM 节点）。白底 + divider 细边 + rounded.md，无阴影；信息行为自然语句 + 行尾灰色可信度（“**张伟**喜欢钓鱼 · 本人说”）。"
       variants:
@@ -365,7 +373,7 @@ components:
         discarded: { text: "colors.neutral.text-secondary", body: "已放弃" }
       motion: { confirm: "确认抽屉退出（motion.sheet-exit）后：预览以 grid-template-rows 1fr→0fr 收起、底色过渡到 bg-subtle（motion.emphasis）；对勾 stroke-dashoffset 画出；新人物 chip 轻弹（pop，motion.base，错开 motion.stagger）。页面加载时已是已入图谱的卡不播放。减少动效：直接切换，对勾直接显示。" }
     DraftReviewSheet:
-      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel 380）。分区：涉及的人物 / 信息 / 画像变化 / 关系变化 / 感受变化，每条为自然语句（lib/draft itemSentence）；末尾提示“点一条可以改可信度”；底部 放弃 + 确认入图谱 等宽并排（确认为主按钮），存在未选的需选择项时确认禁用。"
+      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel 380）。顶部第一行“发生在：<日期>”（按精度：2015 年 / 2026 年 3 月 / 今天；DatePicker 的 line 触发器，正文字号、日期半粗、尾部灰色日历图标），点按打开 DatePicker（年 / 月 / 日，不可选未来）；改后草稿里依赖发生日期的时间由服务端重新换算，行下出现 meta 灰色提示“已按新的发生日期重新换算草稿里的时间，请检查一遍”。分区：涉及的人物 / 信息 / 画像变化 / 关系变化 / 感受变化，每条为自然语句（lib/draft itemSentence）；末尾提示“点一条可以改可信度”；底部 放弃 + 确认入图谱 等宽并排（确认为主按钮），存在未选的需选择项时确认禁用。"
     PersonMatchItem:
       description: "草稿里一个被提到的人怎么对上号。"
       layout: "Avatar.md + 自然语句 + 尾部状态 chip"
@@ -507,8 +515,9 @@ components:
 - **空内容折叠**：没有内容的画像分区不逐个显示“还没有记录”，合并成一行“还可以补充：生日、籍贯……”（可点）。
 
 ## 2. 对话页（参考豆包）
-- 输入框是视觉焦点：`rounded.xl`、`border`、`shadow.md`，聚焦 `shadow.lg`；内含“记录 | 提问”小分段、日期（仅记录模式）、圆形近黑发送按钮（空内容时 25% 不透明）。
-- 用户消息：`bg-muted` 气泡，`rounded.bubble`，右对齐，下方 12px 元信息。
+- 输入框是视觉焦点：`rounded.xl`、`border`、`shadow.md`，聚焦 `shadow.lg`；只有输入区和圆形近黑发送按钮（空内容时 25% 不透明）。没有“记录 | 提问”切换和日期：系统按意图分发（ADR 0005），占位“记点什么，或问点什么……”。
+- 用户消息：`bg-muted` 气泡，`rounded.bubble`，右对齐，下方 12px 元信息（怎么处理的）+ 低调的纠正文字按钮（改为提问 / 改为记录）。
+- 无关消息的回应：一句正文，不套卡片，下方“记下来 / 帮我查”两个低调文字按钮。
 - 回答：**不套卡片**，正文直接排在白底上；出处 `[n]` 为 `bg-muted` 小方块；相关人物为头像 chip；“在图上查看”为中性文字按钮。
 - 草稿卡：白底 + `divider` 细边 + `rounded.md`；确认后变 `bg-subtle` 无边、内容收起，只剩“✓ 已入图谱 · N 条信息”。
 

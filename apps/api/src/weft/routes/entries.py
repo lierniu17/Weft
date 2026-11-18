@@ -36,6 +36,7 @@ DRAFT_ERRORS = {
     "unknown_person": 422,
     "unknown_relationship_type": 422,
     "graph_write_failed": 503,
+    "future_date": 422,
 }
 
 
@@ -97,7 +98,7 @@ async def update_draft(
     draft_id: uuid.UUID, body: UpdateDraftRequest, session: SessionDep, infra: InfraDep
 ) -> DraftOut:
     with tenant_scope(session.tenant):
-        result = await drafts.update_draft(infra, draft_id, body.content)
+        result = await drafts.update_draft(infra, draft_id, body.content, body.occurred_on)
     return DraftOut.of(unwrap(result, DRAFT_ERRORS))
 
 

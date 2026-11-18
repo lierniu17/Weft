@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 from graphiti_core.nodes import EpisodeType, EpisodicNode
@@ -256,6 +256,9 @@ class ExtractionInput:
     occurred: PartialDate
     group_id: str
     taxonomy: Taxonomy
+    # The day the text was written, if its occurred date was read from the text (a message):
+    # then 「上周末」「去年」 are relative to this day, not to the occurred date.
+    written_on: date | None = None
 
 
 # --- prompts -----------------------------------------------------------------------
@@ -345,7 +348,10 @@ MATCH_SYSTEM = """你负责判断一条记录里提到的人是不是图谱里�
 
 
 def _episode(inp: ExtractionInput) -> EpisodicNode:
-    day = inp.occurred.first_day()
+    # Graphiti resolves 「上个月」「上周末」 against the episode's reference time, so when the
+    # occurred date was read from the text that is the day of writing, not the occurred date
+    # (else 「上个月跳槽」 written 11-18, occurred 2026-10, would land in 2026-09).
+    day = inp.written_on if inp.written_on is not None else inp.occurred.first_day()
     reference = datetime(day.year, day.month, day.day, tzinfo=UTC)
     return EpisodicNode(
         name="weft entry",
@@ -368,16 +374,40 @@ def _date(value: str | None, *, entry: PartialDate) -> PartialDate | None:
     return clamp_to_entry_precision(parsed, entry=entry)
 
 
+WRITTEN_ON_NOTE = (
+    "occurred 是写这条记录的日子；event_occurred 是从原话里读出来的事情发生时间（已经换算好）。"
+    "原话里的相对时间（“昨天”“上周末”“去年”“上个月”“明年”）照常以 occurred 为参照换算，"
+    "不要再以 event_occurred 为参照重复换算；没有说时间的事实用 event_occurred。"
+    "换算结果的精度不得超过 event_precision。"
+)
+
+
+def _entry_payload(inp: ExtractionInput) -> dict[str, Any]:
+    # When the occurred date was read from the text (「上个月跳槽」 → 2026-10), the system
+    # prompt's reference (entry.occurred) must be the day of writing: the model follows that
+    # rule over any note, and would otherwise shift 上个月 twice (2026-09).
+    if inp.written_on is not None and inp.occurred != PartialDate.from_date(inp.written_on):
+        return {
+            "text": inp.text,
+            "occurred": inp.written_on.isoformat(),
+            "precision": "day",
+            "event_occurred": inp.occurred.isoformat(),
+            "event_precision": inp.occurred.precision.value,
+            "time_note": WRITTEN_ON_NOTE,
+        }
+    return {
+        "text": inp.text,
+        "occurred": inp.occurred.isoformat(),
+        "precision": inp.occurred.precision.value,
+    }
+
+
 def _enrich_payload(
     inp: ExtractionInput, persons: list[str], candidates: list[dict[str, Any]]
 ) -> dict[str, Any]:
     return {
         "task": "enrich",
-        "entry": {
-            "text": inp.text,
-            "occurred": inp.occurred.isoformat(),
-            "precision": inp.occurred.precision.value,
-        },
+        "entry": _entry_payload(inp),
         "writer": SELF_MENTION,
         "persons": persons,
         "candidate_facts": candidates,
