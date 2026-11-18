@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { draftCardOf, pinClock, registerUser, say, shot, threadOf, usage } from "./support/bot.ts";
-import { LLM_WAIT } from "./support/env.ts";
+import { LLM_WAIT, REMOTE } from "./support/env.ts";
+
+// The replayed reading of 「老张喜欢什么」 is deliberately a 记录 (a misreading to correct);
+// the real model reads it as a question, so this only runs against replayed answers.
+test.skip(REMOTE, "remote: relies on a scripted misreading the real model does not make");
 
 const TEXT = "老张喜欢什么";
 
