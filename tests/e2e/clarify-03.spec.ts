@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { draftCardOf, pinClock, registerUser, say, shot, threadOf, usage } from "./support/bot.ts";
 import { clarifyOf, UNCERTAIN } from "./support/clarify.ts";
-import { LLM_WAIT } from "./support/env.ts";
+import { LLM_WAIT, REMOTE } from "./support/env.ts";
 
 const TEXT = "阿杰这人吧，怎么说呢";
 const VAGUE = "嗯……";
@@ -27,7 +27,10 @@ test("CLARIFY BOT-3 只反问一轮，之后的新话照常处理", { tag: "@llm
   await say(page, VAGUE);
   const vague = threadOf(page, VAGUE);
   const reply = vague.locator("[data-chitchat-reply]");
-  await expect(reply).toContainText(UNCERTAIN, { timeout: LLM_WAIT });
+  await expect(reply).toBeVisible({ timeout: LLM_WAIT });
+  // Replayed: the vague answer is 拿不准 and gets the fixed line. The real model may instead
+  // read 「嗯……」 as plain chitchat with its own short reply; either way there is no 2nd 反问.
+  if (!REMOTE) await expect(reply).toContainText(UNCERTAIN);
   await expect(reply.getByRole("button", { name: "记下来" })).toBeVisible();
   await expect(reply.getByRole("button", { name: "帮我查" })).toBeVisible();
   await expect(vague.locator("[data-clarify-reply]")).toHaveCount(0);
