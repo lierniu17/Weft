@@ -254,7 +254,9 @@ test("AC-UI walkthrough", async ({ page }) => {
   results["AC-UI-6 discard modal buttons"] = widths;
   await snap(page, "375-discard-modal");
   await modal.getByRole("button", { name: "取消" }).click();
+  await expect(modal).toBeHidden(); // its exit fade (motion.sheet-exit) is over
   await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
 
   // ask with the keyboard
   await page.getByRole("radio", { name: "提问" }).click();
@@ -481,7 +483,7 @@ test("AC-UI walkthrough", async ({ page }) => {
           mask: 0,
           pageHidden: false,
           inPageFlow: true,
-          width: 360,
+          width: 380,
           right: expect.any(Number),
           focusInPanel: true,
           triggerHitTestable: true,

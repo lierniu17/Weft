@@ -7,6 +7,7 @@ import { Button } from "../../basics/Button/Button.tsx";
 import { Chip } from "../../basics/Chip/Chip.tsx";
 import { IconButton } from "../../basics/IconButton/IconButton.tsx";
 import { Input } from "../../basics/Input/Input.tsx";
+import { Skeleton } from "../../basics/Skeleton/Skeleton.tsx";
 import { SectionHeader } from "../../composites/SectionHeader/SectionHeader.tsx";
 
 export type ProfileSectionVariant = "roles" | "tags" | "notes" | "opinion" | "summary";
@@ -15,7 +16,7 @@ export type ProfileItem = {
   id: string;
   /** Organization / tag / note / opinion text. */
   text: string;
-  /** roles: kind such as 学校 / 城市 (shown after the name). */
+  /** roles: the second line after the period — a relation (同事 / 同学) or kind (学校 / 城市). */
   note?: string | null;
   /** roles: period start and end, contract partial dates; no end = 至今 (current). */
   start?: string | null;
@@ -31,6 +32,8 @@ export type ProfileSectionProps = {
   items: ProfileItem[];
   /** summary variant. */
   summary?: { text: string; generatedAt: string } | null;
+  /** summary variant: none yet but one is being generated — a text skeleton holds its place. */
+  summaryPending?: boolean;
   /** Injected clock for periods. */
   today: Date;
   /** Opens the item's citation (AC-25). */
@@ -40,6 +43,8 @@ export type ProfileSectionProps = {
   onItemChange?: (id: string, text: string) => void;
   onItemRemove?: (id: string) => void;
   onItemAdd?: (text: string) => void;
+  /** Editing: focus the 添加 input when it appears (entered from 「还可以补充」). */
+  focusAdd?: boolean;
   className?: string;
 };
 
@@ -82,7 +87,7 @@ function ItemRow({
   return (
     <button type="button" onClick={() => onOpen(item.id)} className={ROW}>
       {content}
-      <FiChevronRight aria-hidden="true" className="shrink-0 text-neutral-text-secondary" />
+      <FiChevronRight aria-hidden="true" className="shrink-0 text-neutral-text-disabled" />
     </button>
   );
 }
@@ -94,14 +99,15 @@ function Summary({ text, generatedAt }: { text: string; generatedAt: string }) {
     <div data-summary="" className="flex flex-col gap-xs rounded-md bg-neutral-bg-subtle p-md">
       <p
         ref={ref}
-        className={cx("text-body-sm text-neutral-text-primary", !expanded && "line-clamp-3")}
+        className={cx(
+          "text-body-md leading-[26px] text-neutral-text-primary",
+          !expanded && "line-clamp-3",
+        )}
       >
         {text}
       </p>
       <div className="flex items-center justify-between gap-sm">
-        <span className="text-caption text-neutral-text-secondary">
-          {generatedLabel(generatedAt)}
-        </span>
+        <span className="text-meta text-neutral-text-tertiary">{generatedLabel(generatedAt)}</span>
         {(clamped || expanded) && (
           <Button
             variant="ghost"
@@ -117,7 +123,15 @@ function Summary({ text, generatedAt }: { text: string; generatedAt: string }) {
   );
 }
 
-function AddTag({ title, onAdd }: { title: string; onAdd: (text: string) => void }) {
+function AddTag({
+  title,
+  onAdd,
+  autoFocus,
+}: {
+  title: string;
+  onAdd: (text: string) => void;
+  autoFocus?: boolean;
+}) {
   const [value, setValue] = useState("");
   const submit = () => {
     const text = value.trim();
@@ -137,6 +151,7 @@ function AddTag({ title, onAdd }: { title: string; onAdd: (text: string) => void
         aria-label={`添加${title}`}
         placeholder={`添加${title}`}
         value={value}
+        autoFocus={autoFocus}
         onChange={(e) => setValue(e.target.value)}
         className="flex-1"
       />
@@ -149,42 +164,69 @@ function AddTag({ title, onAdd }: { title: string; onAdd: (text: string) => void
 
 /**
  * One area of a person's 画像. Every item opens its citation; editing works in place.
- * Empty sections stay visible with 「还没有记录」 (AC-21).
+ * An empty section renders nothing (style refresh AC-9): the page lists what is missing in
+ * one 「还可以补充：……」 line (ProfileSectionFold) instead of repeating 「还没有记录」.
+ * While editing, an empty section shows so something can be added.
  */
 export function ProfileSection({
   variant,
   title,
   items,
   summary,
+  summaryPending,
   today,
   onItemOpen,
   editing,
   onItemChange,
   onItemRemove,
   onItemAdd,
+  focusAdd,
   className,
 }: ProfileSectionProps) {
   const headingId = useId();
   const [historyOpen, setHistoryOpen] = useState(false);
   const name = title ?? DEFAULT_TITLE[variant] ?? "";
-  const empty = variant === "summary" ? !summary : items.length === 0;
+  const empty = variant === "summary" ? !summary && !summaryPending : items.length === 0;
 
-  const role = (item: ProfileItem) => (
-    <ItemRow key={item.id} item={item} onOpen={onItemOpen}>
-      {item.text}
-      {item.note && ` · ${item.note}`}
-      {item.start && (
-        <span className="text-neutral-text-secondary">
-          {" · "}
-          {formatPeriod(item.start, item.end, today)}
+  const role = (item: ProfileItem) => {
+    // Two lines like 方案 A: 「字节跳动」 over 「2018 年 3 月 – 至今 · 同事」.
+    const sub = [item.start ? formatPeriod(item.start, item.end, today) : null, item.note]
+      .filter(Boolean)
+      .join(" · ");
+    return (
+      <ItemRow key={item.id} item={item} onOpen={onItemOpen}>
+        <span data-role-title="" className="block">
+          {item.text}
         </span>
-      )}
-    </ItemRow>
-  );
+        {sub && (
+          <span data-role-sub="" className="block text-meta text-neutral-text-tertiary">
+            {sub}
+          </span>
+        )}
+      </ItemRow>
+    );
+  };
 
+  if (empty && !(editing && onItemAdd)) return null;
+
+  const add = editing && onItemAdd && (
+    <AddTag title={name} onAdd={onItemAdd} autoFocus={focusAdd} />
+  );
   let body: ReactNode;
-  if (empty && !(variant === "tags" && editing)) {
-    body = <p className="py-sm text-body-sm text-neutral-text-secondary">还没有记录</p>;
+  if (variant === "summary" && !summary) {
+    body = (
+      <div
+        data-summary-pending=""
+        role="status"
+        aria-busy="true"
+        aria-label="正在生成综合描述"
+        className="flex flex-col gap-sm rounded-md bg-neutral-bg-subtle p-md"
+      >
+        <Skeleton />
+        <Skeleton />
+        <Skeleton width="60%" />
+      </div>
+    );
   } else if (variant === "summary" && summary) {
     body = <Summary text={summary.text} generatedAt={summary.generatedAt} />;
   } else if (variant === "roles") {
@@ -193,6 +235,7 @@ export function ProfileSection({
     body = (
       <>
         {current.map(role)}
+        {add && <div className="py-xs">{add}</div>}
         {history.length > 0 && (
           <div className="flex flex-col">
             <button
@@ -229,11 +272,11 @@ export function ProfileSection({
             ))}
           </ul>
         )}
-        {editing && onItemAdd && <AddTag title={name} onAdd={onItemAdd} />}
+        {add}
       </div>
     );
   } else if (editing) {
-    body = items.map((item, i) => (
+    const rows = items.map((item, i) => (
       <div key={item.id} className="flex items-start gap-xs py-xs">
         <Input
           aria-label={`${name} ${i + 1}`}
@@ -248,12 +291,18 @@ export function ProfileSection({
         />
       </div>
     ));
+    body = (
+      <>
+        {rows}
+        {add && <div className="py-xs">{add}</div>}
+      </>
+    );
   } else if (variant === "opinion") {
     body = items.map((item) => (
       <ItemRow key={item.id} item={item} onOpen={onItemOpen}>
         <span
           data-opinion=""
-          className="block border-l-[3px] border-secondary-6 pl-sm text-neutral-text-primary italic"
+          className="block border-l-[3px] border-neutral-text-secondary pl-sm text-neutral-text-primary italic"
         >
           {item.text}
         </span>
@@ -273,8 +322,50 @@ export function ProfileSection({
       data-profile-section={variant}
       className={cx("flex flex-col", className)}
     >
-      <SectionHeader id={headingId} title={name} level={3} />
+      <SectionHeader id={headingId} title={name} level={2} />
       {body}
     </section>
+  );
+}
+
+export type ProfileGap = { key: string; label: string };
+
+export type ProfileSectionFoldProps = {
+  /** What has nothing yet: identity fields and empty sections, in page order. */
+  gaps: ProfileGap[];
+  /** Opens that one in place (the identity form, a section's 添加 input). */
+  onPick?: (key: string) => void;
+  className?: string;
+};
+
+/**
+ * ProfileSection's empty state (style refresh AC-9): every empty area folded into one line,
+ * 「还可以补充：生日、籍贯、相处之道」; each item opens its in-place edit.
+ */
+export function ProfileSectionFold({ gaps, onPick, className }: ProfileSectionFoldProps) {
+  if (gaps.length === 0) return null;
+  return (
+    <p
+      data-profile-fold=""
+      className={cx("py-sm text-body-sm text-neutral-text-tertiary", className)}
+    >
+      还可以补充：
+      {gaps.map((g, i) => (
+        <span key={g.key}>
+          {i > 0 && "、"}
+          {onPick ? (
+            <button
+              type="button"
+              onClick={() => onPick(g.key)}
+              className="motion-colors focus-ring cursor-pointer rounded-sm font-medium text-neutral-text-primary underline decoration-neutral-border underline-offset-[3px] hover:decoration-neutral-text-tertiary"
+            >
+              {g.label}
+            </button>
+          ) : (
+            g.label
+          )}
+        </span>
+      ))}
+    </p>
   );
 }

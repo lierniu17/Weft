@@ -13,7 +13,7 @@ export default defineConfig({
   testMatch:
     process.env.WEFT_E2E_SUITE === "walkthrough"
       ? "**/walkthrough*.spec.ts"
-      : ["**/bot-*.spec.ts", "**/graph-*.spec.ts"],
+      : ["**/bot-*.spec.ts", "**/graph-*.spec.ts", "**/style-*.spec.ts"],
   globalSetup: REMOTE ? "./tests/e2e/global-setup.remote.ts" : "./tests/e2e/global-setup.ts",
   // One shared database and Neo4j; BOTs create their own users, but run them in order.
   workers: 1,

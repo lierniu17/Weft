@@ -42,22 +42,20 @@ function toErrors(e: unknown): Errors {
 function Brand() {
   return (
     <div className="flex flex-col gap-xs">
-      <p className="text-h1 text-neutral-text-primary">Weft</p>
-      <p className="text-body-sm text-neutral-text-secondary">记住你身边的每一个人</p>
+      <p className="text-h3 font-bold tracking-[0.5px] text-neutral-text-primary">Weft</p>
+      <p className="text-meta text-neutral-text-tertiary">记住你身边的每一个人</p>
     </div>
   );
 }
 
+/** 注册 / 登录: the same page head + content structure as the app, no boxed card (AC-10). */
 function Frame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main className="flex min-h-dvh justify-center bg-neutral-bg-layout px-md py-xxl">
-      <div className="flex w-full max-w-[400px] flex-col gap-xl">
+      <div className="motion-page-enter flex w-full max-w-[400px] flex-col gap-xl">
         <Brand />
-        <section
-          aria-label={title}
-          className="flex flex-col gap-md rounded-md border border-neutral-divider bg-neutral-bg-container p-lg shadow-sm"
-        >
-          <h1 className="text-h2 text-neutral-text-primary">{title}</h1>
+        <section aria-label={title} className="flex flex-col gap-lg">
+          <h1 className="text-h1 text-neutral-text-primary">{title}</h1>
           {children}
         </section>
       </div>
@@ -141,7 +139,10 @@ export function RegisterPage() {
           注册
         </Button>
       </form>
-      <Link to="/login" className="focus-ring self-center rounded-sm text-body-sm text-primary-6">
+      <Link
+        to="/login"
+        className="focus-ring self-center rounded-sm text-body-sm text-neutral-text-primary underline decoration-neutral-border underline-offset-4 hover:decoration-neutral-text-tertiary"
+      >
         已有账号？登录
       </Link>
     </Frame>
@@ -200,7 +201,7 @@ export function LoginPage() {
       </form>
       <Link
         to="/register"
-        className="focus-ring self-center rounded-sm text-body-sm text-primary-6"
+        className="focus-ring self-center rounded-sm text-body-sm text-neutral-text-primary underline decoration-neutral-border underline-offset-4 hover:decoration-neutral-text-tertiary"
       >
         有邀请码？注册
       </Link>

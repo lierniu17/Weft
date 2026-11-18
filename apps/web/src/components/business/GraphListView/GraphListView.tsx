@@ -99,7 +99,7 @@ export function GraphListView({
                           onClick={() => onFocusChange(focused ? null : n.id)}
                           className={cx(
                             "motion-colors focus-ring flex min-h-[44px] cursor-pointer items-center gap-sm rounded-sm px-sm text-left",
-                            focused ? "bg-primary-1" : "hover:bg-neutral-bg-subtle",
+                            focused ? "bg-neutral-bg-muted" : "hover:bg-neutral-bg-subtle",
                           )}
                         >
                           <span className="flex min-w-[0] flex-1 flex-col">

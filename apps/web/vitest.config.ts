@@ -38,6 +38,9 @@ export default defineConfig({
         test: {
           name: "storybook",
           testTimeout: 30_000,
+          // Story files share one browser page; a story emulating 「减少动态效果」 (page-wide
+          // media emulation) must not leak into motion assertions of a file running beside it.
+          fileParallelism: false,
           setupFiles: ["./.storybook/vitest.setup.ts"],
           browser: {
             enabled: true,

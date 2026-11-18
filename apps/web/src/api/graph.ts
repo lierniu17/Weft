@@ -5,6 +5,7 @@ import type { Category } from "../contracts/draft.ts";
 import type { Taxonomy } from "../contracts/taxonomy.ts";
 import { api, enc, type Schemas } from "./client.ts";
 import { invalidateGraph, keys } from "./keys.ts";
+import { expectSummary, summaryExpected } from "./summaryExpectation.ts";
 
 export type Person = Schemas["PersonOut"];
 export type Profile = Schemas["ProfileOut"];
@@ -28,20 +29,37 @@ export function usePersons(q = "") {
   });
 }
 
+/**
+ * 综合描述 is generated in the background after a confirmation or an edit: a profile with facts
+ * but no summary yet is waiting for one, for the first 15 polls (then we stop asking).
+ */
+function awaitingSummary(id: string, state: { data?: Profile; dataUpdateCount: number }): boolean {
+  const data = state.data;
+  return Boolean(
+    data &&
+      !data.summary &&
+      data.facts.length > 0 &&
+      state.dataUpdateCount < 15 &&
+      summaryExpected(id),
+  );
+}
+
 export function useProfile(id: string | undefined) {
   return useQuery({
     queryKey: keys.person(id ?? ""),
     queryFn: () => api.get<Profile>(`/persons/${enc(id ?? "")}`),
     enabled: Boolean(id),
-    // 综合描述 is generated in the background after a confirmation: poll until it arrives.
-    refetchInterval: (q) =>
-      q.state.data &&
-      !q.state.data.summary &&
-      q.state.data.facts.length > 0 &&
-      q.state.dataUpdateCount < 15
-        ? 2000
-        : false,
+    // poll until 综合描述 arrives
+    refetchInterval: (q) => (id && awaitingSummary(id, q.state) ? 2000 : false),
   });
+}
+
+/** The person's 综合描述 is on its way (the page shows a skeleton in its place). */
+export function useSummaryPending(id: string | undefined): boolean {
+  const qc = useQueryClient();
+  const profile = useProfile(id); // re-renders on every poll
+  const state = qc.getQueryState<Profile>(keys.person(id ?? ""));
+  return Boolean(id && profile.data && state && awaitingSummary(id, state));
 }
 
 export function usePair(a: string | undefined, b: string | undefined) {
@@ -97,6 +115,7 @@ export function useEditProfile(id: string) {
     mutationFn: (edit: ProfileEdit) =>
       api.patch<Schemas["ProfileEdited"]>(`/persons/${enc(id)}/profile`, edit),
     onSuccess: (edited) => {
+      expectSummary(id);
       qc.setQueryData(keys.person(id), edited.profile);
       void invalidateGraph(qc);
     },

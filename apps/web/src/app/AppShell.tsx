@@ -22,6 +22,11 @@ function section(pathname: string): string {
   return "chat";
 }
 
+/** One key per page URL (trailing slash ignored): moving to another person replays the enter. */
+function pageKey(pathname: string): string {
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
 const PATHS: Record<string, string> = { chat: "/", people: "/people", graph: "/graph", me: "/me" };
 
 /** 「最近提到」: people in the latest confirmed Entries (cached with the chat's queries). */
@@ -49,8 +54,9 @@ function useRecentPersons(enabled: boolean): RecentPerson[] {
 }
 
 /**
- * The logged-in frame: bottom TabBar on mobile; SideNav (icons only on tablet, 220px with
- * 「最近提到」 on desktop) from 768px up; content centred within 1440px.
+ * The logged-in frame: bottom TabBar on mobile; SideNav (icons only on tablet, 232px with
+ * 「最近提到」 on desktop) from 768px up. Pages centre their content in CONTENT_COLUMN
+ * (max 720px) and put a desktop right column (RIGHT_COLUMN, 380px) beside it.
  */
 export function AppShell() {
   const me = useMe();
@@ -103,7 +109,7 @@ export function AppShell() {
   return (
     <ChatSessionProvider>
       <div className="flex h-dvh flex-col overflow-hidden bg-neutral-bg-layout">
-        <div className="mx-auto flex min-h-[0] w-full max-w-[1440px] flex-1">
+        <div className="flex min-h-[0] w-full flex-1">
           {layout !== "mobile" && (
             <SideNav
               items={[chat, people, graph, mine]}
@@ -112,11 +118,18 @@ export function AppShell() {
               collapsed={layout === "tablet"}
               recent={recent}
               onRecentClick={(id) => navigate(`/people/${enc(id)}`)}
-              className="border-r border-neutral-divider"
             />
           )}
           <main className="flex min-w-[0] flex-1 flex-col overflow-hidden bg-neutral-bg-layout">
-            <Outlet />
+            {/* Page enter (AC-12): keyed on the route so each page fades + rises in once;
+                navigation is never held back for an exit animation. */}
+            <div
+              key={pageKey(location.pathname)}
+              data-page=""
+              className="motion-page-enter flex min-h-[0] flex-1 flex-col"
+            >
+              <Outlet />
+            </div>
           </main>
         </div>
         {layout === "mobile" && (

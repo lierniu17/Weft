@@ -99,10 +99,17 @@ export function toCitations(sources: CitationSource[]): Citation[] {
 
 // --- 画像 --------------------------------------------------------------------------
 
-const ROLE_KIND: Record<string, string> = {
-  WORKS_AT: "单位",
+/** The predicates shown as 社会角色, with the kind word a role reads with when nothing better. */
+const ROLE_KIND: Record<string, string | null> = {
+  WORKS_AT: null, // 「字节跳动」 needs no 「单位」
   STUDIED_AT: "学校",
   LIVES_IN: "城市",
+};
+
+/** The relations with 本人 a current role stands for: 在字节跳动 + 同事 → 「… · 同事」. */
+const ROLE_RELATION: Record<string, readonly string[]> = {
+  WORKS_AT: ["同事", "上下级", "合伙人"],
+  STUDIED_AT: ["同学", "校友", "师生"],
 };
 
 export function dislikeText(object: string): string {
@@ -123,7 +130,11 @@ export type ProfileView = {
   fact: (id: string) => S["FactOut"] | undefined;
 };
 
-export function profileView(profile: S["ProfileOut"]): ProfileView {
+/**
+ * `relations`: the subtypes of his relationship with 本人 (同事、朋友); a current role's second
+ * line names the one it stands for — 「2018 年 3 月 – 至今 · 同事」.
+ */
+export function profileView(profile: S["ProfileOut"], relations: string[] = []): ProfileView {
   const item = (f: S["FactOut"], text = f.object): ProfileItem => ({
     id: f.id,
     text,
@@ -134,13 +145,14 @@ export function profileView(profile: S["ProfileOut"]): ProfileView {
   const by = (...predicates: string[]) => live.filter((f) => predicates.includes(f.predicate));
 
   const roles = profile.facts
-    .filter((f) => ROLE_KIND[f.predicate] && (f.current || f.unverified || f.invalid_at))
-    .map((f) => ({
-      ...item(f),
-      note: ROLE_KIND[f.predicate],
-      start: f.valid_at,
-      end: f.unverified ? null : f.invalid_at,
-    }));
+    .filter((f) => f.predicate in ROLE_KIND && (f.current || f.unverified || f.invalid_at))
+    .map((f) => {
+      const end = f.unverified ? null : f.invalid_at;
+      const relation = end
+        ? undefined
+        : relations.filter((r) => ROLE_RELATION[f.predicate]?.includes(r)).join("、");
+      return { ...item(f), note: relation || ROLE_KIND[f.predicate], start: f.valid_at, end };
+    });
 
   const identity = Object.entries(profile.identity)
     .filter(([field]) => field !== "name")

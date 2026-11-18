@@ -14,7 +14,7 @@ test("GRAPH BOT-4 图谱外观切到星空并保存到账户", async ({ page }) 
   // 1. 在“我的”里把图谱外观切到“星空”。
   await page.goto("/me");
   const setting = page.getByRole("radiogroup", { name: "图谱外观" });
-  await expect(setting.getByRole("radio", { name: "清蓝" })).toHaveAttribute(
+  await expect(setting.getByRole("radio", { name: "浅色" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
@@ -28,7 +28,7 @@ test("GRAPH BOT-4 图谱外观切到星空并保存到账户", async ({ page }) 
     "true",
   );
 
-  // 2. 打开全景图：图谱区域深色星空，页面其余部分仍是清蓝。
+  // 2. 打开全景图：图谱区域深色星空，页面其余部分仍是浅色。
   await page.goto("/graph");
   await graphReady(page, 25);
   expect((await graphView(page)).theme).toBe("starfield");

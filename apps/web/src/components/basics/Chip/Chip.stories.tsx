@@ -114,3 +114,18 @@ export const Disabled: Story = {
     await expect(args.onClick).not.toHaveBeenCalled();
   },
 };
+
+/** 人物 chip (DESIGN.md §2): a small initial avatar leads the name; it stays out of the name. */
+export const PersonChip: Story = {
+  args: { children: "张伟", avatar: "张伟", onClick: fn() },
+  play: async ({ canvasElement }) => {
+    const chip = within(canvasElement).getByRole("button", { name: "张伟" });
+    const avatar = chip.querySelector("[data-chip-avatar]") as HTMLElement;
+    await expect(avatar).toHaveAttribute("data-chip-avatar", "张");
+    await expect(getComputedStyle(avatar, "::before").content).toBe('"张"');
+    await expect(chip).toHaveTextContent(/^张伟$/);
+    await expect(getComputedStyle(avatar).borderTopLeftRadius).toBe("9999px");
+    await expect(getComputedStyle(avatar).backgroundColor).toBe(token("neutral-bg-container"));
+    await expect(getComputedStyle(chip).backgroundColor).toBe(token("neutral-bg-muted"));
+  },
+};

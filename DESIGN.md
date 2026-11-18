@@ -341,7 +341,7 @@ components:
   # ───────────── Business：带 Weft 业务含义的组件 ─────────────
   business:
     ChatComposer:
-      description: "对话页底部的输入区：记录 / 提问切换（SegmentedControl）+ 发生日期（DatePicker，仅记录模式）+ 自动增高输入框 + 发送。提问发出后自动切回记录。"
+      description: "对话页底部的输入区，页面的视觉焦点：一个 rounded.xl + border + shadow.md 的框（聚焦 shadow.lg），框内上方是自动增高的输入（TextArea.bare，无自身边框），下方一行是 记录 / 提问 小分段（SegmentedControl.sm）+ 发生日期（DatePicker，仅记录模式）+ 圆形近黑发送（空内容 25% 不透明）。提问发出后自动切回记录。桌面与内容同宽（720 居中）。"
       variants:
         record: { placeholder: "今天和谁发生了什么？", date-chip: true }
         ask: { placeholder: "想问关于谁的什么事？", date-chip: false }
@@ -356,30 +356,32 @@ components:
       radius: "rounded.bubble"
       variants: { record: { meta: "记录 · 发生日期" }, question: { meta: "提问" } }
     DraftCard:
-      description: "对话里的草稿卡片，一条记录一张，状态变化原地更新。"
+      description: "对话里的草稿卡片，一条记录一张，状态变化原地更新（同一 DOM 节点）。白底 + divider 细边 + rounded.md，无阴影；信息行为自然语句 + 行尾灰色可信度（“**张伟**喜欢钓鱼 · 本人说”）。"
       variants:
         extracting: { body: "Skeleton.text x3", title: "正在整理人物和关系…" }
-        pending: { body: "人物 chip + 前 3 条信息 + 还有 N 条", action: "Button.primary 查看并确认" }
+        pending: { body: "人物 chip（头像 + “老张 是 张伟”）+ 前 3 条信息 + 还有 N 条", action: "Button.primary 查看并确认" }
         failed: { bg: "colors.status.error.1", action: "Button.secondary 重试" }
-        confirmed: { body: "✓ 已入图谱 · N 条信息 · 学到的别名", action: "人物 Chip.link" }
+        confirmed: { bg: "colors.neutral.bg-subtle（无边）", body: "绿色对勾 + 已入图谱 · N 条信息 · 学到的别名", action: "人物头像 Chip" }
         discarded: { text: "colors.neutral.text-secondary", body: "已放弃" }
+      motion: { confirm: "确认抽屉退出（motion.sheet-exit）后：预览以 grid-template-rows 1fr→0fr 收起、底色过渡到 bg-subtle（motion.emphasis）；对勾 stroke-dashoffset 画出；新人物 chip 轻弹（pop，motion.base，错开 motion.stagger）。页面加载时已是已入图谱的卡不播放。减少动效：直接切换，对勾直接显示。" }
     DraftReviewSheet:
-      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel）。分区：涉及的人物 / 信息 / 关系变化 / 感受变化 / 画像变化；底部 放弃 + 确认入图谱，存在未选的需选择项时确认禁用。"
+      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel 380）。分区：涉及的人物 / 信息 / 画像变化 / 关系变化 / 感受变化，每条为自然语句（lib/draft itemSentence）；末尾提示“点一条可以改可信度”；底部 放弃 + 确认入图谱 等宽并排（确认为主按钮），存在未选的需选择项时确认禁用。"
     PersonMatchItem:
       description: "草稿里一个被提到的人怎么对上号。"
+      layout: "Avatar.md + 自然语句 + 尾部状态 chip"
       variants:
-        matched: { trailing: "Chip.selected 已匹配", detail: "老张 → 张伟（同事）" }
-        ambiguous: { title-color: "colors.status.error.6", body: "候选人 Chip 列表 + “新人物” Chip" }
-        new: { trailing: "Chip.selected 新人物" }
+        matched: { title: "老张 是 张伟（“是”为 meta 灰）", detail: "同事（meta）", trailing: "Chip.success 已匹配" }
+        ambiguous: { title: "小李 是谁？（colors.status.error.6）", trailing: "Chip.danger 需选择", body: "候选人 Chip 列表 + “＋ 新人物” Chip.selected" }
+        new: { detail: "图谱里还没有这个人", trailing: "Chip.neutral 新人物" }
     DraftFactItem:
-      description: "草稿里一条待写入的信息，可改可信度、可删除。"
+      description: "草稿里一条待写入的信息：自然语句 + 行尾灰色可信度（ConfidenceBadge.sentence），整行可点改可信度；尾部 ✕ 删除。无分隔线。"
       variants:
         add: {}
-        update: { detail: "将更新：旧值 → 新值" }
-        unverified: { detail: "与已有信息冲突且可信度更低，标为待核实", accent: "colors.status.warning.6" }
-      options: { confidence: "ConfidenceBadge 可点选", removable: true }
+        update: { detail: "将更新：旧值 → 新值（meta 灰）" }
+        unverified: { detail: "待核实（Chip.warning）+ 与已有信息冲突且可信度更低（colors.status.warning.6）" }
+      options: { confidence: "整行可点选", removable: true }
     ConfidenceBadge:
-      description: "可信度四档，写在信息行尾的灰色元信息文字（typography.meta），无底色无描边；文字必须完整显示（不只靠颜色区分）。可改时点按弹出四档菜单，悬停 bg-muted。"
+      description: "可信度四档，写在信息行尾的灰色元信息文字（typography.meta），无底色无描边；文字必须完整显示（不只靠颜色区分）。sentence 布局：“张伟喜欢钓鱼 · 本人说”，可改时整行是按钮、点按弹出四档菜单（悬停 bg-muted；菜单淡入 motion.base、淡出 motion.exit）。"
       variants:
         witnessed: { label: "亲历", text: "colors.neutral.text-tertiary" }
         self_told: { label: "本人说", text: "colors.neutral.text-tertiary" }
@@ -387,8 +389,8 @@ components:
         inferred: { label: "推测", text: "colors.neutral.text-tertiary", border: "dashed colors.neutral.border" }
       radius: "rounded.full"
     AnswerCard:
-      description: "问答的回答，正文内嵌 CitationMark，下方是相关人物 Chip 与追问建议。"
-      bg: "colors.neutral.bg-container"
+      description: "问答的回答，不套卡片（无底色、无边、无阴影），正文 15/26 直接排在白底上，内嵌 CitationMark；下方是相关人物头像 Chip、“在图上查看”（Button.ghost 中性灰）与追问建议（中性灰文字）。"
+      bg: "transparent"
       variants:
         text: {}
         path: { body: "PathChain" }
@@ -396,10 +398,11 @@ components:
         stat: { body: "大号数字（右对齐）+ 对应人物列表" }
         no-answer: { body: "图谱里没有相关信息 + Button.secondary 去记一笔" }
     CitationMark:
-      description: "回答中的出处标记 [n]，可点开 CitationSheet，hover 显示 Tooltip 摘要。"
-      text: "colors.primary.6"
-      hover-bg: "colors.primary.1"
-      font: "typography.caption 上标"
+      description: "回答中的出处标记：18px 的 bg-muted 小方块（圆角 6px）里写数字，可点开 CitationSheet，hover 显示 Tooltip 摘要。"
+      bg: "colors.neutral.bg-muted"
+      text: "colors.neutral.text-secondary"
+      hover-bg: "colors.neutral.border"
+      font: "typography.caption"
     CitationSheet:
       description: "出处详情：ConfidenceBadge + 记录原文引用 + 发生日期 + 跳转到相关关系。移动端 bottom-sheet，桌面端右栏。"
     PathChain:
@@ -408,7 +411,7 @@ components:
       description: "人物列表行：Avatar + 姓名（别名）+ 关系 · 最近提到时间 + ›。长名单行截断加 Tooltip。"
       variants: { default: {}, self: { avatar: "Avatar.self", label: "（我）", chevron: false } }
     PersonHeader:
-      description: "人物页顶部：姓名、别名、与我的关系摘要（类型 · 认识时长 · 亲密度）+ 编辑 / ⋯ 菜单。"
+      description: "人物页顶部，直接排在页面上（无边无底）：大头像（Avatar.lg）+ 姓名（h1，24/32 半粗）+ 一句话关系（别名 · 关系类型 · 认识时长，meta 灰）+ 最多 2 个标签（RelationStatusTag、亲密度 · 信任 Chip.neutral）；右侧 编辑 / ⋯ 菜单。在对话右栏中姓名为 h2。"
     ProfileSection:
       description: "画像的一个分区，每条信息可点开出处，可就地编辑。"
       variants:
@@ -416,8 +419,10 @@ components:
         tags: { item: "Chip.neutral（性格、喜好、厌恶）", editable: "Chip removable + 添加" }
         notes: { item: "短文本（生活事件、相处之道）" }
         opinion: { label: "我的评价", style: "斜体 + colors.secondary.6 左边线，与事实区分" }
-        summary: { item: "综合描述 + 生成时间", bg: "colors.neutral.bg-layout" }
-      states: { empty: { text: "colors.neutral.text-secondary", body: "还没有记录" }, editing: { item: "Input / Chip removable" } }
+        summary: { item: "综合描述（15/26）+ 生成时间（meta）", bg: "colors.neutral.bg-subtle", radius: "rounded.md" }
+      states:
+        empty: { body: "不渲染；页面把所有空分区与缺失的身份字段折叠成一行 ProfileSectionFold：“还可以补充：生日、籍贯、相处之道”（meta 灰，各项为可点的近黑下划线文字，点开就地编辑并聚焦该项）" }
+        editing: { item: "Input / Chip removable + 添加" }
     RelationshipTypeTag:
       description: "关系类型：大类 · 小类，附原话（“铁哥们”）。自定义小类带小标记。"
       variants: { builtin: { style: "Chip.neutral" }, custom: { style: "Chip.neutral + 自定义角标" } }
@@ -482,7 +487,7 @@ components:
         discarded: { status: "已放弃", color: "colors.neutral.text-secondary" }
         failed: { status: "整理失败", color: "colors.status.error.6" }
     QuotaMeter:
-      description: "今日额度：记录 x / 50、提问 x / 100，数字右对齐；剩余不足 10% 时变为 warning 色。"
+      description: "今日额度：列表行“记录 12 / 50”“提问 63 / 100”，数字右对齐等宽，“/ 50”为 meta 灰；已用数变化时从下方滚入（motion.emphasis，首屏不播放）；剩余不足 10% 时变为 warning 色。"
       variants: { normal: {}, low: { text: "colors.status.warning.6" }, exhausted: { text: "colors.status.error.6" } }
     TaxonomyEditor:
       description: "关系类型词表：五个大类分组，每组列出小类，可在组内用 Input 新增自定义小类。"

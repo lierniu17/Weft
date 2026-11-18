@@ -267,3 +267,18 @@ def test_self_as_the_subject_does_not_require_evidence_about_me() -> None:
         subjects={"我": (ME,)},
     )
     assert answer.kind is AnswerKind.TEXT
+
+
+def test_an_internal_fact_name_the_model_echoes_is_written_in_chinese() -> None:
+    answer = build_answer(
+        final(
+            kind="list",
+            segments=[{"text": "老张和小李有一件RELATED_EVENT：借钱闹掰了。", "evidence": ["E1"]}],
+            items=[{"person": "P3", "subtitle": "RELATED_EVENT", "evidence": ["E1"]}],
+        ),
+        EVIDENCE,
+        PERSONS,
+    )
+    texts = [s.text for s in answer.segments] + [i.subtitle or "" for i in answer.items]
+    assert not any("RELATED_EVENT" in t for t in texts)
+    assert "两人之间的事" in answer.segments[0].text

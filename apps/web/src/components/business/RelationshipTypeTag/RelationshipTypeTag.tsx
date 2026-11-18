@@ -33,7 +33,11 @@ export function RelationshipTypeTag({
         {categoryLabel(category)} · {subtype}
         {quote && <span className="text-neutral-text-secondary"> · “{quote}”</span>}
       </span>
-      {custom && <span className="rounded-full bg-secondary-1 px-xs text-secondary-7">自定义</span>}
+      {custom && (
+        <span className="rounded-full bg-neutral-bg-container px-xs text-neutral-text-secondary">
+          自定义
+        </span>
+      )}
     </span>
   );
 }

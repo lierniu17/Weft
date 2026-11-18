@@ -97,5 +97,47 @@ export const PickableByKeyboard: Story = {
     await screen.findByRole("menu");
     await userEvent.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{Enter}");
     await waitFor(() => expect(args.onChange).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  },
+};
+
+/**
+ * Style refresh AC-8: the sentence layout of draft lines — 「张伟喜欢钓鱼 · 本人说」, the level
+ * as trailing meta grey after the sentence; with `onChange` the whole line is the button.
+ */
+export const SentenceLine: Story = {
+  args: { level: "self_told", sentence: "张伟喜欢钓鱼", onChange: fn() },
+  parameters: { a11y: { context: "body" } },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const row = canvas.getByRole("button", { name: "张伟喜欢钓鱼 · 本人说（可信度，点按修改）" });
+    await expect(row).toHaveTextContent(/^张伟喜欢钓鱼 · /);
+    const level = row.querySelector("[data-confidence]") as HTMLElement;
+    await expect(getComputedStyle(level).color).toBe(token("neutral-text-tertiary"));
+    await expect(getComputedStyle(level).fontSize).toBe("13px");
+    await expect(getComputedStyle(row).backgroundColor).toBe(TRANSPARENT);
+    await userEvent.click(within(row).getByText("张伟喜欢钓鱼")); // tapping the sentence opens it
+    const menu = await screen.findByRole("menu");
+    await userEvent.click(within(menu).getByRole("menuitemradio", { name: "转述" }));
+    await expect(args.onChange).toHaveBeenCalledWith("hearsay");
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  },
+};
+
+/** DESIGN.md: the four-level menu fades out (motion.exit) instead of vanishing. */
+export const MenuExit: Story = {
+  args: { level: "self_told", onChange: fn() },
+  parameters: { a11y: { context: "body" }, motion: true },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button"));
+    const menu = await screen.findByRole("menu");
+    await expect(getComputedStyle(menu).animationName).toBe("fade-in");
+    await userEvent.keyboard("{Escape}");
+    await expect(menu).toHaveAttribute("data-state", "closed");
+    await expect(getComputedStyle(menu).animationName).toBe("fade-out");
+    await expect(getComputedStyle(menu).animationDuration).toBe("0.15s"); // motion.exit
+    // Unmounted when the fade ends (Storybook's test runner may hold animations; end it here).
+    for (const a of menu.getAnimations()) a.finish();
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   },
 };

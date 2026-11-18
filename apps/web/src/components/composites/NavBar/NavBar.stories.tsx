@@ -76,3 +76,13 @@ export const LongTitle: Story = {
     await expect(await screen.findByRole("tooltip")).toHaveTextContent(LONG);
   },
 };
+
+/** The person page names itself in its own h1: the bar keeps only 返回 and the actions. */
+export const WithoutTitle: Story = {
+  args: { title: "", variant: "pushed", onBack: fn() },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByRole("heading")).toBeNull();
+    await expect(canvas.getByRole("button", { name: "返回" })).toBeVisible();
+  },
+};

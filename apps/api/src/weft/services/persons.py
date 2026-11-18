@@ -13,7 +13,6 @@ from weft.domain.dates import PartialDate
 from weft.domain.draft import FEELING_DIMENSION_LABELS, FEELING_LEVEL_LABELS, ProfileField
 from weft.domain.graph_write import (
     OPINION,
-    PREDICATE_LABELS,
     PREDICATE_TARGETS,
     EpisodeWrite,
     FactDeleted,
@@ -22,6 +21,7 @@ from weft.domain.graph_write import (
     NewFact,
     NewFeeling,
     RelationshipUpsert,
+    fact_label,
     fact_sentence,
 )
 from weft.domain.taxonomy import Category, RelationshipType
@@ -107,7 +107,7 @@ class Edited[T]:
 
 
 def _label(predicate: str) -> str:
-    return PREDICATE_LABELS.get(predicate, predicate)
+    return fact_label(predicate)
 
 
 async def edit_profile(

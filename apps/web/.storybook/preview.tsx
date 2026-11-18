@@ -26,7 +26,9 @@ const preview: Preview = {
     if (parameters.motion) root.dataset.motion = "on";
     else delete root.dataset.motion;
     delete root.dataset.inputModality;
-    if (parameters.reducedMotion) await emulateReducedMotion(true);
+    // Set it for every story, not only the reduced ones: a teardown that did not run must
+    // not leave the next story (or file) under 「减少动态效果」.
+    await emulateReducedMotion(Boolean(parameters.reducedMotion));
     return async () => {
       delete root.dataset.motion;
       if (parameters.reducedMotion) await emulateReducedMotion(false);

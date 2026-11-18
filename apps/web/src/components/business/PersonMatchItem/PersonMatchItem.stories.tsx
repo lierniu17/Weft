@@ -42,24 +42,32 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** AC-12 已匹配: 「老张 → 张伟」 + note + Chip.selected 已匹配. */
+/**
+ * AC-12 已匹配, as a sentence (style refresh AC-8): 「老张 是 张伟」 (是 in meta grey) + note +
+ * a green status chip 已匹配 (status colour, not the ink selected state).
+ */
 export const Matched: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("老张 → 张伟")).toBeVisible();
+    const title = canvasElement.querySelector("[data-person-match-title]") as HTMLElement;
+    await expect(title).toHaveTextContent("老张 是 张伟");
+    await expect(getComputedStyle(within(title).getByText("是")).color).toBe(
+      token("neutral-text-tertiary"),
+    );
     await expect(canvas.getByText("同事 · 已有别名")).toBeVisible();
     const chip = canvas.getByText("已匹配").parentElement as HTMLElement;
-    await expect(getComputedStyle(chip).backgroundColor).toBe(token("primary-6"));
+    await expect(getComputedStyle(chip).backgroundColor).toBe(token("status-success-1"));
+    await expect(getComputedStyle(chip).color).toBe(token("status-success-6"));
     await expect(canvas.queryByRole("group")).toBeNull();
   },
 };
 
-/** AC-12 需选择: red title, candidates + 「＋ 新人物」. */
+/** AC-12 需选择: 「小李 是谁？」 in error text, candidates + 「＋ 新人物」. */
 export const Ambiguous: Story = {
   args: { person: AMBIGUOUS },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const title = canvas.getByText("小李 → 选择是谁");
+    const title = canvas.getByText("小李 是谁？");
     await expect(getComputedStyle(title).color).toBe(token("status-error-6"));
     const group = canvas.getByRole("group", { name: "「小李」是谁" });
     const options = within(group).getAllByRole("button");
@@ -81,7 +89,8 @@ export const New: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("老张")).toBeVisible();
-    await expect(canvas.getByText("新人物")).toBeVisible();
+    const chip = canvas.getByText("新人物").parentElement as HTMLElement;
+    await expect(getComputedStyle(chip).backgroundColor).toBe(token("neutral-bg-muted"));
   },
 };
 
@@ -107,7 +116,9 @@ export const ChooseCandidate: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "李明（同学）" }));
-    await expect(canvas.getByText("小李 → 李明")).toBeVisible();
+    await expect(canvasElement.querySelector("[data-person-match-title]")).toHaveTextContent(
+      "小李 是 李明",
+    );
     await expect(canvas.getByText("已匹配")).toBeVisible();
   },
 };

@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { useState } from "react";
+import { expect, userEvent, within } from "storybook/test";
+import { motionMs } from "../../../lib/motion.ts";
 import { token } from "../../../test/color.ts";
 import { QuotaMeter } from "./QuotaMeter.tsx";
 
@@ -60,5 +62,35 @@ export const Exhausted: Story = {
     await expect(getComputedStyle(record).color).toBe(token("status-error-6"));
     await expect(canvasElement.querySelector("[data-quota=record]")).toHaveTextContent("已用完");
     await expect(within(canvasElement).getByText("北京时间 0 点重置")).toBeVisible();
+  },
+};
+
+function Counting() {
+  const [used, setUsed] = useState(12);
+  return (
+    <div className="flex flex-col gap-sm">
+      <QuotaMeter record={{ used, limit: 50 }} ask={{ used: 63, limit: 100 }} />
+      <button type="button" onClick={() => setUsed((n) => n + 1)}>
+        再记一条
+      </button>
+    </div>
+  );
+}
+
+/** Style refresh AC-15: a changed count rolls in from below (motion.emphasis); not on first paint. */
+export const NumberRoll: Story = {
+  render: () => <Counting />,
+  parameters: { motion: true },
+  play: async ({ canvasElement }) => {
+    const used = () =>
+      canvasElement.querySelector("[data-quota=record] [data-quota-used]") as HTMLElement;
+    await expect(getComputedStyle(used()).animationName).toBe("none");
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "再记一条" }));
+    await expect(used()).toHaveTextContent("13");
+    await expect(getComputedStyle(used()).animationName).toBe("number-roll");
+    await expect(getComputedStyle(used()).animationDuration).toBe(
+      `${motionMs("emphasis") / 1000}s`,
+    );
+    await expect(value(canvasElement, "record")).toHaveTextContent("13 / 50");
   },
 };

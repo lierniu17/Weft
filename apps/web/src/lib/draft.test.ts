@@ -3,9 +3,9 @@ import type { Draft } from "../contracts/draft.ts";
 import {
   canConfirm,
   choosePerson,
-  describeItem,
   draftItems,
   draftSummary,
+  itemSentence,
   removeItem,
   setConfidence,
   setRelationshipType,
@@ -117,11 +117,49 @@ describe("草稿摘要与条目文案", () => {
     expect(draftItems(draft).map((i) => i.id)).toEqual(["f1", "f2", "g1", "r1", "e1"]);
   });
 
-  it("describes items with resolved names (matched → name, self → 我)", () => {
-    expect(describeItem(draft, draft.facts[0])).toBe("李明 · 喜欢 钓鱼");
-    expect(describeItem(draft, draft.facts[1])).toBe("李明 · 工作单位 腾讯");
-    expect(describeItem(draft, draft.profile[0])).toBe("李明 · 籍贯 湖南长沙");
-    expect(describeItem(draft, draft.relationships[0])).toBe("老张 与 李明 · 社会 · 室友");
-    expect(describeItem(draft, draft.feelings[0])).toBe("我 → 李明 · 亲密度 亲近");
+  it("writes items as natural sentences with resolved names (style refresh AC-8)", () => {
+    const text = (item: Parameters<typeof itemSentence>[1]) => itemSentence(draft, item).text;
+    expect(text(draft.facts[0])).toBe("李明喜欢钓鱼");
+    expect(text(draft.facts[1])).toBe("李明在腾讯工作");
+    expect(text(draft.profile[0])).toBe("李明的籍贯是湖南长沙");
+    expect(text(draft.relationships[0])).toBe("老张是李明的室友");
+    expect(text(draft.feelings[0])).toBe("我觉得和李明很亲近");
+    // the subject leads the sentence, for the draft card's bold name
+    expect(itemSentence(draft, draft.facts[0]).subject).toBe("李明");
+  });
+
+  it("has a sentence for every predicate and feeling, never an internal name", () => {
+    const fact = (predicate: string, object: string) =>
+      itemSentence(draft, { id: "x", subject: "小李", predicate, object, confidence: "witnessed" })
+        .text;
+    expect(fact("STUDIED_AT", "北大")).toBe("李明在北大上学");
+    expect(fact("LIVES_IN", "杭州")).toBe("李明住在杭州");
+    expect(fact("HAS_TRAIT", "急性子")).toBe("李明的性格：急性子");
+    expect(fact("DISLIKES", "喝酒")).toBe("李明不喜欢喝酒");
+    expect(fact("EXPERIENCED", "明年高考")).toBe("李明明年高考");
+    expect(fact("HAS_ETIQUETTE", "别提他前妻")).toBe("和李明相处：别提他前妻");
+    expect(fact("OPINION", "靠谱")).toBe("我对李明的评价：靠谱");
+    expect(fact("RELATED_EVENT", "老张")).toBe("李明和老张之间的事");
+    expect(fact("SOMETHING_NEW", "钓鱼")).toBe("李明：钓鱼");
+    const feeling = (dimension: "affinity" | "trust", level: string) =>
+      itemSentence(draft, {
+        id: "y",
+        from: "我",
+        to: "小李",
+        dimension,
+        level,
+        confidence: "witnessed",
+      } as Parameters<typeof itemSentence>[1]).text;
+    expect(feeling("affinity", "like")).toBe("我喜欢李明");
+    expect(feeling("affinity", "dislike")).toBe("我反感李明");
+    expect(feeling("trust", "high")).toBe("我很信任李明");
+    expect(feeling("trust", "low")).toBe("我不太信任李明");
+    const kin = itemSentence(draft, {
+      id: "r2",
+      pair: ["老张", "小李"],
+      types: [],
+      confidence: "witnessed",
+    }).text;
+    expect(kin).toBe("老张和李明认识");
   });
 });

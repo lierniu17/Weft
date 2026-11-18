@@ -38,7 +38,7 @@ export function MessageBubble({
           {children}
         </p>
       </div>
-      <p className="text-caption text-neutral-text-secondary">{meta}</p>
+      <p className="text-caption text-neutral-text-tertiary">{meta}</p>
     </div>
   );
 }

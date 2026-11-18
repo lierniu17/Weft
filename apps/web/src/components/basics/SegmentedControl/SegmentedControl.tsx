@@ -51,7 +51,7 @@ export function SegmentedControl({
       {...aria}
       aria-disabled={disabled || undefined}
       className={cx(
-        "inline-flex items-stretch rounded-full bg-neutral-bg-muted p-xs",
+        "inline-flex shrink-0 items-stretch whitespace-nowrap rounded-full bg-neutral-bg-muted p-xs",
         size === "sm" ? "h-[28px]" : "h-[32px]",
         className,
       )}

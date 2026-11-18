@@ -9,6 +9,8 @@ export type ChipProps = {
   variant?: ChipVariant;
   /** Leading decorative icon. */
   icon?: ReactNode;
+  /** 人物 chip: a small initial avatar of this name leads the chip (decorative). */
+  avatar?: string;
   /** Makes the whole chip a button (selectable / openable). */
   onClick?: () => void;
   /** Toggle chips: exposed as aria-pressed on the button. */
@@ -54,6 +56,7 @@ export function Chip({
   children,
   variant = "neutral",
   icon,
+  avatar,
   onClick,
   pressed,
   href,
@@ -65,7 +68,16 @@ export function Chip({
   ...aria
 }: ChipProps) {
   const look = cx(BASE, VARIANTS[variant], className);
-  const lead = icon ? <span aria-hidden="true">{icon}</span> : null;
+  const lead = avatar ? (
+    // The initial is drawn by CSS (attr), so it is neither part of the chip's text nor its name.
+    <span
+      aria-hidden="true"
+      data-chip-avatar={Array.from(avatar)[0] ?? "?"}
+      className="-ml-[4px] inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-neutral-bg-container font-semibold text-neutral-text-primary before:content-[attr(data-chip-avatar)]"
+    />
+  ) : icon ? (
+    <span aria-hidden="true">{icon}</span>
+  ) : null;
   const text = <span className="truncate">{children}</span>;
 
   if (href) {

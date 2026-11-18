@@ -8,6 +8,7 @@ import { Tooltip } from "../../basics/Tooltip/Tooltip.tsx";
 export type NavBarVariant = "root" | "pushed";
 
 export type NavBarProps = {
+  /** "" when the page carries its own h1 (the person page's name): no heading here. */
   title: string;
   subtitle?: ReactNode;
   /** root: no left button; pushed: IconButton.plain 「返回」. */
@@ -52,7 +53,7 @@ export function NavBar({
         <IconButton aria-label="返回" icon={<FiChevronLeft />} size="md" onClick={onBack} />
       )}
       <div className="flex min-w-[0] flex-1 flex-col justify-center">
-        {truncated ? <Tooltip content={title}>{heading}</Tooltip> : heading}
+        {!title ? null : truncated ? <Tooltip content={title}>{heading}</Tooltip> : heading}
         {subtitle && <p className="truncate text-caption text-neutral-text-tertiary">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-xs">{actions}</div>}
