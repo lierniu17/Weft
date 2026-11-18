@@ -375,23 +375,31 @@ def _date(value: str | None, *, entry: PartialDate) -> PartialDate | None:
 
 
 WRITTEN_ON_NOTE = (
-    "这条记录是 written_on 这天写的，occurred 是记录里的事情发生的日期（从这句话里读出来的）。"
-    "说话当天口吻的相对时间（“昨天”“上周末”“去年”“上个月”）以 written_on 为参照换算；"
-    "相对事情本身的时间（“那年”“第二年”“当时”）以 occurred 为参照换算。"
-    "本条优先于系统说明里“以 entry.occurred 为参照”的规定；精度规则不变。"
+    "occurred 是写这条记录的日子；event_occurred 是从原话里读出来的事情发生时间（已经换算好）。"
+    "原话里的相对时间（“昨天”“上周末”“去年”“上个月”“明年”）照常以 occurred 为参照换算，"
+    "不要再以 event_occurred 为参照重复换算；没有说时间的事实用 event_occurred。"
+    "换算结果的精度不得超过 event_precision。"
 )
 
 
 def _entry_payload(inp: ExtractionInput) -> dict[str, Any]:
-    entry: dict[str, Any] = {
+    # When the occurred date was read from the text (「上个月跳槽」 → 2026-10), the system
+    # prompt's reference (entry.occurred) must be the day of writing: the model follows that
+    # rule over any note, and would otherwise shift 上个月 twice (2026-09).
+    if inp.written_on is not None and inp.occurred != PartialDate.from_date(inp.written_on):
+        return {
+            "text": inp.text,
+            "occurred": inp.written_on.isoformat(),
+            "precision": "day",
+            "event_occurred": inp.occurred.isoformat(),
+            "event_precision": inp.occurred.precision.value,
+            "time_note": WRITTEN_ON_NOTE,
+        }
+    return {
         "text": inp.text,
         "occurred": inp.occurred.isoformat(),
         "precision": inp.occurred.precision.value,
     }
-    if inp.written_on is not None and inp.occurred != PartialDate.from_date(inp.written_on):
-        entry["written_on"] = inp.written_on.isoformat()
-        entry["time_note"] = WRITTEN_ON_NOTE
-    return entry
 
 
 def _enrich_payload(
