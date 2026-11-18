@@ -166,24 +166,31 @@ export async function expectNoHorizontalScroll(page: Page) {
   expect(overflow, `page ${page.url()} scrolls horizontally`).toBeLessThanOrEqual(0);
 }
 
-/** Composer: record an Entry through the UI. */
-export async function submitRecord(page: Page, text: string) {
-  await page.getByRole("textbox", { name: "记录内容" }).fill(text);
+/**
+ * Composer: say something — a record, a question, anything (intent routing: there is no
+ * 记录 / 提问 switch and no date; the message itself says what it is and when).
+ */
+export async function say(page: Page, text: string) {
+  await page.getByRole("textbox", { name: "消息内容" }).fill(text);
   await page.getByRole("button", { name: "发送" }).click();
 }
 
-export async function ask(page: Page, question: string) {
-  await page.getByRole("radio", { name: "提问" }).click();
-  await page.getByRole("textbox", { name: "提问内容" }).fill(question);
-  await page.getByRole("button", { name: "发送" }).click();
+/** The chat thread of the message with this text (bubble, 纠正 row, draft / answer / reply). */
+export function threadOf(page: Page, text: string) {
+  return page.locator("[data-message-thread]").filter({
+    has: page.locator("[data-bubble]", { hasText: text }),
+  });
 }
 
-/** The draft card of the Entry with this text. */
+/** The draft card of the message with this text. */
 export function draftCardOf(page: Page, text: string) {
-  return page
-    .locator("[data-entry-thread]")
-    .filter({ hasText: text })
-    .getByRole("region", { name: "草稿" });
+  return threadOf(page, text).getByRole("region", { name: "草稿" });
+}
+
+/** Today's used quotas, from the API. */
+export async function usage(page: Page): Promise<{ entry: number; ask: number }> {
+  const u = await (await page.request.get("/api/usage")).json();
+  return { entry: u.entry.used, ask: u.ask.used };
 }
 
 /**

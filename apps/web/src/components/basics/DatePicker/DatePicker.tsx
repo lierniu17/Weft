@@ -19,6 +19,13 @@ export type DatePickerProps = {
   /** Injected clock: decides what "today" and "future" mean. */
   today: Date;
   disabled?: boolean;
+  /**
+   * `chip` (default): a thin outlined pill 「发生日期：今天」. `line`: a quiet line of text
+   * 「发生在：2015 年」 with a calendar icon, for the top of a sheet (DraftReviewSheet).
+   */
+  trigger?: "chip" | "line";
+  /** What the trigger says before the date (also its accessible name). */
+  prefix?: string;
   className?: string;
 };
 
@@ -72,10 +79,18 @@ const cell = (selected: boolean, emphasise: boolean) =>
   );
 
 /**
- * 发生日期 picker: a Chip trigger opening a bottom sheet with year / month / day
+ * 发生日期 picker: a Chip (or a line of text) opening a bottom sheet with year / month / day
  * precision. Future dates are never selectable.
  */
-export function DatePicker({ value, onChange, today, disabled, className }: DatePickerProps) {
+export function DatePicker({
+  value,
+  onChange,
+  today,
+  disabled,
+  trigger = "chip",
+  prefix = "发生日期",
+  className,
+}: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => fromValue(value));
   const [view, setView] = useState({ year: value.year, month: fromValue(value).month });
@@ -150,17 +165,37 @@ export function DatePicker({ value, onChange, today, disabled, className }: Date
 
   return (
     <>
-      <Chip
-        icon={<FiCalendar />}
-        onClick={openSheet}
-        disabled={disabled}
-        aria-label={`发生日期：${label}`}
-        aria-haspopup="dialog"
-        // DESIGN.md §2: inside the composer the date is a thin outlined pill, not a filled tag.
-        className={cx("border-neutral-divider bg-transparent", className)}
-      >
-        {label}
-      </Chip>
+      {trigger === "line" ? (
+        <button
+          type="button"
+          onClick={openSheet}
+          disabled={disabled}
+          aria-haspopup="dialog"
+          data-date-line=""
+          className={cx(
+            "motion-colors focus-ring inline-flex cursor-pointer items-center gap-xs rounded-sm text-body-md text-neutral-text-primary",
+            "enabled:hover:text-neutral-text-secondary disabled:cursor-not-allowed disabled:opacity-45",
+            className,
+          )}
+        >
+          <span>
+            {prefix}：<span className="font-semibold">{label}</span>
+          </span>
+          <FiCalendar aria-hidden="true" className="text-neutral-text-tertiary" />
+        </button>
+      ) : (
+        <Chip
+          icon={<FiCalendar />}
+          onClick={openSheet}
+          disabled={disabled}
+          aria-label={`${prefix}：${label}`}
+          aria-haspopup="dialog"
+          // DESIGN.md §2: a thin outlined pill, not a filled tag.
+          className={cx("border-neutral-divider bg-transparent", className)}
+        >
+          {label}
+        </Chip>
+      )}
       <Drawer
         open={open}
         onOpenChange={setOpen}

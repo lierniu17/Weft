@@ -1,12 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
-  draftCardOf,
-  pinClock,
-  recordConfirmed,
-  registerUser,
-  shot,
-  submitRecord,
-} from "./support/bot.ts";
+import { draftCardOf, pinClock, recordConfirmed, registerUser, say, shot } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
 
 /** BOT-3 〔AC-12, AC-13, AC-20〕 需选择 → choose 张伟 → 老张 is learned as an alias. */
@@ -19,7 +12,7 @@ test("BOT-3 需选择候选人与别名", { tag: "@llm" }, async ({ page }) => {
   await page.goto("/");
 
   // 1. 写记录“老张今天升职了”，提交。
-  await submitRecord(page, "老张今天升职了");
+  await say(page, "老张今天升职了");
   const card = draftCardOf(page, "老张今天升职了");
   await expect(card.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   await expect(card).toContainText("老张 是谁？需选择");
@@ -48,7 +41,7 @@ test("BOT-3 需选择候选人与别名", { tag: "@llm" }, async ({ page }) => {
   await expect(card).toContainText("学到别名：老张 = 张伟");
 
   // 4. 再写一条记录“老张请大家喝奶茶”，提交。
-  await submitRecord(page, "老张请大家喝奶茶");
+  await say(page, "老张请大家喝奶茶");
   const second = draftCardOf(page, "老张请大家喝奶茶");
   await expect(second.getByRole("status")).toHaveText(/草稿/, { timeout: LLM_WAIT });
   await expect(second).toContainText("老张 是 张伟");

@@ -33,6 +33,12 @@ test("STYLE BOT-1 桌面限宽居中，手机无横向滚动", async ({ page }) 
   const user = await registerUser(page);
   seedGraph(user.username);
   const zhang = await personId(page, "张伟");
+  // The chat renders messages (intent routing); the seed writes the graph only, so one
+  // question gives the chat a column of content.
+  const asked = await page.request.post("/api/messages", {
+    data: { text: "我是怎么认识小王的？" },
+  });
+  expect(asked.status(), await asked.text()).toBe(201);
   const pages = [
     ["chat", "/"],
     ["people", "/people"],
