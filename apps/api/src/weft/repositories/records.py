@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 
+from weft.domain.answer import Answer
 from weft.domain.confidence import Confidence
 from weft.domain.dates import PartialDate
 from weft.domain.draft import Draft, DraftStatus
+from weft.domain.intent import Intent
+from weft.domain.message import Problem
 
 
 @dataclass(frozen=True)
@@ -42,6 +45,26 @@ class EntryRecord:
     text: str
     occurred: PartialDate
     kind: str  # "user" | "manual_edit"
+    created_at: datetime
+    # the day the text was written, when its occurred date was read from the text (messages)
+    written_on: date | None = None
+
+
+@dataclass(frozen=True)
+class MessageRecord:
+    id: uuid.UUID
+    text: str
+    intent: Intent  # how it is handled now (after any 改为记录 / 改为提问)
+    recognized_intent: Intent | None  # what recognition said; None if never recognized
+    confidence: float | None
+    uncertain: bool
+    occurred: PartialDate | None  # recognized occurred date; None: today
+    record_text: str | None
+    question: str | None
+    entry_id: uuid.UUID | None
+    answer: Answer | None
+    reply: str | None
+    problems: tuple[Problem, ...]
     created_at: datetime
 
 
@@ -181,6 +204,7 @@ __all__ = [
     "FeelingRecord",
     "IdentityValue",
     "InviteRecord",
+    "MessageRecord",
     "PairRecord",
     "PersonRecord",
     "ProfileRecord",

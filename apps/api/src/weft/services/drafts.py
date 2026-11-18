@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from neo4j.exceptions import ConstraintError
 
 from weft.domain.confidence import Confidence, ConflictAction, resolve_conflict
-from weft.domain.dates import PartialDate
+from weft.domain.dates import FutureDateError, PartialDate
 from weft.domain.draft import (
     Candidate,
     Draft,
@@ -21,6 +21,7 @@ from weft.domain.draft import (
     DraftStatus,
     FactConflict,
     PersonMatch,
+    retime,
 )
 from weft.domain.graph_write import (
     OPINION,
@@ -138,7 +139,11 @@ async def draft_for(infra: Infra, entry: EntryRecord, taxonomy: Taxonomy) -> Dra
     raw = await extract(
         infra.llm,
         ExtractionInput(
-            text=entry.text, occurred=entry.occurred, group_id=g.tenant.group_id, taxonomy=taxonomy
+            text=entry.text,
+            occurred=entry.occurred,
+            group_id=g.tenant.group_id,
+            taxonomy=taxonomy,
+            written_on=entry.written_on,
         ),
     )
     return await _draft_from(infra, g, raw, entry, persons)
@@ -287,8 +292,20 @@ def _strongest(facts: list[FactRecord]) -> Confidence:
 # --- editing ---------------------------------------------------------------------
 
 
-async def update_draft(infra: Infra, draft_id: uuid.UUID, content: Draft) -> Result[DraftRecord]:
-    """Replace a 待确认 Draft's items with the user's edited version (AC-11, AC-12)."""
+async def update_draft(
+    infra: Infra, draft_id: uuid.UUID, content: Draft, occurred: PartialDate | None = None
+) -> Result[DraftRecord]:
+    """Replace a 待确认 Draft's items with the user's edited version (AC-11, AC-12).
+
+    With ``occurred``, the Entry's occurred date moves too (intent-routing AC-9): not into
+    the future, with the given precision, and the Draft's dates anchored on the old date
+    are re-timed (``weft.domain.draft.retime``) — no re-extraction.
+    """
+    if occurred is not None:
+        try:
+            occurred.ensure_not_future(today=infra.today())
+        except FutureDateError:
+            return Err("future_date", "发生日期不能晚于今天")
     scope = tenant()
     async with infra.sql() as session, session.begin():
         drafts = DraftRepository(session, scope)
@@ -297,6 +314,12 @@ async def update_draft(infra: Infra, draft_id: uuid.UUID, content: Draft) -> Res
             return not_found("draft")
         if current.status is not DraftStatus.PENDING:
             return _not_pending(current.status)
+        entries = EntryRepository(session, scope)
+        entry = await entries.get(current.entry_id)
+        assert entry is not None  # drafts cascade with their entry
+        moved = occurred is not None and occurred != entry.occurred
+        if occurred is not None and moved:
+            content = retime(content, old=entry.occurred, new=occurred)
         problem = _check_types(content, await taxonomy_in(session))
         if problem is not None:
             return problem
@@ -306,7 +329,11 @@ async def update_draft(infra: Infra, draft_id: uuid.UUID, content: Draft) -> Res
         updated = await drafts.transition(
             draft_id, from_statuses=[DraftStatus.PENDING], to=DraftStatus.PENDING, content=content
         )
-    return _not_pending(current.status) if updated is None else Ok(updated)
+        if updated is None:
+            return _not_pending(current.status)
+        if occurred is not None and moved:
+            await entries.set_occurred(entry.id, occurred)
+    return Ok(updated)
 
 
 def _check_types(content: Draft, taxonomy: Taxonomy) -> Err | None:

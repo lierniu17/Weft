@@ -59,6 +59,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # Chinese full-width punctuation is int
 "migrations/versions/*" = ["E501", "W291"]  # Alembic autogenerate output
 "src/weft/services/ask_tools.py" = ["E501"]  # Chinese tool descriptions for the model
 "src/weft/services/ask.py" = ["E501"]  # Chinese system prompt
+"src/weft/services/intent.py" = ["E501"]  # Chinese system prompt
 "tests/service/test_ask.py" = ["E501"]  # Chinese answers in hand-authored transcripts
 "tests/route/test_ask_graph_routes.py" = ["E501"]
 

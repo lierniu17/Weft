@@ -3,15 +3,21 @@
     uv run python -m weft.eval extraction [--samples PATH] [--split dev|heldout] [--limit N]
                                           [--out DIR] [--record DIR]
     uv run python -m weft.eval qa         [--questions PATH] [--out DIR] [--record DIR]
+    uv run python -m weft.eval intent     [--samples PATH] [--split dev|heldout] [--limit N]
+                                          [--out DIR] [--record DIR]
 
 * ``extraction`` (AC-42): the real pipeline over ``eval/extraction/samples.jsonl``, scored
   by ``eval/extraction/score.py`` (person F1 ≥ 0.9, relationship-type and confidence
   accuracy ≥ 0.8).
 * ``qa`` (AC-36, AC-38): ``eval/qa/questions.jsonl`` over the seed graph; per-kind accuracy
   and the fabrication rate on the no-answer questions (must be 0).
+* ``intent`` (intent-routing AC-11): message recognition over ``eval/intent/samples.jsonl``,
+  scored by ``eval/intent/score.py`` (accuracy ≥ 0.95, record miss rate ≤ 0.02, false
+  record rate ≤ 0.05, time accuracy ≥ 0.90; decided on the held-out split).
 
-Both need ``DEEPSEEK_API_KEY`` and ``DASHSCOPE_API_KEY`` (environment or ``apps/api/.env``)
-and the docker compose Postgres + Neo4j. ``--record DIR`` also saves every model response
+``extraction`` and ``qa`` need ``DEEPSEEK_API_KEY`` and ``DASHSCOPE_API_KEY`` (environment
+or ``apps/api/.env``) and the docker compose Postgres + Neo4j; ``intent`` needs only
+``DEEPSEEK_API_KEY``. ``--record DIR`` also saves every model response
 as replay fixtures. Reports go to ``--out`` (default ``eval/out``); exit 1 if a threshold
 is missed, 2 if the run cannot start.
 """
@@ -28,6 +34,7 @@ from pathlib import Path
 from typing import Any
 
 from weft.eval import extraction, qa
+from weft.eval import intent as intent_eval
 from weft.eval.qa_score import QUESTIONS_PATH, load_questions, to_json
 from weft.infra import build_infra
 from weft.llm import ReplayMode
@@ -60,17 +67,23 @@ def _parser() -> argparse.ArgumentParser:
     ext.add_argument("--limit", type=int, default=None, help="only the first N samples")
     qa_cmd = sub.add_parser("qa", help="Q&A quality (AC-36, AC-38)")
     qa_cmd.add_argument("--questions", type=Path, default=QUESTIONS_PATH)
-    for cmd in (ext, qa_cmd):
+    intent_cmd = sub.add_parser("intent", help="intent recognition quality (AC-11)")
+    intent_cmd.add_argument("--samples", type=Path, default=intent_eval.SAMPLES_PATH)
+    intent_cmd.add_argument(
+        "--split", choices=("dev", "heldout"), default=None, help="only that split's samples"
+    )
+    intent_cmd.add_argument("--limit", type=int, default=None, help="only the first N samples")
+    for cmd in (ext, qa_cmd, intent_cmd):
         cmd.add_argument("--out", type=Path, default=OUT_DIR)
         cmd.add_argument("--record", type=Path, default=None, help="save replay fixtures here")
     return parser
 
 
-def _missing_keys(settings: Settings) -> list[str]:
+def _missing_keys(settings: Settings, which: str = "extraction") -> list[str]:
     missing = []
     if not settings.deepseek_api_key.get_secret_value():
         missing.append("DEEPSEEK_API_KEY")
-    if not settings.dashscope_api_key.get_secret_value():
+    if which != "intent" and not settings.dashscope_api_key.get_secret_value():
         missing.append("DASHSCOPE_API_KEY")
     return missing
 
@@ -88,11 +101,20 @@ async def _run(args: argparse.Namespace, settings: Settings) -> int:
         settings = settings.model_copy(
             update={"llm_replay_mode": ReplayMode.RECORD, "llm_fixtures_dir": args.record}
         )
-    clock = qa.eval_clock if args.which == "qa" else None
+    clocks = {"qa": qa.eval_clock, "intent": intent_eval.eval_clock}
+    clock = clocks.get(args.which)
     infra = build_infra(settings, clock=clock) if clock else build_infra(settings)
     try:
-        await ensure_graph_schema(infra.neo4j)
-        if args.which == "extraction":
+        if args.which != "intent":  # recognition touches no database
+            await ensure_graph_schema(infra.neo4j)
+        if args.which == "intent":
+            lines = args.samples.read_text(encoding="utf-8").splitlines()
+            samples = [json.loads(line) for line in lines if line.strip()]
+            samples = intent_eval.load_scorer().select(samples, args.split)[: args.limit]
+            predictions, report = await intent_eval.run(infra, samples)
+            report["predictions"] = predictions
+            passed = bool(report["passed"]) and not report["errors"]
+        elif args.which == "extraction":
             lines = args.samples.read_text(encoding="utf-8").splitlines()
             samples = [json.loads(line) for line in lines if line.strip()]
             samples = extraction.load_scorer().select(samples, args.split)[: args.limit]
@@ -105,7 +127,13 @@ async def _run(args: argparse.Namespace, settings: Settings) -> int:
     finally:
         await infra.aclose()
     path = _write(args.out, args.which, report)
-    summary = {k: v for k, v in report.items() if k not in {"details", "predictions"}}
+    hidden = {"details", "predictions", "mistakes"}
+    summary = {k: v for k, v in report.items() if k not in hidden}
+    if "splits" in summary:
+        summary["splits"] = {
+            name: {k: v for k, v in part.items() if k not in hidden}
+            for name, part in summary["splits"].items()
+        }
     print(to_json(summary))
     print(f"full report: {path}")
     return 0 if passed else 1
@@ -114,7 +142,7 @@ async def _run(args: argparse.Namespace, settings: Settings) -> int:
 def main(argv: Sequence[str] | None = None, *, settings: Settings | None = None) -> int:
     args = _parser().parse_args(list(sys.argv[1:] if argv is None else argv))
     settings = settings or get_settings()
-    missing = _missing_keys(settings)
+    missing = _missing_keys(settings, args.which)
     if missing:
         print(f"missing: {', '.join(missing)}", file=sys.stderr)
         print(NO_KEYS.format(which=args.which), file=sys.stderr)

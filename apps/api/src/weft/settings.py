@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     daily_entry_limit: int = 50
     daily_ask_limit: int = 100
 
+    # --- intent recognition (intent-routing spec AC-2) ---------------------
+    # Below this confidence a message is 无关 (chitchat), flagged 拿不准.
+    intent_confidence_threshold: float = 0.7
+
     # --- sessions ---------------------------------------------------------
     session_secret: SecretStr = SecretStr("dev-only-change-me")
     session_cookie_name: str = "weft_session"
@@ -61,6 +65,13 @@ class Settings(BaseSettings):
     def _telemetry_stays_off(cls, value: bool) -> bool:
         if value:
             raise ValueError("Graphiti telemetry must stay disabled (ADR-0001)")
+        return value
+
+    @field_validator("intent_confidence_threshold")
+    @classmethod
+    def _a_probability(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError("the intent confidence threshold must be within 0..1")
         return value
 
     @field_validator("daily_entry_limit", "daily_ask_limit")
