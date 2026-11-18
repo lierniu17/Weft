@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ask, personId, pinClock, registerUser, seedGraph, shot } from "./support/bot.ts";
 import { LLM_WAIT } from "./support/env.ts";
-import { clickPerson, graphReady, graphView } from "./support/graph.ts";
+import { clickPerson, enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
 /** graph-viz BOT-3 〔AC-12, AC-16, AC-17〕 在图上查看 from Q&A, 清除, local graph → person. */
 for (const viewport of [
@@ -12,6 +12,7 @@ for (const viewport of [
   test(`GRAPH BOT-3 问答在图上查看（${viewport.width}）`, { tag: "@llm" }, async ({ page }) => {
     await page.setViewportSize(viewport);
     await pinClock(page);
+    await enableGraphHook(page);
     const user = await registerUser(page);
     seedGraph(user.username);
     await page.goto("/");

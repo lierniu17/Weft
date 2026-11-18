@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { pinClock, registerUser, seedGraph, shot } from "./support/bot.ts";
-import { clickPerson, graphReady, graphView } from "./support/graph.ts";
+import { clickPerson, enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -12,6 +12,7 @@ const angleGap = (a: number, b: number) => {
 /** graph-viz BOT-1 〔AC-1, AC-4, AC-10, AC-13〕 rings, 间接认识, focus, filter fade / only. */
 test("GRAPH BOT-1 同心环、间接认识、聚焦、筛选淡化与只显示符合的人", async ({ page }) => {
   await pinClock(page);
+  await enableGraphHook(page);
   const user = await registerUser(page);
   seedGraph(user.username);
 

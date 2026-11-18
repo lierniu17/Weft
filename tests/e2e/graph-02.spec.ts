@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { pinClock, registerUser, seedGraph, shot } from "./support/bot.ts";
-import { graphReady, graphView } from "./support/graph.ts";
+import { enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -24,6 +24,7 @@ async function dragTimelineTo(page: Page, year: number) {
 /** graph-viz BOT-2 〔AC-14〕 the timeline: 2013, 2026 (tension), play to today. */
 test("GRAPH BOT-2 时间轴拖动与播放", async ({ page }) => {
   await pinClock(page);
+  await enableGraphHook(page);
   const user = await registerUser(page);
   seedGraph(user.username);
   await page.goto("/graph");

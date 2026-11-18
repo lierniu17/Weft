@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { PASSWORD, pinClock, registerUser, seedGraph, shot } from "./support/bot.ts";
-import { graphReady, graphView } from "./support/graph.ts";
+import { enableGraphHook, graphReady, graphView } from "./support/graph.ts";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
 /** graph-viz BOT-4 〔AC-18〕 图谱外观 星空, saved to the account, still there after re-login. */
 test("GRAPH BOT-4 图谱外观切到星空并保存到账户", async ({ page }) => {
   await pinClock(page);
+  await enableGraphHook(page);
   const user = await registerUser(page);
   seedGraph(user.username);
 
