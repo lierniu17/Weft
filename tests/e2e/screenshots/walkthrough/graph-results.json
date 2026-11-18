@@ -1,0 +1,58 @@
+{
+  "graph-viz light 375": {
+    "theme": "light",
+    "halos": 0,
+    "labels": 3,
+    "labelOverlaps": [],
+    "visible": 30,
+    "animating": false
+  },
+  "graph-viz axe graph light 375": [],
+  "graph-viz axe list light 375": [],
+  "graph-viz light 1440": {
+    "theme": "light",
+    "halos": 7,
+    "labels": 7,
+    "labelOverlaps": [],
+    "visible": 30,
+    "animating": false
+  },
+  "graph-viz axe graph light 1440": [],
+  "graph-viz axe list light 1440": [],
+  "graph-viz starfield 375": {
+    "theme": "starfield",
+    "halos": 0,
+    "labels": 3,
+    "labelOverlaps": [],
+    "visible": 30,
+    "animating": true
+  },
+  "graph-viz axe graph starfield 375": [],
+  "graph-viz axe list starfield 375": [],
+  "graph-viz starfield 1440": {
+    "theme": "starfield",
+    "halos": 7,
+    "labels": 7,
+    "labelOverlaps": [],
+    "visible": 30,
+    "animating": true
+  },
+  "graph-viz axe graph starfield 1440": [],
+  "graph-viz axe list starfield 1440": [],
+  "graph-viz path 375": {
+    "labels": [
+      "张伟",
+      "王浩"
+    ],
+    "labelOverlaps": []
+  },
+  "graph-viz axe path 375": [],
+  "graph-viz path 1440": {
+    "labels": [
+      "张伟",
+      "王浩"
+    ],
+    "labelOverlaps": []
+  },
+  "graph-viz axe path 1440": []
+}

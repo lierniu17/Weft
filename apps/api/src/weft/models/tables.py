@@ -1,4 +1,5 @@
-"""Postgres table definitions (ADR-0003: users, invites, Entries, Drafts, custom subtypes, usage).
+"""Postgres table definitions (ADR-0003: users, invites, Entries, Drafts, custom subtypes, usage,
+preferences).
 
 Definitions only; migrations come with the Docker-backed part of batch 1. Every business
 table carries ``user_id`` and repositories inject it from the session (tenant isolation).
@@ -158,6 +159,23 @@ class UsageCounter(Base):
     count: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class UserPreferences(Base):
+    """Account-level settings (graph-viz AC-18); no row = the defaults."""
+
+    __tablename__ = "user_preferences"
+    __table_args__ = (
+        CheckConstraint("graph_theme IN ('light', 'starfield')", name="graph_theme_enum"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    graph_theme: Mapped[str] = mapped_column(Text, server_default="light", default="light")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 __all__ = [
     "Base",
     "CustomSubtype",
@@ -167,4 +185,5 @@ __all__ = [
     "Session",
     "UsageCounter",
     "User",
+    "UserPreferences",
 ]

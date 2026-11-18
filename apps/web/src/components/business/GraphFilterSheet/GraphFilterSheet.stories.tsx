@@ -203,3 +203,37 @@ export const DesktopColumn: Story = {
     await waitFor(() => expect(trigger).toHaveFocus());
   },
 };
+
+function WithOnly() {
+  const [only, setOnly] = useState(false);
+  return (
+    <>
+      <output data-only="">{String(only)}</output>
+      <GraphFilterSheet
+        open
+        onOpenChange={() => {}}
+        taxonomy={TAXONOMY}
+        value={EMPTY_FILTER}
+        onChange={() => {}}
+        onlyMatching={only}
+        onOnlyMatchingChange={setOnly}
+      />
+    </>
+  );
+}
+
+/** graph-viz AC-13: people not matching fade by default, or 「只显示符合的人」. */
+export const OnlyMatching: Story = {
+  render: () => <WithOnly />,
+  play: async ({ canvasElement }) => {
+    const sheet = await screen.findByRole("dialog", { name: "筛选" });
+    const fade = within(sheet).getByRole("button", { name: "淡化显示" });
+    const only = within(sheet).getByRole("button", { name: "只显示符合的人" });
+    await expect(fade).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(only);
+    await expect(only).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() =>
+      expect(canvasElement.querySelector("[data-only]")).toHaveTextContent("true"),
+    );
+  },
+};

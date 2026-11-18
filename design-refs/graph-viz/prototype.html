@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Weft · 关系图谱展示原型</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/*
+ * Weft 关系图谱展示原型（2026-11-17）
+ * 目的：让用户“点”出来判断四个动态决定 —— 同心环布局、聚焦淡化、问答路径动画、时间轴 —— 以及深色星空主题。
+ * 亮色主题严格取 DESIGN.md（方案二 · 清蓝）的 token；星空主题是新增的可选主题，只用于图谱视图。
+ * 渲染用 Canvas 2D，零依赖；正式实现建议换 Sigma.js（WebGL）+ graphology，交互语义不变。
+ */
+:root{
+  /* DESIGN.md tokens（清蓝） */
+  --p6:#4F46E5;--p5:#6366F1;--p7:#4338CA;--p1:#EEF2FF;
+  --s6:#0B7A6E;--s1:#E6F6F4;
+  --bg:#F5F6F8;--card:#FFFFFF;--bd:#DDE1E8;--dv:#EBEEF2;--t1:#1D2433;--t2:#5B6475;--t3:#9AA3B2;
+  --wa:#B45309;--wa1:#FFF7E6;--er:#C81E1E;--ok:#15803D;
+  --rs:6px;--rm:10px;--rl:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC','Inter','Microsoft YaHei',sans-serif;background:#E9EBF0;color:var(--t1);padding:24px 28px 40px}
+h1{font-size:20px;font-weight:600;margin-bottom:4px}
+.sub{font-size:13px;color:var(--t2);margin-bottom:14px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--card);border:1px solid var(--dv);border-radius:var(--rm);padding:10px 14px;margin-bottom:16px}
+.bar .g{display:flex;gap:6px;align-items:center;padding-right:10px;border-right:1px solid var(--dv)}
+.bar .g:last-child{border-right:0}
+.bar label{font-size:12px;color:var(--t2)}
+button{font:inherit;font-size:13px;height:30px;padding:0 12px;border-radius:var(--rs);border:1px solid var(--bd);background:var(--card);color:var(--t1);cursor:pointer;transition:background .2s,border-color .2s}
+button:hover{background:var(--bg)}
+button.on{background:var(--p1);border-color:var(--p6);color:var(--p7)}
+button.pri{background:var(--p6);border-color:var(--p6);color:#fff}
+button.pri:hover{background:var(--p5)}
+input[type=range]{width:220px;accent-color:var(--p6)}
+.yr{font-variant-numeric:tabular-nums;font-size:13px;min-width:44px;text-align:right}
+.row{display:flex;gap:24px;align-items:flex-start}
+.frame{background:var(--card);border-radius:14px;box-shadow:0 6px 24px rgba(20,24,40,.10);overflow:hidden;position:relative}
+.frame .ttl{position:absolute;left:14px;top:10px;font-size:12px;color:var(--t2);z-index:2;pointer-events:none}
+.desk{width:1000px;height:640px;display:flex}
+.desk .side{width:220px;border-right:1px solid var(--dv);background:var(--bg);padding:48px 14px 14px;font-size:13px}
+.desk .side div{padding:7px 10px;border-radius:var(--rs);margin-bottom:4px;color:var(--t1)}
+.desk .side .on{background:var(--p1);color:var(--p7);font-weight:600}
+.desk .stage{flex:1;position:relative}
+.phone{width:360px;height:680px;border-radius:32px;box-shadow:0 10px 30px rgba(0,0,0,.18),0 0 0 7px #1c1c1f}
+.phone .stage{position:absolute;inset:44px 0 56px 0}
+.phone .nav{position:absolute;top:0;left:0;right:0;height:44px;display:flex;align-items:center;padding:0 16px;font-weight:600;font-size:15px;border-bottom:1px solid var(--dv);background:var(--card);z-index:2}
+.phone .tab{position:absolute;bottom:0;left:0;right:0;height:56px;border-top:1px solid var(--dv);display:flex;justify-content:space-around;align-items:center;font-size:11px;color:var(--t2);background:var(--card);z-index:2}
+.phone .tab .on{color:var(--p6);font-weight:600}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+canvas.drag{cursor:grabbing}
+.card{position:absolute;right:14px;top:14px;width:240px;background:var(--card);border:1px solid var(--dv);border-radius:var(--rm);box-shadow:0 6px 18px rgba(0,0,0,.08);padding:12px 14px;font-size:13px;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;pointer-events:none;z-index:3}
+.card.show{opacity:1;transform:none;pointer-events:auto}
+.card h3{font-size:16px;margin-bottom:2px}
+.card .m{color:var(--t2);font-size:12px;margin-bottom:8px}
+.chip{display:inline-flex;height:20px;padding:0 8px;border-radius:999px;font-size:11.5px;align-items:center;margin:0 4px 4px 0;background:var(--bg);color:var(--t2)}
+.answer{position:absolute;left:14px;right:14px;bottom:14px;background:var(--card);border:1px solid var(--dv);border-radius:var(--rm);padding:10px 14px;font-size:13px;line-height:20px;box-shadow:0 6px 18px rgba(0,0,0,.08);opacity:0;transform:translateY(6px);transition:opacity .25s,transform .25s;z-index:3}
+.answer.show{opacity:1;transform:none}
+.answer b{color:var(--p7)}
+.legend{position:absolute;left:14px;bottom:14px;font-size:11.5px;color:var(--t2);line-height:18px;z-index:2;pointer-events:none}
+.legend i{display:inline-block;width:22px;height:0;vertical-align:middle;margin-right:6px;border-top:2px solid var(--t2)}
+/* 星空主题：只换图谱面板的外观，页面框架仍是清蓝 */
+.dark .stage{background:#070B18}
+.dark .legend{color:#9AA6C8}
+.dark .legend i{border-color:#9AA6C8}
+.dark .frame .ttl{color:#9AA6C8}
+.dark .card,.dark .answer{background:rgba(14,20,40,.92);border-color:#24304F;color:#E6EAF5}
+.dark .card .m{color:#9AA6C8}
+.dark .chip{background:#1A2340;color:#C3CBE3}
+.dark .answer b{color:#A5B4FC}
+.notes{margin-top:18px;background:var(--card);border-radius:var(--rm);border:1px solid var(--dv);padding:14px 18px;font-size:13px;line-height:22px;color:var(--t2);max-width:1384px}
+.notes b{color:var(--t1)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<h1>Weft · 关系图谱展示原型</h1>
+<p class="sub">点人物看聚焦淡化；点上方问题看路径动画；拖时间轴看关系网怎么长出来；切“星空”看深色主题。滚轮 / 双指缩放，拖动平移。所有控件同时作用于桌面与手机两个实例。</p>
+
+<div class="bar" role="toolbar" aria-label="原型控制">
+  <div class="g"><label>主题</label>
+    <button id="thLight" class="on">清蓝（DESIGN.md）</button><button id="thDark">星空</button></div>
+  <div class="g"><label>问答联动</label>
+    <button data-q="path">我是怎么认识小王的？</button>
+    <button data-q="filter">谁喜欢露营？</button>
+    <button data-q="pair">老张和小李什么关系？</button>
+    <button data-q="clear">清除</button></div>
+  <div class="g"><label>时间轴</label>
+    <button id="play" class="pri">▶ 播放</button>
+    <input id="tl" type="range" min="2008" max="2026.9" step="0.1" value="2026.9" aria-label="时间">
+    <span class="yr" id="yr">今天</span></div>
+  <div class="g"><label>动效</label><button id="rm">减少动效：关</button></div>
+</div>
+
+<div class="row" id="root">
+  <div class="frame desk" id="deskFrame">
+    <div class="side"><div>对话</div><div>人物</div><div class="on">全景图</div><div>我的</div></div>
+    <div class="stage"><span class="ttl">桌面 · 全景图（1440 宽按比例缩放）</span>
+      <canvas id="cDesk" aria-label="关系全景图（桌面）"></canvas>
+      <div class="card" id="cardDesk"></div>
+      <div class="answer" id="ansDesk"></div>
+      <div class="legend" id="lgDesk"></div>
+    </div>
+  </div>
+  <div class="frame phone" id="phoneFrame">
+    <div class="nav">全景图</div>
+    <div class="stage"><span class="ttl" style="top:6px">手机 · 375 宽</span>
+      <canvas id="cPhone" aria-label="关系全景图（手机）"></canvas>
+      <div class="card" id="cardPhone" style="left:12px;right:12px;width:auto"></div>
+      <div class="answer" id="ansPhone"></div>
+    </div>
+    <div class="tab"><span>对话</span><span class="on">人物</span><span>我的</span></div>
+  </div>
+</div>
+
+<div class="notes">
+  <b>这个原型要你判断的四件事（静态图判断不了）：</b><br>
+  ① <b>同心环</b>：离“我”越近越亲密（至交 → 疏远五圈），扇区按关系大类分；看几十个人时是否一眼看出“谁跟我最近、在哪个圈子”。<br>
+  ② <b>聚焦淡化</b>：点一个人，他的一层关系亮起、其余淡到 15%；是否比现在“全部同样亮”更好读。<br>
+  ③ <b>问答路径动画</b>：问答回答的人物链在图上逐段点亮、粒子沿路流动；是否值得把问答和全景图打通。<br>
+  ④ <b>时间轴</b>：按认识时间让人物逐个出现、关系远近随时间变化（老张和小李 2025 年闹掰后变疏远）；是否有用，还是花哨。<br>
+  <b>编码规则</b>：线粗 = 亲密度；颜色 = 关系大类；虚线 = 转述，点线 = 推测；红色 = 关系紧张；一条线两端粗细不同 = 双方感受不对称；底色光晕 = 群体（家人 / 字节同事 / 大学同学）。
+  手机上默认不画群体光晕与粒子、标签更少，以保证 375 宽下流畅可读；系统开启“减少动态效果”时所有动画改为直接切换。
+</div>
+<p class="sr" aria-live="polite" id="live"></p>
+
+<script>
+"use strict";
+/* ---------------- 数据（演示用，结构对应 Weft 图谱：人物、关系大类、亲密度、认识时间、可信度、感受、群体） ---------------- */
+const CAT = { // 关系大类 → 颜色（亮 / 星空）。取 DESIGN.md 的主色、辅色与状态色，保持语义一致
+  亲属:{l:"#0B7A6E",d:"#2DD4BF"}, 社会:{l:"#4F46E5",d:"#818CF8"}, 同学:{l:"#2563EB",d:"#60A5FA"},
+  情感:{l:"#DB2777",d:"#F472B6"}, 利益:{l:"#B45309",d:"#FBBF24"}
+};
+const LEVELS = ["至交","亲近","熟悉","一般","疏远"]; // 环 1..5
+const SECTOR = ["亲属","情感","同学","社会","利益"];   // 扇区顺序（顺时针，从正上方开始）
+// p: [id, 名字, 大类, 小类, 亲密度(1-5), 认识年份, 可信度, 群体, 喜好]
+const P = [
+ ["me","我","","",0,1990,"亲历",""],
+ ["mom","妈妈","亲属","父母",1,1990,"亲历","家人"],["dad","爸爸","亲属","父母",1,1990,"亲历","家人"],
+ ["sis","姐姐","亲属","兄弟姐妹",2,1990,"亲历","家人"],["bro","表哥阿强","亲属","亲戚",3,1995,"亲历","家人"],
+ ["wife","林芳","情感","配偶",1,2016,"亲历","家人",["露营"]],
+ ["ex","前任","情感","前任",5,2012,"亲历",""],
+ ["li","李明（小李）","同学","室友",1,2010,"亲历","大学同学",["露营","打球"]],
+ ["wh","王浩","同学","同学",3,2010,"亲历","大学同学"],["zj","周静","同学","同学",4,2010,"亲历","大学同学"],
+ ["hk","何凯","同学","同学",3,2011,"本人说","大学同学",["露营"]],["gz","高中同桌","同学","同学",5,2006,"亲历",""],
+ ["zw","张伟（老张）","社会","同事",2,2018,"亲历","字节同事",["钓鱼"]],["sj","宋佳","社会","上下级",2,2019,"亲历","字节同事"],
+ ["wu","吴昊","社会","同事",3,2019,"亲历","字节同事"],["chen","陈静","社会","同事",3,2020,"亲历","字节同事"],
+ ["zhao","赵一二三四五六七八九十","社会","邻居",4,2021,"亲历",""],["qiu","球友老周","社会","球友（自定义）",3,2022,"亲历","",["打球","露营"]],
+ ["wang","王芳（小王）","利益","客户",3,2023,"亲历",""],["he","何总","利益","合伙人",2,2022,"本人说",""],
+ ["sup","供应商刘","利益","供应商",4,2024,"转述",""],["dc","邓老师","社会","师生",2,2008,"亲历",""],
+ ["xm","张小雨","亲属","亲戚",4,2018,"转述",""],["hl","黄丽","社会","朋友",3,2018,"转述",""],
+ ["yy","杨洋","社会","朋友",2,2014,"亲历","",["露营"]],["lz","老郑","社会","同事",5,2017,"推测",""],
+];
+// 第三方关系 / 介绍人：[a, b, 关系, 可信度, 紧张?]
+const E3 = [
+ ["zw","li","室友（据老张说）","转述",true],["zw","wang","介绍给我","亲历",false],["zw","hl","配偶","转述",false],
+ ["zw","xm","父母","转述",false],["li","wh","同学","亲历",false],["li","hk","同学","亲历",false],["wh","zj","恋人","推测",false],
+ ["zw","sj","上下级","亲历",false],["sj","wu","同事","亲历",false],["wu","chen","同事","亲历",false],
+ ["he","sup","合作","转述",false],["mom","dad","配偶","亲历",false],["mom","sis","父母","亲历",false],["yy","qiu","球友","本人说",false],
+ ["wife","yy","朋友","本人说",false],["bro","sis","表亲","亲历",false]
+];
+// 亲密度随时间变化（时间轴演示）：id → [[年份, 环]]
+const HIST = { li:[[2010,2],[2014,1]], ex:[[2012,1],[2015,5]], zw:[[2018,3],[2021,2]], yy:[[2014,1],[2020,2]], gz:[[2006,1],[2012,5]] };
+// 不对称感受：我对他 vs 他对我（环档位）
+const ASYM = { li:[1,3], he:[2,4], qiu:[3,2] };
+// 老张—小李 2025 年借钱闹掰（转述）：之前不紧张
+const E3TENSE_FROM = 2025;
+
+const byId = Object.fromEntries(P.map((p,i)=>[p[0],{i,id:p[0],name:p[1],cat:p[2],sub:p[3],lvl:p[4],met:p[5],conf:p[6],grp:p[7],likes:p[8]||[]}]));
+const people = Object.values(byId);
+
+/* ---------------- 布局：同心环 × 扇区（确定性，不用力导向，保证“位置有含义”且两端一致） ---------------- */
+function levelAt(p, year){
+  const h = HIST[p.id]; if(!h) return p.lvl;
+  let v = h[0][1]; for(const [y,l] of h){ if(year>=y) v=l; } return v;
+}
+function layout(year){
+  const pos = {me:{x:0,y:0,r:0}};
+  const per = {}; // sector → 按人
+  for(const p of people){ if(p.id==="me") continue; (per[p.cat] ||= []).push(p); }
+  const total = people.length-1; let start = -Math.PI/2;
+  for(const c of SECTOR){
+    const list = per[c]||[]; const span = Math.PI*2*Math.max(list.length,1.4)/ (total+SECTOR.length*0.4);
+    list.sort((a,b)=> (a.grp||"").localeCompare(b.grp||"") || a.met-b.met);
+    // 每个环内的人各自铺满整个扇区：内圈周长短，若按扇区统一排角度，至交们会挤成一团
+    const byRing = {};
+    for(const p of list){ (byRing[levelAt(p, year)] ||= []).push(p); }
+    for(const [ring, members] of Object.entries(byRing)){
+      members.forEach((p,k)=>{
+        const a = start + span*(k+0.5)/members.length + (Number(ring)%2 ? 0 : span*0.08/members.length);
+        pos[p.id] = {a, ring:Number(ring), sector:c};
+      });
+    }
+    pos["__"+c] = {a0:start, a1:start+span};
+    start += span;
+  }
+  return pos;
+}
+
+/* ---------------- 全局状态（两个实例共享） ---------------- */
+const S = {
+  dark:false, reduce: matchMedia("(prefers-reduced-motion: reduce)").matches,
+  year:2026.9, playing:false, focus:null, q:null, qT:0,
+  listeners:[]
+};
+function emit(){ S.listeners.forEach(f=>f()); }
+
+/* ---------------- 一个图谱视图实例 ---------------- */
+function GraphView(canvas, opts){
+  const ctx = canvas.getContext("2d");
+  const card = document.getElementById(opts.card), ans = document.getElementById(opts.ans);
+  const lg = opts.legend && document.getElementById(opts.legend);
+  let W=0,H=0,DPR=1, zoom=1, panX=0, panY=0;
+  const anim = {}; // id → {x,y,alpha,scale}
+  let stars = [];
+  function resize(){
+    const r = canvas.getBoundingClientRect(); DPR = Math.min(2, devicePixelRatio||1);
+    W=r.width; H=r.height; canvas.width=W*DPR; canvas.height=H*DPR;
+    stars = Array.from({length: opts.mobile?70:160},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+0.2,t:Math.random()*6}));
+  }
+  resize(); addEventListener("resize", resize);
+  // 五个环铺满可用半径：第一环离“我”留足空间（至交不能压在中心节点上），外圈留出扇区标签的位置
+  const maxR = ()=> Math.min(W, H*(opts.mobile?0.9:1))*(opts.mobile?0.40:0.40);
+  const R0 = ()=> maxR()*0.26;                // 第一环半径
+  const RG = ()=> (maxR()-R0())/4;            // 环间距
+  const ringR = (n)=> R0()+RG()*(n-1);
+
+  /* 目标位置（世界坐标，以“我”为原点） */
+  function targets(){
+    const L = layout(S.year), t = {};
+    for(const p of people){
+      if(p.id==="me"){ t.me={x:0,y:0}; continue; }
+      const q = L[p.id]; const r = ringR(q.ring);
+      t[p.id] = {x:Math.cos(q.a)*r, y:Math.sin(q.a)*r};
+    }
+    return {t,L};
+  }
+  /* 可见性：时间轴之前没认识的人不出现 */
+  const visible = (p)=> p.id==="me" || p.met <= S.year;
+
+  /* 聚焦集合 */
+  function focusSet(){
+    if(S.q){
+      if(S.q==="path") return new Set(["me","zw","wang"]);
+      if(S.q==="filter") return new Set(["me",...people.filter(p=>p.likes.includes("露营")).map(p=>p.id)]);
+      if(S.q==="pair") return new Set(["zw","li"]);
+    }
+    if(!S.focus) return null;
+    const s = new Set([S.focus,"me"]);
+    for(const [a,b] of E3){ if(a===S.focus) s.add(b); if(b===S.focus) s.add(a); }
+    return s;
+  }
+
+  /* 坐标变换 */
+  const cx = ()=> W/2 + panX, cy = ()=> H/2 + panY - (opts.mobile?10:0);
+  const toScreen = (x,y)=> [cx()+x*zoom, cy()+y*zoom];
+  const toWorld = (sx,sy)=> [(sx-cx())/zoom, (sy-cy())/zoom];
+
+  /* ---------- 绘制 ---------- */
+  let last = performance.now();
+  function frame(now){
+    const dt = Math.min(0.05,(now-last)/1000); last = now;
+    const {t} = targets();
+    const fs = focusSet();
+    const k = S.reduce ? 1 : 1-Math.pow(0.0005, dt); // 200ms 左右的平滑过渡
+    for(const p of people){
+      const a = anim[p.id] ||= {x:t[p.id].x, y:t[p.id].y, alpha:0, scale:0};
+      a.x += (t[p.id].x-a.x)*k; a.y += (t[p.id].y-a.y)*k;
+      const tgtA = !visible(p) ? 0 : (fs && !fs.has(p.id) ? 0.15 : 1);
+      a.alpha += (tgtA-a.alpha)*k; a.scale += ((visible(p)?1:0)-a.scale)*k;
+    }
+    draw(now/1000, fs);
+    requestAnimationFrame(frame);
+  }
+
+  function col(c){ return c ? (S.dark?CAT[c].d:CAT[c].l) : (S.dark?"#C7D2FE":"#4F46E5"); }
+  function dashFor(conf){ return conf==="转述"?[6,5]: conf==="推测"?[1.5,4]:[]; }
+
+  function draw(T, fs){
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    // 背景
+    if(S.dark){
+      const g = ctx.createRadialGradient(cx(),cy(),0,cx(),cy(),Math.max(W,H)*0.75);
+      g.addColorStop(0,"#121A38"); g.addColorStop(1,"#05070F"); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      for(const s of stars){ const tw = S.reduce?0.6: 0.4+0.4*Math.sin(T*1.3+s.t);
+        ctx.fillStyle=`rgba(200,210,255,${tw})`; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.283); ctx.fill(); }
+    } else { ctx.fillStyle="#FFFFFF"; ctx.fillRect(0,0,W,H); }
+
+    // 同心环 + 档位文字（位置有含义：离中心越近越亲密）
+    for(let n=1;n<=5;n++){
+      const [x,y]=toScreen(0,0); ctx.beginPath(); ctx.arc(x,y,ringR(n)*zoom,0,6.283);
+      ctx.strokeStyle = S.dark?"rgba(140,160,230,0.14)":"rgba(91,100,117,0.12)"; ctx.lineWidth=1; ctx.setLineDash(n===5?[3,4]:[]); ctx.stroke(); ctx.setLineDash([]);
+      if(!opts.mobile || zoom>1.1){ ctx.fillStyle=S.dark?"rgba(160,175,230,0.55)":"#9AA3B2"; ctx.font="11px PingFang SC,Microsoft YaHei";
+        ctx.fillText(LEVELS[n-1], x+4, y-ringR(n)*zoom-4); }
+    }
+    // 扇区分隔与大类名
+    const L = layout(S.year);
+    for(const c of SECTOR){ const sct = L["__"+c]; if(!sct) continue;
+      const [x,y]=toScreen(0,0); const R = (ringR(5)+RG()*0.6)*zoom;
+      ctx.strokeStyle=S.dark?"rgba(140,160,230,0.08)":"rgba(91,100,117,0.07)"; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(sct.a0)*R,y+Math.sin(sct.a0)*R); ctx.stroke();
+      const am=(sct.a0+sct.a1)/2; ctx.fillStyle=col(c); ctx.globalAlpha=0.85; ctx.font="600 12px PingFang SC,Microsoft YaHei";
+      const lx=x+Math.cos(am)*(R+6), ly=y+Math.sin(am)*(R+6); ctx.textAlign=Math.cos(am)>0.2?"left":Math.cos(am)<-0.2?"right":"center"; ctx.fillText(c,lx,ly+4); ctx.textAlign="left"; ctx.globalAlpha=1;
+    }
+
+    // 群体光晕（手机默认不画，保可读性）
+    if(!opts.mobile){
+      const groups = {};
+      for(const p of people){ if(p.grp && visible(p)) (groups[p.grp] ||= []).push(p); }
+      for(const [g,list] of Object.entries(groups)){
+        if(list.length<2) continue;
+        let sx=0,sy=0; for(const p of list){ sx+=anim[p.id].x; sy+=anim[p.id].y; }
+        const mx=sx/list.length,my=sy/list.length; let rr=0;
+        for(const p of list){ rr=Math.max(rr,Math.hypot(anim[p.id].x-mx,anim[p.id].y-my)); }
+        const [x,y]=toScreen(mx,my); const rad=(rr+30)*zoom;
+        const c = col(list[0].cat); const gr=ctx.createRadialGradient(x,y,rad*0.2,x,y,rad);
+        const al = fs ? 0.04 : (S.dark?0.16:0.08);
+        gr.addColorStop(0,hexA(c,al)); gr.addColorStop(1,hexA(c,0));
+        ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(x,y,rad,0,6.283); ctx.fill();
+        if(zoom>0.7){ ctx.fillStyle=hexA(c, fs?0.3:0.8); ctx.font="11px PingFang SC,Microsoft YaHei"; ctx.fillText(g, x-rad*0.5, y-rad*0.75); }
+      }
+    }
+
+    // 第三方关系（细弧线；转述虚线 / 推测点线；紧张为红）
+    for(const [a,b,lab,conf,tense] of E3){
+      const A=byId[a],B=byId[b]; if(!visible(A)||!visible(B)) continue;
+      const al = Math.min(anim[a].alpha,anim[b].alpha);
+      const hot = fs && fs.has(a)&&fs.has(b);
+      const isTense = tense && S.year>=E3TENSE_FROM;
+      const [x1,y1]=toScreen(anim[a].x,anim[a].y),[x2,y2]=toScreen(anim[b].x,anim[b].y);
+      const mx=(x1+x2)/2,my=(y1+y2)/2, [ox,oy]=toScreen(0,0);
+      const qx = mx+(mx-ox)*0.18, qy=my+(my-oy)*0.18; // 向外弯，避开中心
+      ctx.globalAlpha = al*(hot?1:0.55); ctx.setLineDash(dashFor(conf)); ctx.lineWidth = hot?2.2:1.1;
+      ctx.strokeStyle = isTense ? (S.dark?"#FB7185":"#C81E1E") : (S.dark?"rgba(170,185,240,0.55)":"rgba(91,100,117,0.45)");
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.quadraticCurveTo(qx,qy,x2,y2); ctx.stroke(); ctx.setLineDash([]);
+      if(hot && S.q==="pair"){ ctx.fillStyle=S.dark?"#FDA4AF":"#C81E1E"; ctx.font="600 12px PingFang SC,Microsoft YaHei"; ctx.fillText(isTense?"室友 · 紧张（据老张说）":"室友",qx+6,qy); }
+      ctx.globalAlpha=1;
+    }
+
+    // 我 → 每个人：线粗 = 亲密度，颜色 = 大类，虚/点线 = 可信度，两端粗细不同 = 感受不对称
+    const [ox,oy]=toScreen(0,0);
+    for(const p of people){ if(p.id==="me"||!visible(p)) continue;
+      const a=anim[p.id]; const [x,y]=toScreen(a.x,a.y); const lvl=levelAt(p,S.year);
+      const w0 = (6-lvl)*0.75+0.4; const asym = ASYM[p.id];
+      const wMe = asym? (6-asym[0])*0.75+0.4 : w0, wThem = asym? (6-asym[1])*0.75+0.4 : w0;
+      ctx.globalAlpha = a.alpha*(fs&&!fs.has(p.id)?1:0.9);
+      const c = col(p.cat);
+      if(S.dark && !S.reduce){ ctx.shadowColor=c; ctx.shadowBlur=8; }
+      taper(ox,oy,x,y,wMe,wThem,c,dashFor(p.conf));
+      ctx.shadowBlur=0; ctx.globalAlpha=1;
+    }
+
+    // 问答路径：逐段点亮 + 粒子流动
+    if(S.q==="path"){
+      const seq=["me","zw","wang"]; const prog = S.reduce?99:(performance.now()/1000 - S.qT)*1.4;
+      for(let i=0;i<seq.length-1;i++){
+        const f = Math.max(0,Math.min(1,prog-i)); if(f<=0) break;
+        const [x1,y1]=toScreen(anim[seq[i]].x,anim[seq[i]].y),[x2,y2]=toScreen(anim[seq[i+1]].x,anim[seq[i+1]].y);
+        const ex=x1+(x2-x1)*f, ey=y1+(y2-y1)*f;
+        ctx.strokeStyle=S.dark?"#FDE68A":"#F59E0B"; ctx.lineWidth=4; ctx.lineCap="round";
+        if(S.dark&&!S.reduce){ctx.shadowColor="#FDE68A";ctx.shadowBlur=16;}
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(ex,ey); ctx.stroke(); ctx.shadowBlur=0;
+        if(f>=1 && !S.reduce){ for(let j=0;j<3;j++){ const u=((T*0.6+j/3+i*0.17)%1);
+          ctx.fillStyle=S.dark?"#FFF7CC":"#FFFFFF"; ctx.beginPath(); ctx.arc(x1+(x2-x1)*u,y1+(y2-y1)*u,2.4,0,6.283); ctx.fill(); } }
+      }
+    }
+    // 星空主题：每条“我”的连线上缓慢流动的光点（手机关闭）
+    if(S.dark && !S.reduce && !opts.mobile && !fs){
+      for(const p of people){ if(p.id==="me"||!visible(p)) continue; if(levelAt(p,S.year)>3) continue;
+        const a=anim[p.id]; const [x,y]=toScreen(a.x,a.y); const u=(T*0.18+p.i*0.137)%1;
+        ctx.fillStyle=hexA(col(p.cat),0.9); ctx.beginPath(); ctx.arc(ox+(x-ox)*u,oy+(y-oy)*u,1.6,0,6.283); ctx.fill(); }
+    }
+
+    // 节点
+    for(const p of people){ const a=anim[p.id]; if(a.scale<0.02) continue;
+      const [x,y]=toScreen(a.x,a.y); const isMe=p.id==="me";
+      const r = (isMe?18:(levelAt(p,S.year)<=2?13:10.5))*Math.max(0.75,Math.min(1.25,zoom))*a.scale;
+      const hl = (S.q==="filter"&&fs&&fs.has(p.id)&&!isMe);
+      ctx.globalAlpha=a.alpha;
+      if(hl && !S.reduce){ const pr=(T*1.2)%1; ctx.strokeStyle=hexA(S.dark?"#5EEAD4":"#0B7A6E",1-pr); ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(x,y,r+4+pr*12,0,6.283); ctx.stroke(); }
+      const c = col(p.cat);
+      if(S.dark&&!S.reduce){ ctx.shadowColor=isMe?"#A5B4FC":c; ctx.shadowBlur=isMe?28:14; }
+      ctx.fillStyle = isMe ? (S.dark?"#312E81":"#EEF2FF") : (S.dark?"#0E1430":"#FFFFFF");
+      ctx.beginPath(); ctx.arc(x,y,r,0,6.283); ctx.fill(); ctx.shadowBlur=0;
+      ctx.lineWidth = isMe?3:2.2; ctx.strokeStyle = isMe?(S.dark?"#A5B4FC":"#4F46E5"):c; ctx.setLineDash(p.conf==="推测"?[2,3]:[]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = isMe?(S.dark?"#E0E7FF":"#4338CA"):(S.dark?"#E6EAF5":c);
+      ctx.font=`600 ${Math.round(r*0.95)}px PingFang SC,Microsoft YaHei`; ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText(isMe?"我":p.name[0],x,y+0.5); ctx.textAlign="left"; ctx.textBaseline="alphabetic";
+      if(p.conf==="转述"&&!isMe){ ctx.fillStyle=S.dark?"#FBBF24":"#B45309"; ctx.beginPath(); ctx.arc(x+r*0.75,y-r*0.75,3,0,6.283); ctx.fill(); }
+      // 语义缩放：远看只给亲近以上的人标名，放大才全部标出
+      const lvl=levelAt(p,S.year);
+      const showLabel = isMe || (fs?fs.has(p.id): (zoom>=1.15 || lvl<= (opts.mobile?1:2)));
+      if(showLabel){ let nm = isMe?"":p.name; if(nm.length>7) nm=nm.slice(0,7)+"…";
+        ctx.font=`${opts.mobile?11:12}px PingFang SC,Microsoft YaHei`; ctx.fillStyle=S.dark?"#C7D2FE":"#1D2433";
+        ctx.textAlign="center"; ctx.fillText(nm,x,y+r+14); ctx.textAlign="left"; }
+      ctx.globalAlpha=1;
+    }
+  }
+
+  // 一条两端粗细不同的“锥形”连线：起点宽 = 我对他，终点宽 = 他对我
+  function taper(x1,y1,x2,y2,w1,w2,c,dash){
+    if(dash.length || Math.abs(w1-w2)<0.2){
+      ctx.strokeStyle=c; ctx.lineWidth=(w1+w2)/2; ctx.setLineDash(dash); ctx.lineCap="round";
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.setLineDash([]); return; }
+    const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy)||1, nx=-dy/L, ny=dx/L;
+    ctx.fillStyle=c; ctx.beginPath();
+    ctx.moveTo(x1+nx*w1/2,y1+ny*w1/2); ctx.lineTo(x2+nx*w2/2,y2+ny*w2/2);
+    ctx.lineTo(x2-nx*w2/2,y2-ny*w2/2); ctx.lineTo(x1-nx*w1/2,y1-ny*w1/2); ctx.closePath(); ctx.fill();
+  }
+
+  /* ---------- 交互 ---------- */
+  function hit(sx,sy){ const [wx,wy]=toWorld(sx,sy); let best=null,bd=1e9;
+    for(const p of people){ if(!visible(p)) continue; const a=anim[p.id]; const d=Math.hypot(a.x-wx,a.y-wy)*zoom;
+      if(d<18 && d<bd){bd=d;best=p;} } return best; }
+  let drag=null, moved=false; const pts=new Map(); let pinch0=null;
+  canvas.addEventListener("pointerdown",e=>{ canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId,[e.offsetX,e.offsetY]);
+    if(pts.size===2){ const [a,b]=[...pts.values()]; pinch0={d:Math.hypot(a[0]-b[0],a[1]-b[1]),z:zoom}; }
+    drag={x:e.offsetX,y:e.offsetY,px:panX,py:panY}; moved=false; canvas.classList.add("drag"); });
+  canvas.addEventListener("pointermove",e=>{
+    if(pts.has(e.pointerId)) pts.set(e.pointerId,[e.offsetX,e.offsetY]);
+    if(pts.size===2&&pinch0){ const [a,b]=[...pts.values()]; zoom=clamp(pinch0.z*Math.hypot(a[0]-b[0],a[1]-b[1])/pinch0.d,0.55,2.4); moved=true; return; }
+    if(drag){ const dx=e.offsetX-drag.x, dy=e.offsetY-drag.y; if(Math.abs(dx)+Math.abs(dy)>4) moved=true; if(moved){panX=drag.px+dx;panY=drag.py+dy;} }
+    else { canvas.style.cursor = hit(e.offsetX,e.offsetY)?"pointer":"grab"; } });
+  const up=e=>{ pts.delete(e.pointerId); if(pts.size<2) pinch0=null; canvas.classList.remove("drag");
+    if(drag && !moved){ const p=hit(e.offsetX,e.offsetY); S.q=null; S.focus = p&&p.id!=="me" ? (S.focus===p.id?null:p.id) : null; emit(); }
+    drag=null; };
+  canvas.addEventListener("pointerup",up); canvas.addEventListener("pointercancel",up);
+  canvas.addEventListener("wheel",e=>{ e.preventDefault(); const z=clamp(zoom*Math.exp(-e.deltaY*0.0015),0.55,2.4);
+    const [wx,wy]=toWorld(e.offsetX,e.offsetY); zoom=z; const [sx,sy]=toScreen(wx,wy); panX+=e.offsetX-sx; panY+=e.offsetY-sy; },{passive:false});
+
+  /* ---------- 卡片与回答 ---------- */
+  function sync(){
+    const p = S.focus && byId[S.focus];
+    if(p){ const lvl=LEVELS[levelAt(p,S.year)-1]; const rel = E3.filter(([a,b])=>a===p.id||b===p.id).map(([a,b,l])=>(a===p.id?byId[b]:byId[a]).name.split("（")[0]+" · "+l);
+      card.innerHTML = `<h3>${p.name}</h3><div class="m">${p.cat} · ${p.sub} · ${lvl} · ${p.met} 年认识</div>`+
+        `<span class="chip">可信度：${p.conf}</span>${p.grp?`<span class="chip">${p.grp}</span>`:""}${p.likes.map(l=>`<span class="chip">喜欢${l}</span>`).join("")}`+
+        (rel.length?`<div class="m" style="margin-top:6px">他的关系：${rel.join("；")}</div>`:"");
+      card.classList.add("show"); } else card.classList.remove("show");
+    const A = { path:"你是<b>通过老张</b>认识小王的：老张 2023 年把他的客户小王介绍给你 <b>[1]</b>。",
+      filter:"有 <b>"+people.filter(x=>x.likes.includes("露营")).length+" 个人</b>喜欢露营：林芳、李明、何凯、球友老周、杨洋 <b>[1–5]</b>。",
+      pair:"他们是大学室友 <b>[1]</b>。据老张说，2025 年因借钱闹掰，目前关系<b>紧张</b> <b>[2]</b>。" };
+    if(S.q){ ans.innerHTML=A[S.q]; ans.classList.add("show"); } else ans.classList.remove("show");
+    if(lg) lg.innerHTML = `<div><i></i>亲历 / 本人说</div><div><i style="border-top-style:dashed"></i>转述</div><div><i style="border-top-style:dotted"></i>推测</div><div><i style="border-color:#C81E1E"></i>关系紧张</div>`;
+  }
+  S.listeners.push(sync); sync();
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- 工具 ---------------- */
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; }
+
+/* ---------------- 控件 ---------------- */
+const $ = id=>document.getElementById(id);
+const root = $("root"), live=$("live");
+$("thLight").onclick=()=>{ S.dark=false; root.classList.remove("dark"); $("thLight").classList.add("on"); $("thDark").classList.remove("on"); };
+$("thDark").onclick=()=>{ S.dark=true; root.classList.add("dark"); $("thDark").classList.add("on"); $("thLight").classList.remove("on"); };
+document.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{
+  const q=b.dataset.q; S.focus=null; S.q = q==="clear"?null:q; S.qT=performance.now()/1000;
+  if(S.q && S.year<2026.5){ S.year=2026.9; $("tl").value=S.year; showYear(); }
+  document.querySelectorAll("[data-q]").forEach(x=>x.classList.toggle("on",x===b&&q!=="clear"));
+  live.textContent = S.q? "已在图上标出回答涉及的人物":"已清除"; emit(); });
+function showYear(){ $("yr").textContent = S.year>=2026.8?"今天":Math.floor(S.year)+" 年"; }
+$("tl").oninput=e=>{ S.year=+e.target.value; showYear(); stop(); emit(); };
+let raf=0;
+function stop(){ S.playing=false; $("play").textContent="▶ 播放"; cancelAnimationFrame(raf); }
+$("play").onclick=()=>{
+  if(S.playing) return stop();
+  S.playing=true; S.q=null; S.focus=null; emit(); $("play").textContent="❚❚ 暂停"; if(S.year>=2026.8) S.year=2008;
+  let t0=performance.now();
+  const step=now=>{ if(!S.playing) return; const dt=(now-t0)/1000; t0=now;
+    S.year=Math.min(2026.9,S.year+dt*(S.reduce?6:1.6)); $("tl").value=S.year; showYear();
+    if(S.year>=2026.9) return stop(); raf=requestAnimationFrame(step); };
+  raf=requestAnimationFrame(step); };
+$("rm").onclick=()=>{ S.reduce=!S.reduce; $("rm").textContent="减少动效："+(S.reduce?"开":"关"); $("rm").classList.toggle("on",S.reduce); };
+if(S.reduce){ $("rm").textContent="减少动效：开"; $("rm").classList.add("on"); }
+addEventListener("keydown",e=>{ if(e.key==="Escape"){ S.focus=null; S.q=null; document.querySelectorAll("[data-q]").forEach(x=>x.classList.remove("on")); emit(); } });
+
+GraphView($("cDesk"),{card:"cardDesk",ans:"ansDesk",legend:"lgDesk",mobile:false});
+GraphView($("cPhone"),{card:"cardPhone",ans:"ansPhone",mobile:true});
+</script>
+</body>
+</html>

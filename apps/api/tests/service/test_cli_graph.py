@@ -9,7 +9,10 @@ from tests.support.llm_script import LLMScript
 from tests.support.users import new_user
 from weft import cli
 from weft.domain.confidence import Confidence
+from weft.domain.graph_view import PanoramaFilter
+from weft.domain.tenancy import tenant_scope
 from weft.infra import Infra
+from weft.services import graph_views
 
 pytestmark = pytest.mark.service
 
@@ -23,6 +26,21 @@ async def test_seed_fills_an_empty_graph_and_refuses_a_second_time(
     assert len(await persons_of(infra, user)) == 30
     assert await cli.run(["seed", "--user", user.username], infra=infra) == 1
     assert "只有本人" in capsys.readouterr().err
+
+
+async def test_seed_size_grows_the_graph_for_performance_tests(
+    infra: Infra, capsys: pytest.CaptureFixture[str]
+) -> None:
+    user = await new_user(infra)
+    assert await cli.run(["seed", "--user", user.username, "--size", "300"], infra=infra) == 0
+    assert "300 persons" in capsys.readouterr().out
+    people = await persons_of(infra, user)
+    assert len(people) == 300 and len({p.name for p in people}) == 300
+    with tenant_scope(user.tenant):
+        view = await graph_views.panorama(infra, PanoramaFilter())
+    assert len(view.nodes) == 300
+    assert sum(1 for n in view.nodes if n.anchor_id) > 30  # 间接认识 persons
+    assert len(view.groups) >= 10
 
 
 async def test_commands_need_an_existing_user(

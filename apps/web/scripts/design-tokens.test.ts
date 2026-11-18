@@ -18,6 +18,18 @@ describe("design tokens generated from DESIGN.md", () => {
     expect(css).toContain("--color-status-warning-1: #FFF7E6;");
   });
 
+  it("projects the relationship-graph colours, light and starfield (graph-viz AC-UI-2)", () => {
+    expect(css).toContain("--color-graph-kin: #0B7A6E;");
+    expect(css).toContain("--color-graph-romance: #DB2777;");
+    expect(css).toContain("--color-graph-path: #F59E0B;");
+    expect(css).toContain("--color-graph-dark-bg-inner: #121A38;");
+    expect(css).toContain("--color-graph-dark-social: #818CF8;");
+    expect(css).toContain("--color-graph-dark-panel: rgba(14, 20, 40, 0.92);");
+    expect(css).toContain("--opacity-graph-fade: 0.15;");
+    expect(css).not.toContain("--color-graph-fade");
+    expect(ts).toContain('"graph-dark-path": "#FDE68A"');
+  });
+
   it("projects radius, spacing, typography, shadow and motion", () => {
     expect(css).toContain("--radius-sm: 6px;");
     expect(css).toContain("--radius-md: 10px;");

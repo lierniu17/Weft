@@ -5,12 +5,14 @@ import { useDeleteAccount, useLogout, useMe } from "../../api/auth.ts";
 import { ApiError } from "../../api/client.ts";
 import { useEntries } from "../../api/entries.ts";
 import { useAddSubtype, useTaxonomy, useUsage } from "../../api/graph.ts";
+import { usePreferences, useUpdatePreferences } from "../../api/preferences.ts";
 import { Avatar } from "../../components/basics/Avatar/Avatar.tsx";
 import { Banner } from "../../components/basics/Banner/Banner.tsx";
 import { Button } from "../../components/basics/Button/Button.tsx";
 import { Input } from "../../components/basics/Input/Input.tsx";
 import { Skeleton } from "../../components/basics/Skeleton/Skeleton.tsx";
 import { Toast } from "../../components/basics/Toast/Toast.tsx";
+import { GraphAppearanceSetting } from "../../components/business/GraphAppearanceSetting/GraphAppearanceSetting.tsx";
 import { QuotaMeter } from "../../components/business/QuotaMeter/QuotaMeter.tsx";
 import { TaxonomyEditor } from "../../components/business/TaxonomyEditor/TaxonomyEditor.tsx";
 import { ListItem } from "../../components/composites/ListItem/ListItem.tsx";
@@ -33,6 +35,8 @@ export function MePage() {
   const taxonomy = useTaxonomy();
   const usage = useUsage();
   const logout = useLogout();
+  const prefs = usePreferences();
+  const updatePrefs = useUpdatePreferences();
   const customCount = (taxonomy.data ?? []).reduce(
     (n, g) => n + g.subtypes.filter((s) => s.custom).length,
     0,
@@ -63,6 +67,13 @@ export function MePage() {
               title="关系类型词表"
               subtitle={`自定义 ${customCount} 个`}
               onClick={() => navigate("/me/taxonomy")}
+            />
+          </Group>
+          <Group title="外观">
+            <GraphAppearanceSetting
+              value={prefs.data?.graph_theme ?? "light"}
+              disabled={!prefs.data}
+              onChange={(graph_theme) => updatePrefs.mutate({ graph_theme })}
             />
           </Group>
           {usage.data ? (

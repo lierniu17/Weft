@@ -119,6 +119,21 @@ class RelationshipTypeRecord:
 
 
 @dataclass(frozen=True)
+class RelationshipChange:
+    """What one Entry said about a pair's Relationship: a slice of its history (graph-viz).
+
+    ``types`` are the types that Entry stated, ``status`` the status it stated (``None`` if
+    it said nothing about it), ``occurred`` the Entry's 发生日期.
+    """
+
+    occurred: PartialDate
+    types: tuple[RelationshipTypeRecord, ...]
+    status: str | None
+    confidence: Confidence
+    entry_id: str
+
+
+@dataclass(frozen=True)
 class RelationshipRecord:
     id: str
     person_a: str
@@ -132,6 +147,7 @@ class RelationshipRecord:
     confidence: Confidence
     sources: tuple[str, ...]
     summary_generated_at: datetime | None = None
+    history: tuple[RelationshipChange, ...] = ()  # in write order
 
 
 @dataclass(frozen=True)
@@ -168,6 +184,7 @@ __all__ = [
     "PairRecord",
     "PersonRecord",
     "ProfileRecord",
+    "RelationshipChange",
     "RelationshipRecord",
     "RelationshipTypeRecord",
     "UserRecord",

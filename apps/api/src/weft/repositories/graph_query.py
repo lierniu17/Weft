@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from weft.domain.dates import PartialDate
 from weft.domain.tenancy import tenant_scoped
 from weft.repositories.graph import (
     ScopedCypher,
@@ -52,6 +53,17 @@ class GraphQueryRepository(ScopedCypher):
             """
         )
         return [_feeling(r["f"], r["x"], r["y"]) for r in rows]
+
+    @tenant_scoped
+    async def mention_dates(self) -> dict[str, list[PartialDate]]:
+        """Per person, the 发生日期 of every Entry mentioning them (认识时间 fallback)."""
+        rows = await self._read(
+            """
+            MATCH (e:Episodic {group_id: $group_id})-[:MENTIONS]->(p:Person {group_id: $group_id})
+            RETURN p.uuid AS p, collect(DISTINCT e.occurred) AS occurred
+            """
+        )
+        return {r["p"]: [PartialDate.parse(o) for o in r["occurred"] if o] for r in rows}
 
     @tenant_scoped
     async def facts(self) -> list[FactRecord]:

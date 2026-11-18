@@ -11,7 +11,9 @@ export default defineConfig({
   testDir: "./tests/e2e",
   // `pnpm e2e:bot` runs the BOTs; `pnpm e2e:walkthrough` the AC-UI walkthrough.
   testMatch:
-    process.env.WEFT_E2E_SUITE === "walkthrough" ? "**/walkthrough.spec.ts" : "**/bot-*.spec.ts",
+    process.env.WEFT_E2E_SUITE === "walkthrough"
+      ? "**/walkthrough*.spec.ts"
+      : ["**/bot-*.spec.ts", "**/graph-*.spec.ts"],
   globalSetup: REMOTE ? "./tests/e2e/global-setup.remote.ts" : "./tests/e2e/global-setup.ts",
   // One shared database and Neo4j; BOTs create their own users, but run them in order.
   workers: 1,

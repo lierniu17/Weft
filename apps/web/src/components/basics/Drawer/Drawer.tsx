@@ -26,12 +26,15 @@ export type DrawerProps = {
    * only when focus is inside the panel (Esc in the page beside it keeps its own meaning).
    */
   modal?: boolean;
+  /** Inline right column width: 360px, or 560px for a graph beside the chat. */
+  width?: "default" | "wide";
   className?: string;
 };
 
 /** In the page flow next to the content it serves (no portal, no mask). */
 const INLINE =
-  "relative h-full w-[360px] max-w-full shrink-0 border-l border-neutral-divider data-[state=open]:animate-panel-in";
+  "relative h-full max-w-full shrink-0 border-l border-neutral-divider data-[state=open]:animate-panel-in";
+const INLINE_WIDTH = { default: "w-[360px]", wide: "w-[560px]" } as const;
 
 const VARIANTS: Record<DrawerVariant, string> = {
   "bottom-sheet":
@@ -56,6 +59,7 @@ export function Drawer({
   footer,
   hideClose,
   modal = true,
+  width = "default",
   className,
 }: DrawerProps) {
   const onCloseAutoFocus = useReturnFocus(open);
@@ -79,7 +83,7 @@ export function Drawer({
       }
       className={cx(
         "flex flex-col bg-neutral-bg-container outline-none",
-        inline ? INLINE : cx("fixed z-50", VARIANTS[variant]),
+        inline ? cx(INLINE, INLINE_WIDTH[width]) : cx("fixed z-50", VARIANTS[variant]),
         className,
       )}
       {...(description ? {} : { "aria-describedby": undefined })}

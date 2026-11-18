@@ -141,6 +141,16 @@ class FactDeleted:
 
 
 @dataclass(frozen=True)
+class RelationshipStatement:
+    """What this write's Entry itself said about the pair (kept as the Relationship's history,
+    so the graph can be shown as it was at a point in time)."""
+
+    types: tuple[RelationshipType, ...]
+    status: str | None
+    confidence: Confidence
+
+
+@dataclass(frozen=True)
 class RelationshipUpsert:
     """The merged state of one pair's Relationship node after this write."""
 
@@ -156,6 +166,12 @@ class RelationshipUpsert:
     summary: str | None = None
     exists: bool = False
     summary_from_user: bool = False  # the user wrote ``summary``: do not regenerate it
+    stated: RelationshipStatement | None = None  # None: the Entry stated the merged state
+
+    def statement(self) -> RelationshipStatement:
+        if self.stated is not None:
+            return self.stated
+        return RelationshipStatement(self.types, self.status, self.confidence)
 
 
 @dataclass(frozen=True)
@@ -221,6 +237,7 @@ __all__ = [
     "NewFact",
     "NewFeeling",
     "NewPerson",
+    "RelationshipStatement",
     "RelationshipUpsert",
     "Vector",
     "fact_sentence",

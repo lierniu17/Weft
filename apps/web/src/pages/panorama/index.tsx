@@ -1,39 +1,64 @@
-/** 全景图: everyone around 本人, filtered by relationship category / subtype and closeness. */
-import { useState } from "react";
+/** 全景图: everyone around 本人 — star layout, legend, timeline, filter, list view, answers. */
+import { useCallback, useState } from "react";
 import { FiFilter } from "react-icons/fi";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { enc } from "../../api/client.ts";
-import { usePanorama, useTaxonomy } from "../../api/graph.ts";
-import { exposeGraph } from "../../app/devHooks.ts";
+import { useTaxonomy } from "../../api/graph.ts";
 import { useLayout, useSidePanel } from "../../app/layout.ts";
-import { Banner } from "../../components/basics/Banner/Banner.tsx";
 import { Button } from "../../components/basics/Button/Button.tsx";
-import { Skeleton } from "../../components/basics/Skeleton/Skeleton.tsx";
 import { GraphFilterSheet } from "../../components/business/GraphFilterSheet/GraphFilterSheet.tsx";
-import { RelationGraph } from "../../components/business/RelationGraph/RelationGraph.tsx";
 import { NavBar } from "../../components/composites/NavBar/NavBar.tsx";
+import type { Answer } from "../../contracts/answer.ts";
 import { isEmptyFilter, parseGraphFilter, serializeGraphFilter } from "../../lib/graphFilter.ts";
+import { PanoramaBody } from "./PanoramaView.tsx";
+
+/** Router state when arriving from 「在图上查看」 (mobile / tablet). */
+export type PanoramaState = { answer?: Answer } | null;
 
 export function PanoramaPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const layout = useLayout();
   const sheet = useSidePanel();
   const [params, setParams] = useSearchParams();
   const filter = parseGraphFilter(params.toString());
-  const query = serializeGraphFilter(filter);
-  const graph = usePanorama(query);
+  const filterQuery = serializeGraphFilter(filter);
+  const only = params.get("only") === "1";
+  const at = params.get("at");
   const taxonomy = useTaxonomy();
   const [open, setOpen] = useState(false);
+  const [count, setCount] = useState<number | null>(null);
   const active = !isEmptyFilter(filter);
+  const answer = (location.state as PanoramaState)?.answer ?? null;
+
+  const update = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null) next.delete(k);
+      else next.set(k, v);
+    }
+    setParams(next, { replace: true, state: location.state });
+  };
+  const onAtChange = useCallback(
+    (value: string | null) =>
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (value) next.set("at", value);
+          else next.delete("at");
+          return next;
+        },
+        { replace: true },
+      ),
+    [setParams],
+  );
 
   return (
     <div className="flex min-h-[0] flex-1">
       <div className="flex min-w-[0] flex-1 flex-col">
         <NavBar
           title="全景图"
-          subtitle={
-            graph.data ? `${active ? "已筛选 · " : ""}共 ${graph.data.nodes.length} 人` : undefined
-          }
+          subtitle={count !== null ? `${active ? "已筛选 · " : ""}共 ${count} 人` : undefined}
           variant={layout === "mobile" ? "pushed" : "root"}
           onBack={() => navigate("/people")}
           actions={
@@ -44,25 +69,20 @@ export function PanoramaPage() {
           }
         />
         <div className="flex min-h-[0] flex-1 flex-col bg-neutral-bg-layout p-md">
-          {graph.isError && <Banner variant="error">全景图加载失败</Banner>}
-          {graph.data ? (
-            <RelationGraph
-              onReady={exposeGraph}
-              variant="panorama"
-              nodes={graph.data.nodes}
-              edges={graph.data.edges}
-              centerId={graph.data.center_id}
-              truncatedCount={graph.data.omitted}
-              onNodeClick={(id) => navigate(`/people/${enc(id)}`)}
-              className="min-h-[0] flex-1"
-            />
-          ) : (
-            !graph.isError && (
-              <div role="status" aria-busy="true" aria-label="正在加载全景图" className="flex-1">
-                <Skeleton variant="card" height="100%" />
-              </div>
-            )
-          )}
+          <PanoramaBody
+            filterQuery={filterQuery}
+            filterMode={only ? "only" : "fade"}
+            at={answer ? null : at}
+            onAtChange={onAtChange}
+            answer={answer}
+            onClearAnswer={() => {
+              const q = params.toString();
+              navigate(`/graph${q ? `?${q}` : ""}`, { replace: true, state: null });
+            }}
+            onOpenPerson={(id) => navigate(`/people/${enc(id)}`)}
+            onOpenFilter={() => setOpen(true)}
+            onCount={setCount}
+          />
         </div>
       </div>
       <GraphFilterSheet
@@ -70,7 +90,14 @@ export function PanoramaPage() {
         onOpenChange={setOpen}
         taxonomy={taxonomy.data ?? []}
         value={filter}
-        onChange={(next) => setParams(serializeGraphFilter(next), { replace: true })}
+        onChange={(next) => {
+          const kept = new URLSearchParams(serializeGraphFilter(next));
+          if (only) kept.set("only", "1");
+          if (at) kept.set("at", at);
+          setParams(kept, { replace: true, state: location.state });
+        }}
+        onlyMatching={only}
+        onOnlyMatchingChange={(v) => update({ only: v ? "1" : null })}
         {...sheet}
       />
     </div>
