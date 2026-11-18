@@ -113,3 +113,13 @@ export async function clickPerson(page: Page, name: string) {
   // Sigma reads two clicks within 300ms as a double-click zoom.
   await page.waitForTimeout(350);
 }
+
+/**
+ * Built images (stage) only expose window.__weftGraph when the page opts in before load
+ * (apps/web/src/app/devHooks.ts); dev builds always do. Call before the first navigation.
+ */
+export async function enableGraphHook(page: Page) {
+  await page.addInitScript(() => {
+    (window as unknown as { __weftE2E: boolean }).__weftE2E = true;
+  });
+}
