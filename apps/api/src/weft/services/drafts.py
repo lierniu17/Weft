@@ -29,6 +29,7 @@ from weft.domain.draft import (
 )
 from weft.domain.draft_questions import (
     QuestionOutdatedError,
+    fallback_questions,
     parse_patch,
     parse_questions,
 )
@@ -297,7 +298,30 @@ async def _draft_from(
     self_id = next((p.id for p in persons if p.is_self), None)
     known = {**matched_ids, **({SELF_MENTION: self_id} if self_id else {})}
     questions = await _not_known_in_graph(g, questions, known)
+    questions = fallback_questions(
+        draft,
+        questions,
+        text=entry.text,
+        known_in_graph=await _typed_with_me_in_graph(g, self_id, matched_ids),
+        taxonomy=taxonomy,
+    )
     return draft.model_copy(update={"questions": questions})
+
+
+async def _typed_with_me_in_graph(
+    g: GraphRepository, self_id: str | None, matched: dict[str, str]
+) -> set[str]:
+    """The matched mentions whose relationship with me the graph already types (so the
+    fallback 「TA 是你的什么人？」 is not asked about them, context-gaps AC-1)."""
+    others = {m: pid for m, pid in matched.items() if pid != self_id}
+    if self_id is None or not others:
+        return set()
+    known = await g.relationships_between([(self_id, pid) for pid in others.values()])
+    return {
+        m
+        for m, pid in others.items()
+        if (rel := known.get(frozenset((self_id, pid)))) is not None and rel.types
+    }
 
 
 async def _not_known_in_graph(

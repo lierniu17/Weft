@@ -99,4 +99,18 @@ def related(anchors: Collection[str], word: str, ties: Iterable[Tie]) -> set[str
     return {other for tie, anchor, other in pairs if _typed(tie, word, anchor, other)}
 
 
-__all__ = ["RelationPhrase", "Tie", "related", "relation_phrase"]
+def related_any(anchors: Collection[str], word: str, ties: Iterable[Tie]) -> set[str]:
+    """The persons who are ``word`` of any of ``anchors`` either way: worded so, or of the
+    word's subtype (for a description, 「那个朋友」 is any friend: 杜鹃, worded 「老婆的闺蜜」 but
+    typed 朋友, too — unlike ``related``, where a worded tie wins)."""
+    return {
+        other
+        for tie in ties
+        for anchor, other in ((tie.a, tie.b), (tie.b, tie.a))
+        if anchor in anchors
+        and other not in anchors
+        and (_said(tie, word, anchor, other) or _typed(tie, word, anchor, other))
+    }
+
+
+__all__ = ["RelationPhrase", "Tie", "related", "related_any", "relation_phrase"]

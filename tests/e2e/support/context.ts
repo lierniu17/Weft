@@ -69,3 +69,10 @@ export async function askWifeAfterWork(page: Page) {
   await expect(followsOf(second).getByRole("button", { name: "不接上文" })).toBeVisible();
   return { first, second };
 }
+
+/** Context gaps BOT-7 (spec BOT-1): nothing says who 莉莉 is; the Draft asks anyway. */
+export const LILI_VIDEO = "晚上和莉莉视频聊了一个小时";
+export const LILI_ASKED = "莉莉是你的什么人？";
+
+/** Context gaps BOT-8 (spec BOT-2): a neighbour named by where she works. */
+export const NEIGHBOUR = "在市一院上班的那个邻居叫什么？";

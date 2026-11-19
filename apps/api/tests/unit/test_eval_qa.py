@@ -71,7 +71,9 @@ def test_the_question_set_covers_six_kinds_and_ten_no_answer_questions() -> None
     assert len(questions) == 43  # the original set, never changed (AC-12: no regression)
     assert sum(n for k, n in kinds.items() if k != "no_answer") >= 30
     assert kinds["no_answer"] == 10
-    assert all(kinds[k] >= 5 for k in KINDS if k not in ("no_answer", "confirm", "follow_up"))
+    assert all(
+        kinds[k] >= 5 for k in KINDS if k not in ("no_answer", "confirm", "follow_up", "describe")
+    )
     for x in questions:
         assert (x.kind == "no_answer") == x.gold.no_answer, x.id
         has_gold = x.gold.persons or x.gold.text or x.gold.path or x.gold.count is not None
@@ -84,8 +86,8 @@ def test_the_conversation_questions_are_split_into_dev_and_heldout() -> None:
     everything = load_questions(QUESTIONS_PATH)
     assert len({x.id for x in everything}) == len(everything)
     new = [x for x in everything if x.split is not None]
-    assert 20 <= len(new) <= 55  # dev (incl. earlier held-out sets) + held-out
-    assert {x.kind for x in new} == {"confirm", "follow_up"}
+    assert 20 <= len(new) <= 80  # dev (incl. earlier held-out sets) + held-out
+    assert {x.kind for x in new} == {"confirm", "follow_up", "describe"}
     for split in ("dev", "heldout"):
         part = [x for x in new if x.split == split]
         assert any(x.gold.clarify for x in part), split
@@ -100,6 +102,17 @@ def test_the_conversation_questions_are_split_into_dev_and_heldout() -> None:
     assert not [
         x.id for x in everything if x.split is None and x.kind != "no_answer" and x.gold.no_answer
     ]
+
+
+def test_the_describe_questions_cover_one_several_and_no_match() -> None:
+    """context-gaps AC-5: describe-a-person questions in dev and held-out, each with
+    questions answered by one person, confirmed among several, and matching nobody."""
+    described = [x for x in load_questions(QUESTIONS_PATH) if x.kind == "describe"]
+    for split in ("dev", "heldout"):
+        part = [x for x in described if x.split == split]
+        assert any(x.gold.persons and not x.gold.clarify for x in part), split
+        assert any(x.gold.clarify and len(x.gold.persons) >= 2 for x in part), split
+        assert any(x.gold.no_answer for x in part), split
 
 
 def test_the_question_file_is_one_json_object_per_line() -> None:
