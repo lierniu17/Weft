@@ -120,3 +120,18 @@ def test_cli_and_split_selection(tmp_path: Path) -> None:
     by_split = score.score_by_split(rows, {"t-1": _asked("met")}, split)
     assert by_split["dev"]["false_question_rate"] == 1.0
     assert by_split["heldout"]["false_question_rate"] == 0.0
+
+
+def test_the_second_heldout_set_is_judged_on_its_own() -> None:
+    """context-gaps AC-2: a new held-out set (questions-h2.jsonl), written before the fallback
+    question; the original 17 samples are its dev set now."""
+    lines = (EVAL_DIR / "questions-h2.jsonl").read_text(encoding="utf-8").splitlines()
+    h2 = [json.loads(line) for line in lines if line.strip()]
+    assert not {s["id"] for s in h2} & {s["id"] for s in _samples()}
+    asked = [s for s in h2 if s["gold"]["questions"]]
+    complete = [s for s in h2 if not s["gold"]["questions"]]
+    assert {s["category"] for s in asked} == {"该追问"} and len(asked) >= 6
+    assert {s["category"] for s in complete} == {"不该追问"} and len(complete) >= 5
+    for s in h2:
+        PartialDate.parse(s["occurred_date"])
+        assert any(p.get("is_self") for p in s["graph_context"]["persons"])

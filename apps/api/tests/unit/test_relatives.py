@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from weft.domain.relatives import RelationPhrase, Tie, related, relation_phrase
+from weft.domain.relatives import RelationPhrase, Tie, related, related_any, relation_phrase
 from weft.domain.taxonomy import RELATION_WORDS
 
 pytestmark = pytest.mark.unit
@@ -79,3 +79,11 @@ def test_a_relation_word_is_followed_from_its_anchor(
 def test_a_wording_through_someone_else_is_not_ones_own() -> None:
     # 我 has no 闺蜜 worded so (杜鹃 is 老婆的闺蜜): the subtype 朋友 decides
     assert related({"me"}, "闺蜜", TIES) == {"dujuan", "laozhang"}
+
+
+def test_for_a_description_any_friend_counts_however_worded() -> None:
+    """context-gaps AC-3: 「那个朋友」 in a description is any friend of mine — 杜鹃 too,
+    worded 「老婆的闺蜜」 — where ``related`` lets the worded 「好朋友」 win."""
+    assert related({"me"}, "朋友", TIES) == {"laozhang"}
+    assert related_any({"me"}, "朋友", TIES) == {"laozhang", "dujuan"}
+    assert related_any({"me"}, "爸爸", TIES) == {"chenjianguo"}

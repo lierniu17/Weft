@@ -110,6 +110,11 @@ async def all_relationships(infra: Infra) -> list[RelationshipRecord]:
     return await _queries(infra).relationships()
 
 
+async def all_facts(infra: Infra) -> list[FactRecord]:
+    """Every unexpired fact and opinion, current or not (for 按描述找人)."""
+    return await _queries(infra).facts()
+
+
 # --- path -------------------------------------------------------------------------------
 
 

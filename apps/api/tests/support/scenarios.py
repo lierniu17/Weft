@@ -619,6 +619,36 @@ def dinner_with_xiaoli(llm: LLMScript) -> None:
     )
 
 
+LILI_VIDEO = "晚上和莉莉视频聊了一个小时"
+LILI_QUESTION = "莉莉是你的什么人？"
+
+
+def video_with_lili(llm: LLMScript) -> None:
+    """context-gaps BOT-1: nothing says who 莉莉 is, and the model asks nothing (what
+    DeepSeek kept doing in the eval); the Draft's fallback asks."""
+    llm.graphiti_entities(LILI_VIDEO, [("莉莉", "Person")])
+    llm.graphiti_facts(LILI_VIDEO, [])
+    llm.enrichment(
+        LILI_VIDEO,
+        {
+            "persons": ["莉莉"],
+            **_enriched(
+                facts=[
+                    {
+                        "index": None,
+                        "subject": "莉莉",
+                        "predicate": "EXPERIENCED",
+                        "object": "和我视频聊天",
+                        "confidence": "witnessed",
+                        "valid_at": "2026-11-16",
+                    }
+                ]
+            ),
+            "questions": [],
+        },
+    )
+
+
 def saw_laoma(llm: LLMScript) -> None:
     """BOT-4: 前阵子 gives no month, so the Draft asks when it was."""
     llm.graphiti_entities(LAOMA, [("老马", "Person")])
