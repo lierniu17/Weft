@@ -21,6 +21,7 @@ from weft.domain.draft import (
 from weft.domain.draft_questions import (
     QuestionOutdatedError,
     answer,
+    fallback_questions,
     parse_patch,
     parse_questions,
 )
@@ -396,3 +397,164 @@ def test_question_ids_are_unique_and_patches_fit_their_field() -> None:
         DraftQuestion.model_validate(wrong)
     with pytest.raises(ValueError):
         DraftQuestion.model_validate({**q, "field": "occurred"})  # an occurred one has no pair
+
+
+# --- the fallback relationship-type question (context-gaps AC-1) --------------------------
+
+LILI = "晚上和莉莉视频聊了一个小时，她说在准备考研"
+
+
+def lili(**extra: Any) -> Draft:
+    persons: list[dict[str, Any]] = [{"id": "p1", "mention": "莉莉", "match": "new"}]
+    if "relationships" in extra:
+        persons.append(ME.model_dump())
+    data: dict[str, Any] = {
+        "persons": persons,
+        "facts": [
+            {
+                "id": "f1",
+                "subject": "莉莉",
+                "predicate": "EXPERIENCED",
+                "object": "考研",
+                "confidence": "self_told",
+            }
+        ],
+        **extra,
+    }
+    return Draft.model_validate(data)
+
+
+def fallback(
+    d: Draft, questions: list[DraftQuestion] | None = None, *, text: str = LILI, known=()
+) -> list[DraftQuestion]:
+    return fallback_questions(
+        d, questions or [], text=text, known_in_graph=set(known), taxonomy=BUILTIN
+    )
+
+
+def test_a_new_person_i_met_without_any_type_gets_asked_who_they_are() -> None:
+    [q] = fallback(lili())
+    assert (q.id, q.field, q.pair, q.prompt) == (
+        "q1",
+        QuestionField.RELATIONSHIP_TYPE,
+        ("我", "莉莉"),
+        "莉莉是你的什么人？",
+    )
+    assert [o.label for o in q.options] == ["朋友", "同事", "同学", "亲戚"]
+    assert [
+        (t.category.value, t.subtype, t.original) for o in q.options for t in o.patch.types or []
+    ] == [
+        ("social", "朋友", "朋友"),
+        ("social", "同事", "同事"),
+        ("social", "同学", "同学"),
+        ("kin", "亲戚", "亲戚"),
+    ]
+    assert not q.answered
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "今天和小李吃饭了",
+        "周末跟小李去爬山",
+        "陪小李看了场球",
+        "给小李打了个电话",
+        "前阵子见了小李",
+    ],
+)
+def test_doing_something_with_someone_in_the_text_is_contact(text: str) -> None:
+    d = Draft.model_validate({"persons": [{"id": "p1", "mention": "小李", "match": "new"}]})
+    assert [q.pair for q in fallback(d, text=text)] == [("我", "小李")]
+
+
+def test_a_relationship_item_or_a_fact_with_me_is_contact_too() -> None:
+    untyped = lili(relationships=[{"id": "r1", "pair": ["我", "莉莉"], "confidence": "witnessed"}])
+    assert len(fallback(untyped, text="莉莉在准备考研")) == 1
+    mine = draft()  # 小李 EXPERIENCED 和我吃饭
+    assert [q.pair for q in fallback(mine, text="小李")] == [("我", "小李")]
+
+
+def test_someone_only_in_other_peoples_affairs_is_not_asked_about() -> None:
+    d = draft(facts=[])  # 小李 and 老张, nothing with me
+    assert fallback(d, text="老张和小李是大学室友，听说小李升职了") == []
+    assert fallback(lili(), text="听同事说莉莉在准备考研") == []
+
+
+def test_a_person_the_graph_already_types_is_not_asked_about() -> None:
+    assert fallback(lili(), known={"莉莉"}) == []
+
+
+def test_a_type_in_the_draft_is_enough_even_other() -> None:
+    for subtype, original in (("朋友", "朋友"), ("其他", "健身教练")):
+        typed = lili(
+            relationships=[
+                {
+                    "id": "r1",
+                    "pair": ["莉莉", "我"],
+                    "types": [{"category": "social", "subtype": subtype, "original": original}],
+                    "confidence": "witnessed",
+                }
+            ]
+        )
+        assert fallback(typed) == []
+
+
+def test_the_models_own_question_is_not_repeated() -> None:
+    d = lili()
+    own = parse_questions(
+        [rel_question(pair=["莉莉", "我"], prompt="莉莉是你的同学还是朋友？")],
+        draft=d,
+        taxonomy=BUILTIN,
+        entry=ENTRY,
+        today=TODAY,
+    )
+    assert fallback(d, own) == own
+
+
+def test_at_most_two_questions_in_all() -> None:
+    d = Draft.model_validate(
+        {
+            "persons": [
+                {"id": "p1", "mention": "小李", "match": "new"},
+                {"id": "p2", "mention": "阿杰", "match": "new"},
+                {"id": "p3", "mention": "莉莉", "match": "new"},
+            ]
+        }
+    )
+    text = "前阵子和小李、阿杰、莉莉一起吃饭"
+    dated = parse_questions([date_question()], draft=d, taxonomy=BUILTIN, entry=ENTRY, today=TODAY)
+    [first, second] = fallback(d, dated, text=text)
+    assert first.field is QuestionField.OCCURRED
+    assert (second.id, second.pair) == ("q2", ("我", "小李"))
+    full = [*dated, second.model_copy(update={"id": "q2"})]
+    assert fallback(d, full, text=text) == full
+
+
+def test_a_person_still_to_be_chosen_or_me_is_not_asked_about() -> None:
+    d = Draft.model_validate(
+        {
+            "persons": [
+                {
+                    "id": "p1",
+                    "mention": "小李",
+                    "match": "ambiguous",
+                    "candidates": [
+                        {"person_id": "a", "name": "李明"},
+                        {"person_id": "b", "name": "李磊"},
+                    ],
+                },
+                ME.model_dump(),
+            ]
+        }
+    )
+    assert fallback(d, text="我和小李吃饭") == []
+
+
+def test_a_click_on_the_fallback_question_types_the_relationship() -> None:
+    d = lili()
+    d = d.model_copy(update={"questions": fallback(d)})
+    [q] = d.questions
+    done = answer(d, q.id, q.options[0].patch, answer_text="朋友", entry=ENTRY, self_person=ME)
+    [rel] = done.draft.relationships
+    assert rel.pair == ("我", "莉莉") and [t.subtype for t in rel.types] == ["朋友"]
+    assert done.draft.questions[0].answered

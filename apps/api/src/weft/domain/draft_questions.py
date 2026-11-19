@@ -12,10 +12,14 @@
   only the asked relationship's types or met fields, or moves the occurred date (re-timing
   the dates anchored on it, as a manual edit of 发生日期 does), and marks the question
   answered.
+* ``fallback_questions`` (context-gaps AC-1) adds 「<叫法>是你的什么人？」 when the model
+  asked nothing about a person I have something to do with but nobody says who they are
+  to me — not the Draft, not the graph.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -30,6 +34,7 @@ from weft.domain.draft import (
     DraftQuestionOption,
     DraftRelationship,
     DraftRelationshipType,
+    PersonMatch,
     QuestionField,
     QuestionPatch,
     retime,
@@ -43,6 +48,7 @@ MAX_PROMPT = 80
 MAX_LABEL = 30
 MAX_ORIGIN = 200
 SELF_MENTION = "我"
+SELF_PERSON_ID = "self"  # how a Draft refers to Self (services.drafts.SELF_ID)
 
 
 class QuestionOutdatedError(ValueError):
@@ -208,6 +214,110 @@ def parse_questions(
     return out
 
 
+# --- the fallback relationship-type question (context-gaps AC-1) ------------------------
+
+FALLBACK_SUBTYPES = ("朋友", "同事", "同学", "亲戚")
+# Words right before a name that make the writer (我) do something with that person:
+# 「和莉莉视频」「跟阿杰去爬山」「陪老孙看球」「给阿琳打电话」「见了老马」
+_TOGETHER = ("和", "跟", "与", "同", "陪", "给", "帮", "约", "请", "见", "找", "带", "送")
+
+
+def _with_me_in_text(text: str, mention: str, others: Collection[str]) -> bool:
+    """The Entry has the writer do something with ``mention``: the name right after a
+    together word (「和」「跟」「陪」…, also 「见了」「约了」) that does not follow another
+    person's name (「老张和小李」 is about 老张 and 小李, not me)."""
+    start = text.find(mention)
+    while start >= 0:
+        before = text[:start].rstrip()
+        before = before.removesuffix("了")
+        for word in _TOGETHER:
+            if before.endswith(word):
+                rest = before[: -len(word)].rstrip()
+                if not any(o and rest.endswith(o) for o in others):
+                    return True
+        start = text.find(mention, start + 1)
+    return False
+
+
+def _with_me(draft: Draft, mention: str, text: str) -> bool:
+    """「我」 and ``mention`` have something to do with each other in the Draft: a
+    relationship item between them, a fact of mine about them or of theirs about me
+    (「和我吃饭」), or the Entry text has me doing something with them."""
+    pair = frozenset((SELF_MENTION, mention))
+    if any(frozenset(r.pair) == pair for r in draft.relationships):
+        return True
+    for f in draft.facts:
+        if (f.subject == SELF_MENTION and mention in f.object) or (
+            f.subject == mention and SELF_MENTION in f.object
+        ):
+            return True
+    others = [p.mention for p in draft.persons if p.mention not in (mention, SELF_MENTION)]
+    return _with_me_in_text(text, mention, others)
+
+
+def _typed_with_me(draft: Draft, mention: str) -> bool:
+    pair = frozenset((SELF_MENTION, mention))
+    return any(frozenset(r.pair) == pair and r.types for r in draft.relationships)
+
+
+def _type_option(subtype: str, taxonomy: Taxonomy) -> DraftQuestionOption:
+    category = taxonomy.category_of(subtype)
+    assert category is not None  # the fallback subtypes are built in
+    return DraftQuestionOption(
+        label=subtype,
+        patch=QuestionPatch(
+            types=[DraftRelationshipType(category=category, subtype=subtype, original=subtype)]
+        ),
+    )
+
+
+def fallback_questions(
+    draft: Draft,
+    questions: list[DraftQuestion],
+    *,
+    text: str,
+    known_in_graph: Collection[str],
+    taxonomy: Taxonomy,
+) -> list[DraftQuestion]:
+    """``questions`` (already checked) plus 「<叫法>是你的什么人？」 for each person 我 has
+    something to do with (``_with_me``) while nothing says who they are to me: no type on
+    our relationship in the Draft, none in the graph (``known_in_graph``: the mentions
+    whose relationship with me the graph already types), and no relationship-type question
+    about us from the model. Persons still to be chosen (需选择) are skipped. Options are
+    朋友, 同事, 同学, 亲戚, each a relationship-type patch like the model's. The result still
+    has at most ``MAX_QUESTIONS``."""
+    out = list(questions)
+    asked = {
+        frozenset(q.pair)
+        for q in questions
+        if q.field is QuestionField.RELATIONSHIP_TYPE and q.pair is not None
+    }
+    for person in draft.persons:
+        if len(out) >= MAX_QUESTIONS:
+            break
+        mention = person.mention
+        if (
+            mention == SELF_MENTION
+            or person.match is PersonMatch.AMBIGUOUS
+            or person.person_id == SELF_PERSON_ID
+            or frozenset((SELF_MENTION, mention)) in asked
+            or mention in known_in_graph
+            or _typed_with_me(draft, mention)
+            or not _with_me(draft, mention, text)
+        ):
+            continue
+        out.append(
+            DraftQuestion(
+                id=f"q{len(out) + 1}",
+                field=QuestionField.RELATIONSHIP_TYPE,
+                pair=(SELF_MENTION, mention),
+                prompt=f"{mention}是你的什么人？",
+                options=[_type_option(s, taxonomy) for s in FALLBACK_SUBTYPES],
+            )
+        )
+    return out
+
+
 # --- answering -------------------------------------------------------------------------
 
 
@@ -298,10 +408,12 @@ def answer(
 
 
 __all__ = [
+    "FALLBACK_SUBTYPES",
     "MAX_QUESTIONS",
     "Answered",
     "QuestionOutdatedError",
     "answer",
+    "fallback_questions",
     "parse_patch",
     "parse_questions",
 ]

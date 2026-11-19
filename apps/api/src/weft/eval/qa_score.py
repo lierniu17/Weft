@@ -23,6 +23,10 @@ A question's gold says what a right answer must contain:
 * Metrics: confirm rate (clarify questions that got one) ≥ 0.85, false-confirm rate (all
   others that got one) ≤ 0.10, follow-up accuracy (kind ``follow_up``) ≥ 0.80.
 
+按描述找人 (context-gaps AC-5): kind ``describe`` — a person named by a description (「在
+市一院上班的那个邻居」): one match is answered (``persons``), several confirmed
+(``clarify``), none is 「图谱里没有相关信息」 (``no_answer``). Its accuracy is the AC-5 metric.
+
 Items carry a ``split``: the original 43 have none (``base``); the new ones are ``dev``
 (prompt iteration) or ``heldout`` (judged). Reports cover each split and all together.
 """
@@ -51,6 +55,7 @@ KINDS = (
     "no_answer",
     "confirm",
     "follow_up",
+    "describe",
 )
 Kind = Literal[
     "profile",
@@ -62,6 +67,7 @@ Kind = Literal[
     "no_answer",
     "confirm",
     "follow_up",
+    "describe",
 ]
 SPLITS = ("base", "dev", "heldout")
 SELF_NAME = "我"

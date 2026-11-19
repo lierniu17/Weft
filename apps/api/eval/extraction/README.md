@@ -114,6 +114,12 @@ uv run python -m weft.eval questions --split heldout
 
 The original 50 samples and AC-42 are unchanged; run `extraction` as well after a prompt change.
 
+**Second held-out set (context-gaps AC-2).** `questions-h2.jsonl` holds 14 new Entries (8 `该追问`, 6 `不该追问`), written before the fallback relationship-type question was coded. Since then the 17 samples of `questions.jsonl` are all dev. Judge the fallback on `questions-h2.jsonl` alone, three runs, and report each run's raw counts and the pooled rate:
+
+```bash
+uv run python -m weft.eval questions --samples eval/extraction/questions-h2.jsonl
+```
+
 ## Q&A quality (AC-36, AC-38)
 
 `eval/qa/questions.jsonl` holds 43 questions over the seed graph (`weft.services.seed`): profile 6, relationship 5, path 5, filter 6, time 6, count 5, and 10 questions the graph cannot answer. `weft.eval.qa_score` explains the gold format. The runner registers a throwaway account, seeds it, asks every question through `POST /api/ask`'s service, reports per-kind accuracy and the fabrication rate (must be 0), and deletes the account:
@@ -121,3 +127,5 @@ The original 50 samples and AC-42 are unchanged; run `extraction` as well after 
 ```bash
 uv run python -m weft.eval qa
 ```
+
+Kind `describe` (context-gaps AC-5) holds questions about a person named by a description (「在市一院上班的那个邻居」): one fitting person is answered, several are confirmed, none is 「图谱里没有相关信息」. `d-describe-*` are dev, `h4-describe-*` held-out; AC-5 reads `splits.heldout.per_kind.describe` over three runs.

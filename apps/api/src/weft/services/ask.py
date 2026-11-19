@@ -26,6 +26,12 @@ Two checks in code (``weft.domain.confirming``) keep the model from guessing:
   hold two or more events about X, goes back to the model once with those events, to ask
   which one is meant.
 
+按描述找人 (context-gaps AC-3): a question naming someone by a description (「在市一院上班
+的那个邻居叫什么？」) is settled in code first (``AskSession.described``): nobody fits it ->
+「图谱里没有相关信息」; 2–4 fit -> a 指代确认 listing them (no model call); one fits -> the
+model is asked the question with the name added (「在市一院上班的那个邻居（林芳）叫什么？」).
+More than four are left to the model, as is everything once a confirmation was answered.
+
 上文 (AC-9): ``history`` — the user's latest answered questions — is sent with the question
 (``HISTORY_RULES``); the model says whether it read the question with it (``used_history``).
 """
@@ -39,13 +45,21 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
-from weft.domain.answer import Answer, AnswerKind
+from weft.domain.answer import (
+    Answer,
+    AnswerClarify,
+    AnswerClarifyOption,
+    AnswerKind,
+)
 from weft.domain.answering import (
+    MAX_CLARIFY_LABEL,
+    MAX_OPTION_QUESTION,
     FinalAnswer,
     answers_about_subjects,
     build_answer,
     clarification,
     clarify_answer,
+    no_answer,
     unknown_subject,
 )
 from weft.domain.confirming import (
@@ -55,9 +69,11 @@ from weft.domain.confirming import (
     matter_of,
 )
 from weft.domain.conversation import HistoryTurn
+from weft.domain.describing import MAX_CANDIDATES, MIN_CANDIDATES, Description
 from weft.domain.quota import LIMIT_REACHED_MESSAGE, QuotaKind, beijing_day, next_reset
 from weft.infra import Infra
 from weft.llm import ChatMessage, ChatRequest, LLMError
+from weft.repositories.records import PersonRecord
 from weft.repositories.usage import UsageRepository
 from weft.services._uow import tenant
 from weft.services.ask_tools import FINAL_ANSWER, TOOL_SPECS, AskSession, tool_message
@@ -187,8 +203,22 @@ async def answer(
     (once: that answer is not settled again)."""
     text = question.strip()
     tools = AskSession(infra)
+    asked_as = text
+    by = await tools.described(text)
+    if by is not None:
+        description, fitting = by
+        if not fitting:  # nobody the graph knows fits it (AC-3, AC-4)
+            logger.info("ask: nobody fits %s", description.phrase)
+            return Ok(Asked(no_answer()))
+        if allow_clarify and MIN_CANDIDATES <= len(fitting) <= MAX_CANDIDATES:
+            options = await _described_options(tools, text, description, fitting)
+            return Ok(Asked(clarify_answer(options)))
+        if len(fitting) == 1:  # say whom it means; the model answers about them
+            asked_as = text.replace(
+                description.phrase, f"{description.phrase}（{fitting[0].name}）", 1
+            )
     try:
-        final = await _converse(infra, tools, text, history, allow_clarify)
+        final = await _converse(infra, tools, asked_as, history, allow_clarify)
     except LLMError as exc:
         logger.warning("ask failed: %r", exc)
         return Err("ask_failed", "问答暂时不可用，请稍后再试")
@@ -212,6 +242,26 @@ async def answer(
     subjects = await tools.subjects(text, final.subjects) if final else {}
     built = build_answer(final, tools.evidence, tools.person_refs(), subjects)
     return Ok(Asked(answer=built, tool_calls=calls, used_history=used_history))
+
+
+async def _described_options(
+    tools: AskSession, question: str, d: Description, fitting: list[PersonRecord]
+) -> AnswerClarify:
+    """The 指代确认 for a description several persons fit (context-gaps AC-3): one
+    candidate each, 「王浩（朋友）」, whose question names them instead (「在腾讯上班的王浩
+    喜欢什么？」)."""
+    options = []
+    for p in fitting:
+        what = await tools.wording_with_me(p.id) or d.core.removesuffix("的")
+        options.append(
+            AnswerClarifyOption(
+                label=f"{p.name}（{what}）"[:MAX_CLARIFY_LABEL],
+                question=d.named(question, p.name)[:MAX_OPTION_QUESTION],
+                person_id=p.id,
+            )
+        )
+    who = f"{d.core}{d.word or '人'}"
+    return AnswerClarify(question=f"{who}有 {len(fitting)} 位，你问的是哪一位？", options=options)
 
 
 def _system(infra: Infra, history: Sequence[HistoryTurn], allow_clarify: bool) -> str:
