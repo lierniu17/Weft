@@ -2,7 +2,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { Draft, DraftPerson, DraftStatus } from "../../../contracts/draft.ts";
 import { SELF_ID } from "../../../contracts/draft.ts";
 import { cx } from "../../../lib/cx.ts";
-import { draftItems, draftSummary, itemSentence } from "../../../lib/draft.ts";
+import { draftItems, draftQuestionLine, draftSummary, itemSentence } from "../../../lib/draft.ts";
 import { motionMs, staggerDelayMs } from "../../../lib/motion.ts";
 import { useReducedMotion } from "../../../lib/useMediaQuery.ts";
 import { Button } from "../../basics/Button/Button.tsx";
@@ -114,6 +114,9 @@ const FOLD_MS = motionMs("sheet-exit") + motionMs("emphasis");
  * node from 抽取中 → 待确认 → 已入图谱 (or 失败 / 已放弃). The title is a polite live region
  * so each change is announced, not only shown (AC-UI-9, AC-UI-10).
  *
+ * 补充追问 (conversation-context AC-5): while 待确认, the first unanswered question is one
+ * grey line under the summary — 「还差一点：小李是你的同事还是同学？」 — answered in the sheet.
+ *
  * Confirming (style refresh AC-14): once the review sheet has left, the card folds its
  * preview away (grid-template-rows 1fr → 0fr) and settles on bg-subtle (motion.emphasis),
  * the green check is drawn, and the persons now in the graph pop in once. A card that was
@@ -150,6 +153,7 @@ export function DraftCard({
 
   const items = draft ? draftItems(draft) : [];
   const more = items.length - PREVIEW;
+  const asking = draftQuestionLine(draft, status);
   // The preview stays mounted while it folds away, so the fold is a transition.
   const preview = status === "pending" || (celebrate && !folded);
   const settled = status === "confirmed";
@@ -236,6 +240,11 @@ export function DraftCard({
                 })}
               </ul>
               {more > 0 && <p className="text-meta text-neutral-text-tertiary">还有 {more} 条</p>}
+              {asking && (
+                <p data-draft-question-line="" className="text-body-sm text-neutral-text-secondary">
+                  {asking}
+                </p>
+              )}
               {status === "pending" && (
                 <Button className="self-start" onClick={onReview}>
                   查看并确认

@@ -114,8 +114,19 @@ export function AnswerCard({
   const noAnswer = answer.kind === "no_answer";
   // 我 may be in the path chain, never a related-person chip
   const related = answer.persons.filter((p) => !p.is_self);
+  // A 指代确认 (kind clarify) is normally shown as a ClarifyReply on its message; should one
+  // reach an answer anyway (the legacy /api/ask), it reads as its question, and each
+  // candidate's full question is a follow-up to ask.
+  const confirm = answer.kind === "clarify" ? answer.clarify : null;
   const segments =
-    noAnswer && answer.segments.length === 0 ? [{ text: "图谱里没有相关信息。" }] : answer.segments;
+    noAnswer && answer.segments.length === 0
+      ? [{ text: "图谱里没有相关信息。" }]
+      : confirm && answer.segments.length === 0
+        ? [{ text: confirm.question }]
+        : answer.segments;
+  const followUps = confirm
+    ? [...confirm.options.map((o) => o.question), ...answer.follow_ups]
+    : answer.follow_ups;
 
   return (
     <article
@@ -204,9 +215,9 @@ export function AnswerCard({
         </Button>
       )}
 
-      {answer.follow_ups.length > 0 && (
+      {followUps.length > 0 && (
         <ul aria-label="追问建议" className="flex flex-col gap-xs">
-          {answer.follow_ups.map((q) => (
+          {followUps.map((q) => (
             <li key={q}>
               <button
                 type="button"

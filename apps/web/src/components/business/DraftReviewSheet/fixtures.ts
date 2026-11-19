@@ -1,4 +1,4 @@
-import type { Draft } from "../../../contracts/draft.ts";
+import type { Draft, QuestionAnswer } from "../../../contracts/draft.ts";
 import type { Taxonomy } from "../../../contracts/taxonomy.ts";
 
 /** Story data for the review sheet (S2 ③ + BOT-4 + BOT-13). Not imported by components. */
@@ -87,3 +87,40 @@ export const TAXONOMY: Taxonomy = [
 export const TAXONOMY_WITH_CUSTOM: Taxonomy = TAXONOMY.map((g) =>
   g.category === "social" ? { ...g, subtypes: [...g.subtypes, { name: "球友", custom: true }] } : g,
 );
+
+export const NOT_UNDERSTOOD = "没理解这个回答，可以直接在草稿里改";
+
+/**
+ * What the server does with an answer to a 补充追问, enough for the stories: a clicked
+ * relationship option sets that pair's types; 「不记得了」 is not understood; anything else
+ * is taken. The answered question is marked, the rest of the draft is left as it is.
+ */
+export function answered(
+  draft: Draft,
+  id: string,
+  answer: QuestionAnswer,
+): { draft: Draft } | { hint: string } {
+  const q = draft.questions.find((x) => x.id === id);
+  if (!q) return { draft };
+  if ("text" in answer && answer.text === "不记得了") return { hint: NOT_UNDERSTOOD };
+  const option = "option" in answer ? q.options[answer.option] : undefined;
+  let next = draft;
+  if (option?.patch.types && q.pair) {
+    next = {
+      ...next,
+      relationships: [
+        ...next.relationships,
+        { id: "r9", pair: q.pair, types: option.patch.types, confidence: "witnessed" },
+      ],
+    };
+  }
+  const text = "option" in answer ? (option?.label ?? "") : answer.text;
+  return {
+    draft: {
+      ...next,
+      questions: next.questions.map((x) =>
+        x.id === id ? { ...x, answered: true, answer: text } : x,
+      ),
+    },
+  };
+}

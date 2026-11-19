@@ -125,3 +125,19 @@ export function useClarify() {
     onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
   });
 }
+
+/**
+ * 「不接上文」 (conversation-context AC-10): the message's question is answered again without
+ * the earlier questions it was read with — one more ask counted — and replaced in place
+ * (its 「接着：…」 goes; a 指代确认 may come back instead of an answer).
+ */
+export function useReanswer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string }) => api.post<Message>(`/messages/${enc(id)}/reanswer`),
+    onSuccess: (message) => {
+      qc.setQueryData<Pages>(keys.messages, (data) => replaceMessage(data, message));
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.usage }),
+  });
+}

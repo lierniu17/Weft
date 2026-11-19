@@ -22,10 +22,14 @@ export type {
   DraftFact,
   DraftPerson,
   DraftProfileItem,
+  DraftQuestion,
+  DraftQuestionOption,
   DraftRelationship,
   DraftRelationshipType,
   PersonMatch,
   ProfileField,
+  QuestionField,
+  QuestionPatch,
   RelationshipStatus,
   TrustLevel,
 } from "./draft.gen.ts";
@@ -45,3 +49,6 @@ export type DraftItem = Gen.DraftFact | Gen.DraftRelationship | DraftFeeling | G
 
 /** How the user resolves a 需选择 person: an existing candidate, or a new person. */
 export type PersonChoice = { person_id: string } | "new";
+
+/** How a 补充追问 is answered: a clicked option (its index) or a typed answer (自己填). */
+export type QuestionAnswer = { option: number } | { text: string };

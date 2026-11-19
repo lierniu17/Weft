@@ -5,8 +5,11 @@
 The e2e run itself never imports this module; it replays the saved fixtures.
 
 Each message a BOT sends is first read by 意图识别 (``INTENT`` below: what it is, when it
-happened; ``INTENT_AFTER`` for a message sent while a 反问 is open, read with it as context);
-each Entry text (spec 「端到端验收用例」) then maps to its enrichment result.
+happened; ``INTENT_AFTER`` for a message sent while a 反问 is open, read with it as context;
+``INTENT_CONFIRM`` while 问答's 指代确认 is open); each Entry text (spec 「端到端验收用例」)
+then maps to its enrichment result, and a typed answer to a 补充追问 to its patch
+(``QUESTION_ANSWERS``). Questions are answered by ``ASK`` (one tool, then the answer) or
+``CONVERSATIONS`` (several turns, or depending on the 上文 the question is sent with).
 Graphiti's entity step is answered with no entities: every person, fact, relationship and
 feeling comes from Weft's own enrichment call, which is what the Draft is built from.
 """
@@ -43,7 +46,23 @@ def enrichment(persons: list[str] | None = None, **sections: list[dict[str, Any]
         "relationships": sections.get("relationships", []),
         "feelings": sections.get("feelings", []),
         "profile": sections.get("profile", []),
+        **({"questions": sections["questions"]} if "questions" in sections else {}),
     }
+
+
+def type_option(label: str, subtype: str, category: str = "social") -> dict[str, Any]:
+    """A 补充追问 option setting the relationship type (conversation context AC-4)."""
+    return {
+        "label": label,
+        "patch": {"types": [{"category": category, "subtype": subtype, "original": label}]},
+    }
+
+
+# Conversation context BOT-3 / BOT-4 / BOT-6: what the Draft asks (补充追问).
+XIAOLI_DINNER = "今天和小李吃饭了"
+XIAOLI_ASKED = "小李是你的同事还是同学？"
+LAOMA = "前阵子见了老马"
+LAOMA_ASKED = "前阵子是什么时候？"
 
 
 ENRICH: dict[str, dict[str, Any]] = {
@@ -154,6 +173,42 @@ ENRICH: dict[str, dict[str, Any]] = {
     ),
     # Intent clarify BOT-3: the unrelated message after the 反问.
     "今天和小林吃饭了": enrichment(persons=["小林"]),
+    # Conversation context BOT-3 / BOT-6: who 小李 is to me is not said — the Draft asks.
+    XIAOLI_DINNER: enrichment(
+        persons=["小李"],
+        facts=[fact("小李", "EXPERIENCED", "和我吃饭", "witnessed")],
+        questions=[
+            {
+                "field": "relationship_type",
+                "pair": ["我", "小李"],
+                "prompt": XIAOLI_ASKED,
+                "options": [type_option("同事", "同事"), type_option("同学", "同学")],
+            }
+        ],
+    ),
+    # Conversation context BOT-4: 「前阵子」 gives no month — the Draft asks when it was.
+    LAOMA: enrichment(
+        persons=["老马"],
+        facts=[fact("老马", "EXPERIENCED", "和我见面", "witnessed")],
+        questions=[
+            {
+                "field": "occurred",
+                "prompt": LAOMA_ASKED,
+                "options": [
+                    {"label": "这个月", "patch": {"occurred": "2026-11"}},
+                    {"label": "上个月", "patch": {"occurred": "2026-10"}},
+                    {"label": "两三个月前", "patch": {"occurred": "2026-09"}},
+                ],
+            }
+        ],
+    ),
+}
+
+# A typed answer to a 补充追问 (自己填), keyed by (question prompt, answer): the patch of that
+# question's field only, read against the day of writing (2026-11-16).
+QUESTION_ANSWERS: dict[tuple[str, str], dict[str, Any] | None] = {
+    # Conversation context BOT-4: 上个月中旬 is October, said to the month.
+    (LAOMA_ASKED, "大概上个月中旬"): {"occurred": "2026-10"},
 }
 
 # Person matching: (mention, candidate names in the order sent) -> decision.
@@ -274,6 +329,9 @@ INTENT: dict[str, dict[str, Any]] = {
         ),
     ),
     "今天和小林吃饭了": intent("record", 0.95),
+    # Conversation context BOT-3 / BOT-6 and BOT-4: records that leave something out.
+    XIAOLI_DINNER: intent("record", 0.95),
+    LAOMA: intent("record", 0.92),
 }
 
 # A message sent while a 反问 is open, keyed by (原话, 反问, message).
@@ -284,6 +342,23 @@ INTENT_AFTER: dict[tuple[str, str, str], dict[str, Any]] = {
     ),
     # Intent clarify BOT-3: a vague answer — still 拿不准, and never asked back twice.
     (JIE, JIE_ASKED, "嗯……"): intent_after("record", 0.3, answers=True),
+}
+
+# Conversation context BOTs: 问答 over the seed graph (two 老周; 老张 and his wife 黄丽).
+LIKES = "老周喜欢什么？"
+WHICH = "你问的是哪位老周？"
+TAO_LIKES = "周涛喜欢什么？"
+JIANGUO_LIKES = "周建国喜欢什么？"
+WORKS = "老张在哪上班？"
+WIFE = "那他老婆呢？"
+
+# A message sent while 问答's 指代确认 is open, keyed by (问题, 确认问题, message): whether it
+# says which one was meant, and the full question then.
+INTENT_CONFIRM: dict[tuple[str, str, str], dict[str, Any]] = {
+    # BOT-2: 「邻居那个」 is 周建国, the neighbour from 老家.
+    (LIKES, WHICH, "邻居那个"): intent_after("ask", 0.93, answers=True, question=JIANGUO_LIKES),
+    # BOT-6: a new question while the 确认 is open — not an answer to it.
+    (LIKES, WHICH, WORKS): intent_after("ask", 0.95, answers=False, question=WORKS),
 }
 
 # --- 问答 ----------------------------------------------------------------------------
@@ -398,6 +473,117 @@ ASK: dict[str, tuple[tuple[str, dict[str, Any]], Any]] = {
     "老周最近怎么样？": (("find_person", {"name": "老周"}), _ask_unknown_zhou),
 }
 
+
+HISTORY_MARKER = "\n上文："  # weft.services.ask: the 上文 JSON follows it in the system prompt
+
+
+def _history(body: dict[str, Any]) -> list[str]:
+    """The questions of the 上文 a Q&A request carries (oldest first; [] if none)."""
+    system = (body.get("messages") or [{}])[0].get("content") or ""
+    if HISTORY_MARKER not in system:
+        return []
+    return [t["question"] for t in json.loads(system.rsplit(HISTORY_MARKER, 1)[1])]
+
+
+def _handle(outputs: list[dict[str, Any]], name: str) -> str:
+    """The P handle the tools gave the person called (or also known as) ``name``."""
+    for out in outputs:
+        people = [*out.get("persons", []), *([out["person"]] if "person" in out else [])]
+        for p in people:
+            if isinstance(p, dict) and (p.get("name") == name or name in p.get("aliases", [])):
+                return str(p["person"])
+    raise AssertionError(f"the tools returned nobody called {name}")
+
+
+def _facts(out: dict[str, Any], predicate: str) -> list[str]:
+    return [f["evidence"] for f in out.get("facts", []) if f.get("predicate") == predicate]
+
+
+def _likes(name: str, liked: str) -> Any:
+    """「X喜欢什么？」 for one known person: read the profile, answer from its LIKES facts."""
+
+    def turn(n: int, outputs: list[dict[str, Any]], history: list[str]) -> tuple[str, dict]:
+        if n == 0:
+            return "read_profile", {"person": name}
+        out = outputs[-1]
+        return "final_answer", {
+            "kind": "text",
+            "subjects": [name],
+            "segments": [{"text": f"{name}喜欢{liked}。", "evidence": _facts(out, "LIKES")}],
+            "persons": [out["person"]["person"]],
+        }
+
+    return turn
+
+
+def _which_laozhou(n: int, outputs: list[dict[str, Any]], history: list[str]) -> tuple[str, dict]:
+    # find_person finds 周涛 (alias 老周) and 周建国 (老周): which one is not said — confirm.
+    assert history == [], f"「{LIKES}」 is only scripted without 上文, not with {history}"
+    if n == 0:
+        return "find_person", {"name": "老周"}
+    return "final_answer", {
+        "kind": "clarify",
+        "subjects": ["老周"],
+        "clarify_question": WHICH,
+        "options": [
+            {
+                "label": "老周（周涛，大学同学）",
+                "question": TAO_LIKES,
+                "person": _handle(outputs, "周涛"),
+            },
+            {
+                "label": "老周（周建国，老家的老邻居）",
+                "question": JIANGUO_LIKES,
+                "person": _handle(outputs, "周建国"),
+            },
+        ],
+    }
+
+
+def _works(n: int, outputs: list[dict[str, Any]], history: list[str]) -> tuple[str, dict]:
+    assert history == [], f"「{WORKS}」 is only scripted without 上文, not with {history}"
+    if n == 0:
+        return "read_profile", {"person": "老张"}
+    out = outputs[-1]
+    return "final_answer", {
+        "kind": "text",
+        "subjects": ["老张"],
+        "segments": [{"text": "老张在字节跳动上班。", "evidence": _facts(out, "WORKS_AT")}],
+        "persons": [out["person"]["person"]],
+    }
+
+
+def _wife(n: int, outputs: list[dict[str, Any]], history: list[str]) -> tuple[str, dict]:
+    if history == []:
+        # 「不接上文」: on its own nobody is named — 图谱里没有相关信息.
+        return "final_answer", {"kind": "no_answer", "segments": []}
+    assert history == [WORKS], f"「{WIFE}」 is not scripted with the 上文 {history}"
+    # 「他」 is 老张 of the question before: find him, then his wife 黄丽.
+    if n == 0:
+        return "find_person", {"name": "老张"}
+    if n == 1:
+        return "read_relationship", {"person_a": _handle(outputs, "张伟"), "person_b": "黄丽"}
+    pair = outputs[-1]
+    married = pair["relationship"]["evidence"]
+    return "final_answer", {
+        "kind": "text",
+        "subjects": ["老张"],
+        "segments": [{"text": "老张的老婆是黄丽。", "evidence": [married]}],
+        "persons": [pair["pair"][1]],
+        "used_history": True,
+    }
+
+
+# Questions answered in several turns, or differently with the 上文: turn n gets the tool
+# outputs so far and the 上文's questions, and returns the next call.
+CONVERSATIONS: dict[str, Any] = {
+    LIKES: _which_laozhou,  # conversation context BOT-1 / BOT-2 / BOT-6
+    TAO_LIKES: _likes("周涛", "钓鱼"),  # BOT-1: 老周（周涛） clicked
+    JIANGUO_LIKES: _likes("周建国", "下象棋"),  # BOT-2: 「邻居那个」
+    WORKS: _works,  # BOT-5 / BOT-6
+    WIFE: _wife,  # BOT-5 / BOT-6, and 「不接上文」
+}
+
 # --- plumbing ----------------------------------------------------------------------------
 
 
@@ -467,6 +653,10 @@ def respond(path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     tools = {t["function"]["name"] for t in body.get("tools") or []}
     if "final_answer" in tools:
         question = messages[1]["content"]
+        turn = sum(m.get("role") == "assistant" for m in messages)
+        if question in CONVERSATIONS:
+            name, args = CONVERSATIONS[question](turn, _tool_outputs(body), _history(body))
+            return 200, chat("", _call(turn, name, args))
         call, answer = ASK[question]
         outputs = _tool_outputs(body)
         if not outputs:
@@ -476,6 +666,12 @@ def respond(path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     task = _task(body)
     if task is None:
         raise AssertionError(f"no scripted answer for {json.dumps(body, ensure_ascii=False)[:400]}")
+    if task["task"] == "intent" and (task.get("context") or {}).get("kind") == "confirm":
+        ctx = task["context"]
+        key = (ctx["original"], ctx["clarify_question"], task["text"])
+        if key not in INTENT_CONFIRM:
+            raise AssertionError(f"no scripted intent for 「{key[2]}」 after the 确认 「{key[1]}」")
+        return 200, chat(json.dumps(INTENT_CONFIRM[key], ensure_ascii=False))
     if task["task"] == "intent" and "context" in task:
         ctx = task["context"]
         key = (ctx["original"], ctx["clarify_question"], task["text"])
@@ -496,6 +692,11 @@ def respond(path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         key = (task["mention"], tuple(c["name"] for c in task["candidates"]))
         decision = MATCH.get(key, {"decision": "new", "candidate_indices": []})
         return 200, chat(json.dumps(decision, ensure_ascii=False))
+    if task["task"] == "answer_draft_question":
+        key = (task["question"]["prompt"], task["answer"])
+        if key not in QUESTION_ANSWERS:
+            raise AssertionError(f"no scripted patch for 「{key[1]}」 answering 「{key[0]}」")
+        return 200, chat(json.dumps({"patch": QUESTION_ANSWERS[key]}, ensure_ascii=False))
     if task["task"] in ("summarize_person", "summarize_relationship"):
         return 200, chat(json.dumps({"summary": _summary(task)}, ensure_ascii=False))
     raise AssertionError(f"no scripted answer for task {task['task']}")

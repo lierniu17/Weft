@@ -7,6 +7,10 @@
  * 拿不准 with a 反问 (intent clarify): the 反问 and its options take the reply's place; once
  * an option is clicked the question stays above what it became (draft card / answer). A
  * typed answer to a 反问 is an ordinary message, its draft or answer under it.
+ *
+ * 指代确认 (conversation context): a question 问答 could not pin down shows the same
+ * question-and-candidates in the answer's place; once settled the answer comes under it.
+ * An answer read with the 上文 has 「接着：…」 and 「不接上文」 right above it (AC-10).
  */
 
 import { useDraft, useEntry, useRetryDraft } from "../../api/entries.ts";
@@ -21,6 +25,7 @@ import {
 import { ChitchatReply } from "../../components/business/ChitchatReply/ChitchatReply.tsx";
 import { ClarifyReply } from "../../components/business/ClarifyReply/ClarifyReply.tsx";
 import { DraftCard } from "../../components/business/DraftCard/DraftCard.tsx";
+import { FollowsLine } from "../../components/business/FollowsLine/FollowsLine.tsx";
 import { MessageActions } from "../../components/business/MessageActions/MessageActions.tsx";
 import {
   MessageBubble,
@@ -28,7 +33,12 @@ import {
 } from "../../components/business/MessageBubble/MessageBubble.tsx";
 import type { Answer } from "../../contracts/answer.ts";
 import { parsePartialDate } from "../../lib/datePrecision.ts";
-import { type MessageActionTarget, messageActions, problemText } from "../../lib/messages.ts";
+import {
+  followedQuestion,
+  type MessageActionTarget,
+  messageActions,
+  problemText,
+} from "../../lib/messages.ts";
 import { learnedAliases } from "../../lib/pageModels.ts";
 
 const BUBBLE: Record<Message["intent"], MessageBubbleVariant> = {
@@ -53,6 +63,10 @@ export type MessageThreadProps = {
   onClarify: (option: number) => void;
   /** The 反问 option in flight for this message, if any. */
   clarifying?: number | null;
+  /** 「不接上文」 was clicked: answer the question again without the 上文 (AC-10). */
+  onReanswer: () => void;
+  /** The re-answer of this message is running. */
+  reanswering?: boolean;
   answerProps: Omit<AnswerCardProps, "answer" | "onCitationOpen" | "onShowOnGraph"> & {
     onCitationOpen: (answer: Answer, index: number) => void;
     onShowOnGraph: (answer: Answer) => void;
@@ -81,6 +95,8 @@ export function MessageThread({
   rerouting,
   onClarify,
   clarifying,
+  onReanswer,
+  reanswering = false,
   answerProps,
 }: MessageThreadProps) {
   const entry = message.entry;
@@ -96,6 +112,7 @@ export function MessageThread({
   const { onCitationOpen, onShowOnGraph, ...answerRest } = answerProps;
   const answer = message.answer;
   const clarify = message.clarify;
+  const followed = followedQuestion(message);
   const asking =
     rerouting === "ask" ||
     (clarifying != null && clarify?.options[clarifying]?.intent !== "record");
@@ -143,6 +160,7 @@ export function MessageThread({
           onPersonClick={onPersonClick}
         />
       )}
+      {followed && <FollowsLine question={followed} onDrop={onReanswer} pending={reanswering} />}
       {answer && (
         <AnswerCard
           answer={answer}

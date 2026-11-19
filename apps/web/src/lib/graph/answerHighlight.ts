@@ -36,6 +36,7 @@ const unique = (ids: string[]) => [...new Set(ids)];
 export function answerHighlight(answer: Answer): AnswerHighlight {
   switch (answer.kind) {
     case "no_answer":
+    case "clarify": // a 指代确认 asks who is meant: nobody to light yet
       return NONE;
     case "path": {
       const persons = unique((answer.path ?? []).map((p) => p.person_id));
