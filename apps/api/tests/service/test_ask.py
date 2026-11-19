@@ -5,6 +5,7 @@ AC-37: every claim cites the Entries behind it; 转述 is said in the text.
 AC-38: nothing in the graph -> 「图谱里没有相关信息」, even if the model makes something up.
 AC-39: a tenant argument from the model is refused. AC-40: the daily ask quota.
 AC-14 (Q&A part): an outdated fact is still answerable as history. AC-23: 你的评价.
+context-gaps AC-3 / AC-4: a person named by a description (「在市一院上班的那个邻居」).
 """
 
 from __future__ import annotations
@@ -556,6 +557,92 @@ async def test_a_tenant_argument_from_the_model_is_refused(
 
 
 # --- quota (AC-40) -------------------------------------------------------------------------
+
+
+# --- 按描述找人 (context-gaps AC-3, AC-4) -------------------------------------------------
+
+
+async def test_a_description_one_person_fits_is_answered_about_her(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    asks.hospital_neighbour(llm)
+    answer = (await asked(infra, asks.NEIGHBOUR)).answer
+    assert answer.kind is AnswerKind.TEXT and "林芳" in text_of(answer)
+    assert NO_ANSWER_TEXT not in text_of(answer)
+    assert [p.name for p in answer.persons] == ["林芳"]
+    assert every_claim_is_cited(answer)
+    assert all("市一院" in c.entry_excerpt for c in answer.citations)
+
+
+async def test_a_description_several_persons_fit_asks_which_one(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    """No model call: the candidates come from the graph, each with its own question."""
+    result = await asked(infra, "在腾讯上班的那个人喜欢什么？")
+    answer = result.answer
+    assert answer.kind is AnswerKind.CLARIFY and answer.clarify is not None
+    assert result.tool_calls == []
+    assert [(o.label, o.question) for o in answer.clarify.options] == [
+        ("刘洋（在腾讯上班）", "在腾讯上班的刘洋喜欢什么？"),
+        ("王浩（朋友）", "在腾讯上班的王浩喜欢什么？"),
+    ]
+    assert [o.person_id for o in answer.clarify.options] == [s.ids["刘洋"], s.ids["王浩"]]
+    assert sum(rule.used for rule in llm.rules) == 0
+
+
+async def test_a_relation_word_narrows_a_description(infra: Infra, s: SeededUser) -> None:
+    colleagues = (await asked(infra, "在字节跳动上班的那个同事叫什么？")).answer
+    assert colleagues.clarify is not None
+    assert [o.label for o in colleagues.clarify.options] == [
+        "吴昊（同事）",
+        "张伟（同组同事）",
+        "郭佳（同事）",
+        "钱多多（同事）",
+    ]
+    assert colleagues.clarify.question == "在字节跳动上班的同事有 4 位，你问的是哪一位？"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "在京东上班的那个邻居叫什么？",  # 京东 is nowhere in the graph (AC-4)
+        "在腾讯上班的那个邻居叫什么？",  # 腾讯 is, but none of my neighbours works there
+        "住在广州的那个朋友喜欢什么？",
+    ],
+)
+async def test_a_description_nobody_fits_gets_no_answer(
+    infra: Infra, llm: LLMScript, s: SeededUser, question: str
+) -> None:
+    answer = (await asked(infra, question)).answer
+    assert answer.kind is AnswerKind.NO_ANSWER and text_of(answer) == NO_ANSWER_TEXT
+    assert sum(rule.used for rule in llm.rules) == 0
+
+
+@pytest.mark.parametrize(
+    ("described", "meant"),
+    [
+        ("在市一院上班的那个邻居", {"林芳"}),
+        ("住在杭州的那个同学", {"陈静"}),
+        ("老张介绍的那个朋友", {"王浩"}),
+        ("刘婷介绍的那个朋友", {"杜鹃"}),  # typed 朋友, worded 「老婆的闺蜜」
+        ("在华为上班的那个人", {"周涛", "赵磊"}),
+        ("以前在百度上班的那个合伙人", {"郑凯"}),
+    ],
+)
+async def test_find_person_and_the_subjects_resolve_a_description(
+    infra: Infra, s: SeededUser, described: str, meant: set[str]
+) -> None:
+    tools = AskSession(infra)
+    found = await tools.run("find_person", {"name": described})
+    assert {p["name"] for p in found["persons"]} == meant
+    subjects = await AskSession(infra).subjects(f"{described}是谁？", [described])
+    assert {r.name for r in subjects[described]} == meant
+
+
+async def test_a_name_after_the_description_is_no_description(infra: Infra, s: SeededUser) -> None:
+    """「在华为上班的那个老周」 names 老周: settled the old way, not as a description."""
+    assert await AskSession(infra).described("在华为上班的那个老周喜欢什么？") is None
+    assert await AskSession(infra).described("露营认识的那个朋友叫什么？") is None
 
 
 async def test_asking_counts_against_a_daily_quota(

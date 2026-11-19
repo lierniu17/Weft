@@ -81,8 +81,10 @@ async def test_a_vague_date_asks_when_it_was(infra: Infra, llm: LLMScript) -> No
     draft = await sc.extracted(infra, user, sc.LAOMA)
 
     assert draft.content is not None
-    [q] = draft.content.questions
+    q, who = draft.content.questions
     assert (q.field, q.pair, q.prompt) == (QuestionField.OCCURRED, None, sc.LAOMA_QUESTION)
+    # nothing says who 老马 is either: the fallback asks (context-gaps AC-1)
+    assert (who.id, who.field, who.pair) == ("q2", QuestionField.RELATIONSHIP_TYPE, ("我", "老马"))
     assert [o.patch.occurred for o in q.options] == [
         PartialDate(2026, 11),
         PartialDate(2026, 10),
@@ -91,12 +93,52 @@ async def test_a_vague_date_asks_when_it_was(infra: Infra, llm: LLMScript) -> No
 
 
 async def test_a_complete_record_asks_nothing(infra: Infra, llm: LLMScript) -> None:
+    sc.roommates(llm)  # about 老张 and 小李, nothing with me
+    user = await new_user(infra)
+    draft = await sc.extracted(infra, user, sc.ROOMMATES)
+
+    assert draft.content is not None
+    assert draft.content.questions == []
+
+
+# --- context-gaps AC-1: the fallback relationship-type question ------------------------
+
+
+async def test_a_new_person_i_spent_time_with_is_asked_about_when_the_model_is_not(
+    infra: Infra, llm: LLMScript
+) -> None:
+    """BOT-1: 「晚上和莉莉视频聊了一个小时」 — the model asks nothing, the Draft does."""
+    sc.video_with_lili(llm)
+    user = await new_user(infra)
+    draft = await sc.extracted(infra, user, sc.LILI_VIDEO)
+
+    assert draft.content is not None
+    [q] = draft.content.questions
+    assert (q.id, q.field, q.pair, q.prompt) == (
+        "q1",
+        QuestionField.RELATIONSHIP_TYPE,
+        ("我", "莉莉"),
+        sc.LILI_QUESTION,
+    )
+    assert [o.label for o in q.options] == ["朋友", "同事", "同学", "亲戚"]
+
+    result = await answer(infra, user, draft, "q1", option=0)
+
+    assert isinstance(result, Ok), result
+    assert types_with(result.value.content, "莉莉") == ["朋友"]
+    assert result.value.content is not None and result.value.content.questions[0].answered
+
+
+async def test_a_person_without_a_type_i_did_nothing_with_is_not_asked_about(
+    infra: Infra, llm: LLMScript
+) -> None:
     sc.dinner_with_laozhang(llm)
     user = await new_user(infra)
     draft = await sc.extracted(infra, user, sc.DINNER)
 
     assert draft.content is not None
-    assert draft.content.questions == []
+    # 老张 had dinner with me and nothing says who he is; his daughter did nothing with me
+    assert [q.pair for q in draft.content.questions] == [("我", "老张")]
 
 
 async def test_only_legal_questions_are_kept_and_at_most_two(infra: Infra, llm: LLMScript) -> None:

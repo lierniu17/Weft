@@ -90,3 +90,20 @@
 {"id": "h3-follow-01", "kind": "follow_up", "split": "heldout", "history": ["黄丽是谁？", "她老公在哪上班？"], "question": "他们女儿什么时候高考？", "gold": {"text": ["2027|明年"], "used_history": true}}
 {"id": "h3-follow-02", "kind": "follow_up", "split": "heldout", "history": ["我老婆在哪上班？"], "question": "她和我是怎么认识的？", "gold": {"persons": ["刘婷"], "text": ["聚会|2019"], "used_history": true}}
 {"id": "h3-follow-03", "kind": "follow_up", "split": "heldout", "history": ["何伟是哪家公司的？"], "question": "我跟他是什么关系？", "gold": {"persons": ["何伟"], "text": ["客户"], "used_history": true}}
+{"id": "d-describe-01", "kind": "describe", "split": "dev", "question": "在腾讯上班的那个朋友叫什么？", "gold": {"persons": ["王浩"], "not_persons": ["刘洋"]}}
+{"id": "d-describe-02", "kind": "describe", "split": "dev", "question": "在字节跳动上班的那个同事叫什么？", "gold": {"clarify": true, "persons": ["张伟", "吴昊", "郭佳", "钱多多"]}}
+{"id": "d-describe-03", "kind": "describe", "split": "dev", "question": "住在杭州的那个同学喜欢什么？", "gold": {"persons": ["陈静"], "text": ["露营"]}}
+{"id": "d-describe-04", "kind": "describe", "split": "dev", "question": "在百度上班的那个邻居叫什么？", "gold": {"no_answer": true}}
+{"id": "d-describe-05", "kind": "describe", "split": "dev", "question": "老张介绍的那个朋友在哪工作？", "gold": {"persons": ["王浩"], "text": ["腾讯"]}}
+{"id": "d-describe-06", "kind": "describe", "split": "dev", "question": "在腾讯上班的那个人喜欢什么？", "gold": {"clarify": true, "persons": ["王浩", "刘洋"]}}
+{"id": "d-describe-07", "kind": "describe", "split": "dev", "question": "老张认识的那个朋友喜欢什么？", "gold": {"persons": ["王浩"], "text": ["露营"]}}
+{"id": "h4-describe-01", "kind": "describe", "split": "heldout", "question": "住在成都的那个战友后来怎么样了？", "gold": {"persons": ["唐亮"], "text": ["火锅"]}}
+{"id": "h4-describe-02", "kind": "describe", "split": "heldout", "question": "在中信银行上班的那位是谁？", "gold": {"persons": ["刘婷"]}}
+{"id": "h4-describe-03", "kind": "describe", "split": "heldout", "question": "在浙江大学读过书的那个同学现在在哪工作？", "gold": {"clarify": true, "persons": ["李明", "陈静", "周涛"]}}
+{"id": "h4-describe-04", "kind": "describe", "split": "heldout", "question": "刘婷介绍的那个朋友是做什么的？", "gold": {"persons": ["杜鹃"], "text": ["幼儿园"]}}
+{"id": "h4-describe-05", "kind": "describe", "split": "heldout", "question": "在美团上班的那个人是谁？", "gold": {"persons": ["何伟"]}}
+{"id": "h4-describe-06", "kind": "describe", "split": "heldout", "question": "在京东上班的那个邻居叫什么？", "gold": {"no_answer": true}}
+{"id": "h4-describe-07", "kind": "describe", "split": "heldout", "question": "住在上海的那个人是谁？", "gold": {"persons": ["苏珊"]}}
+{"id": "h4-describe-08", "kind": "describe", "split": "heldout", "question": "在阿里巴巴上班的那个人叫什么？", "gold": {"clarify": true, "persons": ["陈静", "李明", "宋佳"]}}
+{"id": "h4-describe-09", "kind": "describe", "split": "heldout", "question": "在华为上班的那个人是谁？", "gold": {"clarify": true, "persons": ["周涛", "赵磊"]}}
+{"id": "h4-describe-10", "kind": "describe", "split": "heldout", "question": "住在广州的那个朋友喜欢什么？", "gold": {"no_answer": true}}

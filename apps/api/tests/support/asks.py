@@ -115,9 +115,32 @@ def wife_alone(llm: LLMScript) -> None:
     llm.ask(WIFE, final("no_answer"), history=[])
 
 
+# --- 按描述找人 (context-gaps AC-3) ------------------------------------------------------
+
+NEIGHBOUR = "在市一院上班的那个邻居叫什么？"
+NEIGHBOUR_NAMED = "在市一院上班的那个邻居（林芳）叫什么？"  # what the model is asked
+
+
+def hospital_neighbour(llm: LLMScript) -> None:
+    """BOT-2: one neighbour works at 市一院; the model is told it is 林芳 and answers."""
+    llm.ask(
+        NEIGHBOUR_NAMED,
+        [("find_person", {"name": "林芳"})],
+        [("read_profile", {"person": "P1"})],
+        final(
+            "text",
+            ("在市一院上班的那个邻居是林芳，她在市一院当护士。", ["E2"]),
+            subjects=["在市一院上班的那个邻居"],
+            persons=["P1"],
+        ),
+    )
+
+
 __all__ = [
     "JIANGUO",
     "LIKES",
+    "NEIGHBOUR",
+    "NEIGHBOUR_NAMED",
     "PROFILE",
     "TAO",
     "TWO_LAOZHOU",
@@ -127,6 +150,7 @@ __all__ = [
     "WORKS",
     "Calls",
     "final",
+    "hospital_neighbour",
     "laozhang_profile",
     "laozhang_works",
     "likes_of",

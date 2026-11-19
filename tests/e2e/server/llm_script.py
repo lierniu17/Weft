@@ -60,6 +60,7 @@ def type_option(label: str, subtype: str, category: str = "social") -> dict[str,
 
 # Conversation context BOT-3 / BOT-4 / BOT-6: what the Draft asks (补充追问).
 XIAOLI_DINNER = "今天和小李吃饭了"
+LILI_VIDEO = "晚上和莉莉视频聊了一个小时"
 XIAOLI_ASKED = "小李是你的同事还是同学？"
 LAOMA = "前阵子见了老马"
 LAOMA_ASKED = "前阵子是什么时候？"
@@ -202,6 +203,13 @@ ENRICH: dict[str, dict[str, Any]] = {
             }
         ],
     ),
+    # Context gaps BOT-7 (spec BOT-1): who 莉莉 is to me is not said, and the model asks
+    # nothing; the Draft's own fallback asks.
+    LILI_VIDEO: enrichment(
+        persons=["莉莉"],
+        facts=[fact("莉莉", "EXPERIENCED", "和我视频聊天", "witnessed", valid_at="2026-11-16")],
+        questions=[],
+    ),
 }
 
 # A typed answer to a 补充追问 (自己填), keyed by (question prompt, answer): the patch of that
@@ -281,6 +289,8 @@ INTENT: dict[str, dict[str, Any]] = {
         "record", 0.95, "2026-11-14"
     ),
     "老张是个急性子。": intent("record", 0.95),
+    # CONTEXT BOT-8: a person found by description (no fast path: 「那个邻居」 names nobody)
+    "在市一院上班的那个邻居叫什么？": intent("ask", 0.95),
     # BOT-13: a test sentence is 无关; the BOT then picks 记下来.
     "随便写的一句话": intent("chitchat", 0.9, reply="好的，想记点什么随时告诉我。"),
     # Intent routing BOT-1 / BOT-12
@@ -332,6 +342,8 @@ INTENT: dict[str, dict[str, Any]] = {
     # Conversation context BOT-3 / BOT-6 and BOT-4: records that leave something out.
     XIAOLI_DINNER: intent("record", 0.95),
     LAOMA: intent("record", 0.92),
+    # Context gaps BOT-7: a record about time spent with someone new.
+    LILI_VIDEO: intent("record", 0.95),
 }
 
 # A message sent while a 反问 is open, keyed by (原话, 反问, message).
@@ -574,6 +586,33 @@ def _wife(n: int, outputs: list[dict[str, Any]], history: list[str]) -> tuple[st
     }
 
 
+# Context gaps BOT-8 (spec BOT-2): one neighbour works at 市一院; the question reaches the
+# model with her name added (weft.services.ask), and it answers about her.
+NEIGHBOUR_NAMED = "在市一院上班的那个邻居（林芳）叫什么？"
+
+
+def _hospital_neighbour(
+    n: int, outputs: list[dict[str, Any]], history: list[str]
+) -> tuple[str, dict]:
+    assert history == [], f"「{NEIGHBOUR_NAMED}」 is only scripted without 上文, not with {history}"
+    if n == 0:
+        return "find_person", {"name": "林芳"}
+    if n == 1:
+        return "read_profile", {"person": _handle(outputs, "林芳")}
+    out = outputs[-1]
+    return "final_answer", {
+        "kind": "text",
+        "subjects": ["在市一院上班的那个邻居"],
+        "segments": [
+            {
+                "text": "在市一院上班的那个邻居是林芳，她在市一院当护士。",
+                "evidence": _facts(out, "WORKS_AT"),
+            }
+        ],
+        "persons": [out["person"]["person"]],
+    }
+
+
 # Questions answered in several turns, or differently with the 上文: turn n gets the tool
 # outputs so far and the 上文's questions, and returns the next call.
 CONVERSATIONS: dict[str, Any] = {
@@ -582,6 +621,7 @@ CONVERSATIONS: dict[str, Any] = {
     JIANGUO_LIKES: _likes("周建国", "下象棋"),  # BOT-2: 「邻居那个」
     WORKS: _works,  # BOT-5 / BOT-6
     WIFE: _wife,  # BOT-5 / BOT-6, and 「不接上文」
+    NEIGHBOUR_NAMED: _hospital_neighbour,  # context gaps BOT-8
 }
 
 # --- plumbing ----------------------------------------------------------------------------

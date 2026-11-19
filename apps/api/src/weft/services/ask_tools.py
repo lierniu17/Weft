@@ -13,7 +13,10 @@
 * every name it looks up is remembered, so the question's subjects can be checked: a
   name from the question that resolves to nobody makes the answer no_answer (AC-38);
 * every fact it shows is kept as an ``EventFact`` too, so 「X 那件事」 can be checked
-  against the events the model was shown (指代确认, conversation-context AC-1).
+  against the events the model was shown (指代确认, conversation-context AC-1);
+* a person named by a description (「在市一院上班的那个邻居」, context-gaps AC-3) is
+  found by what the graph says about them (``described``): by ``find_person`` and among
+  the question's subjects.
 """
 
 from __future__ import annotations
@@ -29,10 +32,19 @@ from weft.domain.answering import Evidence, FinalAnswer, Source, Subjects
 from weft.domain.confidence import Confidence
 from weft.domain.confirming import EventFact
 from weft.domain.dates import PartialDate
+from weft.domain.describing import (
+    Description,
+    KnownFact,
+    Trait,
+    anchors,
+    description,
+    matching,
+    may_describe,
+)
 from weft.domain.draft import FEELING_DIMENSION_LABELS, FEELING_LEVEL_LABELS
 from weft.domain.feelings import DIMENSIONS, by_direction
 from weft.domain.graph_write import FACT_LABELS
-from weft.domain.relatives import Tie, related, relation_phrase
+from weft.domain.relatives import Tie, related, related_any, relation_phrase
 from weft.domain.taxonomy import OTHER, RELATION_WORDS, Category
 from weft.domain.tenancy import FORBIDDEN_TENANT_KWARGS
 from weft.infra import Infra
@@ -173,6 +185,7 @@ class AskSession:
         self.lookups: dict[str, list[PersonRecord]] = {}  # name looked up -> who it found
         self.facts_shown: dict[str, EventFact] = {}  # every fact the model was shown, by id
         self._ties: list[Tie] | None = None  # every relationship type, for relation phrases
+        self._described: dict[str, tuple[Description, list[PersonRecord]] | None] = {}
         self._tools: dict[str, tuple[type[_Args], Callable[[Any], Awaitable[dict[str, Any]]]]] = {
             "find_person": (FindPersonArgs, self._find_person),
             "read_profile": (ReadProfileArgs, self._read_profile),
@@ -270,7 +283,8 @@ class AskSession:
         A relation phrase nobody is called (「我老婆」「老张的老婆」「闺蜜」) resolves to
         whom it points to through the graph's relationships (``_related``); one that
         points nowhere the graph can follow from who it is relative to (「闺蜜」 of someone
-        unsaid, 「他老婆」) is skipped rather than taken for an unknown name.
+        unsaid, 「他老婆」) is skipped rather than taken for an unknown name. A description
+        (「在市一院上班的那个邻居」) resolves to whom the graph's facts fit (``described``).
         """
         names = [n.strip() for n in declared if n.strip()]
         names += [n for n, found in self.lookups.items() if not found and n in question]
@@ -283,6 +297,8 @@ class AskSession:
                 found = self.lookups[name]
             else:
                 found = await self._lookup(name)
+            if not found and (by := await self.described(name)) is not None:
+                found = by[1]
             if not found:
                 related = await self._related(name)
                 if related is None:
@@ -300,13 +316,8 @@ class AskSession:
         nobody has exactly (「王老师」, 「马云的老婆」), or the anchor (「我」, a person)
         has no such relation (「陈静的老公」). ``None`` — skip it — when there is no anchor
         to follow from: a pronoun (「他老婆」), or none and 「我」 has no such relation."""
-        if self._ties is None:
-            rels = await qt.all_relationships(self._infra)
-            self._ties = [
-                Tie(r.person_a, r.person_b, t.subtype, t.original) for r in rels for t in r.types
-            ]
-        graph_words = {w for t in self._ties for w in (t.subtype, t.original) if w != OTHER}
-        rel = relation_phrase(phrase, RELATION_WORDS | graph_words)
+        ties = await self._all_ties()
+        rel = relation_phrase(phrase, self._words(ties))
         if rel is None or depth > 2:
             return []
         people = await self._people()
@@ -323,11 +334,108 @@ class AskSession:
             ] or await self._related(rel.anchor, depth + 1)
         if not anchors:
             return anchors
-        ids = related({p.id for p in anchors}, rel.word, self._ties)
+        ids = related({p.id for p in anchors}, rel.word, ties)
         found = sorted((people[i] for i in ids if i in people), key=lambda p: (p.name, p.id))
         if not found and not rel.anchor:
             return None
         return found
+
+    async def _all_ties(self) -> list[Tie]:
+        if self._ties is None:
+            rels = await qt.all_relationships(self._infra)
+            self._ties = [
+                Tie(r.person_a, r.person_b, t.subtype, t.original) for r in rels for t in r.types
+            ]
+        return self._ties
+
+    @staticmethod
+    def _words(ties: list[Tie]) -> frozenset[str]:
+        """The relation words: the vocabulary's plus the user's own wordings (「健身教练」)."""
+        return RELATION_WORDS | {w for t in ties for w in (t.subtype, t.original) if w != OTHER}
+
+    async def described(self, text: str) -> tuple[Description, list[PersonRecord]] | None:
+        """The description in ``text`` (``describing.description``) and the persons the
+        graph says it fits, sorted by name; ``None`` when ``text`` has no description, or
+        its 「X 介绍的」 X is nobody in the graph (then it is no description we can follow:
+        「露营认识的那个朋友」)."""
+        if text in self._described:
+            return self._described[text]
+        if not may_describe(text):
+            return None
+        ties = await self._all_ties()
+        d = description(text, self._words(ties))
+        out: tuple[Description, list[PersonRecord]] | None = None
+        if d is not None:
+            people = await self._people()
+            me = next(p for p in people.values() if p.is_self)
+            introducers: set[str] = set()
+            if d.trait is Trait.INTRODUCED_BY:
+                for anchor in anchors(d.value):
+                    found = await self._introducer(anchor, people)
+                    if found:
+                        d, introducers = d.anchored(anchor), {p.id for p in found}
+                        break
+            if d.trait is not Trait.INTRODUCED_BY or introducers:
+                out = (d, await self._fitting(d, me, people, ties, introducers))
+        self._described[text] = out
+        return out
+
+    async def wording_with_me(self, person_id: str) -> str | None:
+        """How my relationship with ``person_id`` is worded (「同组同事」), if we have one."""
+        me = next((p for p in (await self._people()).values() if p.is_self), None)
+        for t in await self._all_ties():
+            if me is not None and {t.a, t.b} == {me.id, person_id} and t.original.strip():
+                return t.original.strip()
+        return None
+
+    async def _introducer(self, anchor: str, people: dict[str, PersonRecord]) -> list[PersonRecord]:
+        """Whom 「X」 of 「X 介绍的」 stands for: a name or alias exactly, or a relation
+        phrase (「我老婆」); never 我."""
+        if len(anchor) < 2 or anchor in qt.SELF_WORDS:
+            return []
+        named = [
+            p
+            for p in people.values()
+            if not p.is_self and (p.name == anchor or anchor in p.aliases)
+        ]
+        if named:
+            return named
+        if relation_phrase(anchor, self._words(await self._all_ties())) is None:
+            return []
+        return [p for p in await self._related(anchor) or [] if not p.is_self]
+
+    async def _fitting(
+        self,
+        d: Description,
+        me: PersonRecord,
+        people: dict[str, PersonRecord],
+        ties: list[Tie],
+        introducers: set[str],
+    ) -> list[PersonRecord]:
+        relatives = None if d.word is None else related_any({me.id}, d.word, ties)
+        facts: list[KnownFact] = []
+        introduced_by: dict[str, set[str]] = {}
+        if d.trait is Trait.INTRODUCED_BY:
+            for r in await qt.all_relationships(self._infra):
+                if me.id in (r.person_a, r.person_b) and r.introduced_by is not None:
+                    other = r.person_b if r.person_a == me.id else r.person_a
+                    introduced_by.setdefault(other, set()).add(r.introduced_by.id)
+        else:
+            facts = [
+                KnownFact(f.subject_id, f.predicate, f.object, f.invalid_at is None)
+                for f in await qt.all_facts(self._infra)
+                if f.kind == "fact"
+            ]
+        others = sorted((p for p in people.values() if not p.is_self), key=lambda p: (p.name, p.id))
+        ids = matching(
+            d,
+            [p.id for p in others],
+            facts,
+            relatives=relatives,
+            introduced_by=introduced_by,
+            introducers=introducers,
+        )
+        return [people[i] for i in ids]
 
     async def _resolve(self, ref: str) -> PersonRecord:
         text = ref.strip()
@@ -515,6 +623,9 @@ class AskSession:
     async def _find_person(self, args: FindPersonArgs) -> dict[str, Any]:
         name = args.name.strip()
         found = await self._lookup(name) if name else []
+        if not found and name and (by := await self.described(name)) is not None:
+            found = by[1]  # 「在市一院上班的那个邻居」: whom the description fits
+            self.lookups[name] = found
         return {"found": bool(found), "persons": [self._person(p) for p in found]}
 
     async def _read_profile(self, args: ReadProfileArgs) -> dict[str, Any]:
