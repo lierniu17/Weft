@@ -19,12 +19,13 @@ from tests.support.asks import PROFILE, UNKNOWN, final
 from tests.support.llm_script import LLMScript
 from tests.support.seeded import SeededUser, seeded_user
 from weft.domain.answer import Answer, AnswerKind
-from weft.domain.answering import NO_ANSWER_TEXT
+from weft.domain.answering import NO_ANSWER_TEXT, unknown_subject
 from weft.domain.confidence import Confidence
 from weft.domain.quota import LIMIT_REACHED_MESSAGE
 from weft.domain.tenancy import tenant_scope
 from weft.infra import Infra
 from weft.services import ask
+from weft.services.ask_tools import AskSession
 from weft.services.results import Err, Ok
 
 pytestmark = pytest.mark.service
@@ -332,9 +333,156 @@ async def test_an_answer_about_someone_other_than_the_subject_gets_no_answer(
         [("find_person", {"name": "老张"}), ("find_person", {"name": "王浩"})],
         [("read_profile", {"person": "P2"})],
         final("text", ("小王特别喜欢露营。", ["E1"]), subjects=["老张"], persons=["P2"]),
+        final("text", ("小王特别喜欢露营。", ["E1"]), subjects=["老张"], persons=["P2"]),
     )
     answer = (await asked(infra, LAOZHANG_HOBBY)).answer
     assert answer.kind is AnswerKind.NO_ANSWER and answer.persons == []
+    assert "不是关于老张的" in llm.tool_outputs[-1]  # told once; the same answer stays out
+
+
+WIFE_JOB = "老张的老婆是做什么的？"
+
+
+async def test_an_answer_told_it_is_off_its_subject_can_cite_the_missing_link(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    """黄丽's own fact does not say she is 老张's wife; with the relationship cited it does."""
+    llm.ask(
+        WIFE_JOB,
+        [("find_person", {"name": "黄丽"})],
+        [("read_profile", {"person": "P1"})],
+        final(
+            "text", ("据老张说，他老婆黄丽是中学老师。", ["E1"]), subjects=["老张"], persons=["P1"]
+        ),
+        [("read_relationship", {"person_a": "老张", "person_b": "P1"})],
+        final(
+            "text",
+            ("据老张说，他老婆黄丽是中学老师。", ["E1", "E2"]),
+            subjects=["老张"],
+            persons=["P1"],
+        ),
+    )
+    answer = (await asked(infra, WIFE_JOB)).answer
+    assert answer.kind is AnswerKind.TEXT and "中学" in text_of(answer)
+    assert {p.name for p in answer.persons} == {"黄丽"}
+
+
+# --- relation phrases as subjects ----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("declared", "meant"),
+    [
+        ("我老婆", {"刘婷"}),
+        ("老张的老婆", {"黄丽"}),
+        ("黄丽的老公", {"张伟"}),  # no relationship says 老公: 配偶 does
+        ("我老婆的闺蜜", {"杜鹃"}),
+        ("刘婷的闺蜜", {"杜鹃"}),
+        ("老张的女儿", {"老张的女儿"}),  # a person's own name comes first
+        ("我爸爸", {"陈建国"}),
+        ("小王的同事", {"刘洋"}),
+    ],
+)
+async def test_a_relation_phrase_resolves_through_the_relationships(
+    infra: Infra, s: SeededUser, declared: str, meant: set[str]
+) -> None:
+    subjects = await AskSession(infra).subjects(f"{declared}是谁？", [declared])
+    assert {r.name for r in subjects[declared]} == meant
+
+
+@pytest.mark.parametrize(
+    "declared",
+    [
+        "陈静的老公",  # 陈静 is someone, with no 老公 in the graph
+        "马云的老婆",  # 马云 is nobody
+        "王老师",  # a name: 「王」 is nobody exactly
+        "老王",
+    ],
+)
+async def test_a_relation_the_graph_lacks_is_still_an_unknown_subject(
+    infra: Infra, s: SeededUser, declared: str
+) -> None:
+    subjects = await AskSession(infra).subjects(f"{declared}是做什么的？", [declared])
+    assert unknown_subject(subjects)
+
+
+@pytest.mark.parametrize("declared", ["他老婆", "那个闺蜜"])
+async def test_a_relation_phrase_with_no_named_anchor_is_no_unknown_name(
+    infra: Infra, s: SeededUser, declared: str
+) -> None:
+    """「他老婆」 (whose?) and 「那个闺蜜」 (我 has no 闺蜜 worded so, but 杜鹃 is a friend:
+    so it resolves); neither is an unknown name."""
+    subjects = await AskSession(infra).subjects(f"{declared}是做什么的？", [declared])
+    assert not unknown_subject(subjects)
+
+
+MY_WIFE = "我老婆是谁？"
+
+
+async def test_a_question_about_my_wife_is_answered_not_taken_for_an_unknown_name(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    llm.ask(
+        MY_WIFE,
+        [("find_person", {"name": "我老婆"})],
+        [("read_relationship", {"person_a": "我", "person_b": "老婆"})],
+        final(
+            "text",
+            ("你老婆是刘婷，你们 2019 年在朋友聚会上认识。", ["E1", "E2", "E3", "E4"]),
+            subjects=["我老婆"],
+            persons=["P2"],
+        ),
+    )
+    answer = (await asked(infra, MY_WIFE)).answer
+    assert answer.kind is AnswerKind.TEXT and "刘婷" in text_of(answer)
+    assert [p.name for p in answer.persons] == ["刘婷"] and answer.citations
+
+
+CHENJING_HUSBAND = "陈静的老公是做什么的？"
+
+
+async def test_a_relation_the_graph_lacks_still_gets_no_answer(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    """陈静 has no 老公 in the graph: an answer from her own facts is made up."""
+    llm.ask(
+        CHENJING_HUSBAND,
+        [("read_profile", {"person": "陈静"})],
+        final(
+            "text",
+            ("陈静的老公在阿里巴巴工作。", ["E1"]),
+            subjects=["陈静的老公"],
+            persons=["P1"],
+        ),
+    )
+    answer = (await asked(infra, CHENJING_HUSBAND)).answer
+    assert answer.kind is AnswerKind.NO_ANSWER and answer.citations == []
+
+
+WIFE_WORKPLACE = "老张老婆在哪上班？"
+
+
+async def test_an_answer_sent_back_on_the_last_round_still_gets_a_lookup(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    looking = [[("find_person", {"name": "黄丽"})]] * (ask.MAX_TOOL_ROUNDS - 1)
+    llm.ask(
+        WIFE_WORKPLACE,
+        *looking,
+        [("read_profile", {"person": "P1"})],
+        final(
+            "text", ("据老张说，他老婆黄丽是中学老师。", ["E1"]), subjects=["老张"], persons=["P1"]
+        ),
+        [("read_relationship", {"person_a": "老张", "person_b": "P1"})],
+        final(
+            "text",
+            ("据老张说，他老婆黄丽是中学老师。", ["E1", "E2"]),
+            subjects=["老张"],
+            persons=["P1"],
+        ),
+    )
+    answer = (await asked(infra, WIFE_WORKPLACE)).answer
+    assert answer.kind is AnswerKind.TEXT and "中学" in text_of(answer)
 
 
 BIRTHDAY = "小李的生日是哪天？"
@@ -362,6 +510,26 @@ async def test_a_model_that_never_uses_the_tools_gets_no_answer(
     llm.ask_says(WEATHER, 1, "今天北京晴。")
     result = await asked(infra, WEATHER)
     assert result.tool_calls == [] and result.answer.kind is AnswerKind.NO_ANSWER
+
+
+async def test_used_up_rounds_still_answer_from_what_the_tools_returned(
+    infra: Infra, llm: LLMScript, s: SeededUser
+) -> None:
+    """A model still looking things up when the rounds run out is asked once more, with
+    only final_answer offered: what it found is answered, not dropped."""
+    question = "老张性格怎么样？"
+    looking = [[("read_profile", {"person": "老张"})]] * ask.MAX_TOOL_ROUNDS
+    turns = [*looking, [("semantic_search", {"query": "老张 性格"})]]
+    llm.ask(
+        question,
+        *turns,
+        final("text", ("老张是个急性子。", ["E1"]), subjects=["老张"], persons=["P1"]),
+    )
+
+    result = await asked(infra, question)
+
+    assert result.answer.kind is AnswerKind.TEXT and "急性子" in text_of(result.answer)
+    assert result.answer.citations
 
 
 # --- tenant arguments (AC-39) --------------------------------------------------------------

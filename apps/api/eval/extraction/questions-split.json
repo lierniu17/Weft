@@ -1,0 +1,24 @@
+{
+  "seed": 42,
+  "dev": [
+    "none-01",
+    "none-02",
+    "none-03",
+    "none-06",
+    "ask-02",
+    "ask-04",
+    "ask-06",
+    "ask-09"
+  ],
+  "heldout": [
+    "ask-01",
+    "ask-03",
+    "ask-05",
+    "ask-07",
+    "ask-08",
+    "none-04",
+    "none-05",
+    "none-07",
+    "none-08"
+  ]
+}

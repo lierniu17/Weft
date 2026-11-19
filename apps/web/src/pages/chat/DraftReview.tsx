@@ -1,8 +1,14 @@
-/** 确认草稿: the DraftReviewSheet wired to the draft endpoints. Edits stay local until 确认. */
+/**
+ * 确认草稿: the DraftReviewSheet wired to the draft endpoints. Edits stay local until 确认 —
+ * or until something the server does needs them saved first (a new 发生日期, an answer to a
+ * 补充追问), so the draft that comes back keeps them.
+ */
 import { useState } from "react";
 import { ApiError } from "../../api/client.ts";
 import {
   type DraftOut,
+  fetchEntry,
+  useAnswerDraftQuestion,
   useConfirmDraft,
   useDiscardDraft,
   useDraft,
@@ -11,9 +17,15 @@ import {
 import { useTaxonomy } from "../../api/graph.ts";
 import { useSheetVariant, useToday } from "../../app/layout.ts";
 import { DraftReviewSheet } from "../../components/business/DraftReviewSheet/DraftReviewSheet.tsx";
-import type { Draft } from "../../contracts/draft.ts";
+import type { Draft, QuestionAnswer } from "../../contracts/draft.ts";
 import { type OccurredOn, parsePartialDate } from "../../lib/datePrecision.ts";
-import { choosePerson, removeItem, setConfidence, setRelationshipType } from "../../lib/draft.ts";
+import {
+  choosePerson,
+  questionAnswerFeedback,
+  removeItem,
+  setConfidence,
+  setRelationshipType,
+} from "../../lib/draft.ts";
 import { toPartialDate } from "../../lib/pageModels.ts";
 
 export type DraftReviewProps = {
@@ -32,11 +44,15 @@ export function DraftReview({ draftId, occurredOn, onClose, onError, modal }: Dr
   const update = useUpdateDraft();
   const confirm = useConfirmDraft();
   const discard = useDiscardDraft();
+  const answer = useAnswerDraftQuestion();
   const variant = useSheetVariant();
   const today = useToday();
   const [edited, setEdited] = useState<Draft | null>(null);
   /** The 发生日期 as moved in this sheet (the server re-timed the draft for it). */
   const [moved, setMoved] = useState<string | null>(null);
+  /** The 补充追问 whose answer is being applied, and typed answers not understood. */
+  const [answering, setAnswering] = useState<string | null>(null);
+  const [hints, setHints] = useState<Record<string, string>>({});
 
   const original = (draft.data as DraftOut | undefined)?.content ?? null;
   // Local edits start from the API copy; the parent keys this component by draft id.
@@ -62,6 +78,45 @@ export function DraftReview({ draftId, occurredOn, onClose, onError, modal }: Dr
       setMoved(occurred_on);
     } catch (e) {
       fail(e);
+    }
+  };
+
+  // 补充追问 (conversation context AC-6, AC-7): local edits are saved first, so the
+  // answered draft that replaces the local copy keeps them. An occurred answer moved the
+  // Entry's 发生日期: the line shows the new one (and the hint to check re-timed dates).
+  const onAnswerQuestion = async (questionId: string, how: QuestionAnswer) => {
+    const question = value.questions?.find((q) => q.id === questionId);
+    if (!question || answering) return;
+    setAnswering(questionId);
+    setHints(({ [questionId]: _, ...rest }) => rest);
+    try {
+      if (edited) await update.mutateAsync({ id: draftId, content: edited });
+      setEdited(null);
+      const out = await answer.mutateAsync({
+        draftId,
+        questionId,
+        field: question.field,
+        answer: how,
+      });
+      if (question.field === "occurred") {
+        const picked = "option" in how ? question.options[how.option]?.patch.occurred : null;
+        setMoved(picked ?? (await fetchEntry(out.entry_id)).entry.occurred_on);
+      }
+    } catch (e) {
+      if (!(e instanceof ApiError)) {
+        fail(e);
+        return;
+      }
+      const feedback = questionAnswerFeedback({
+        status: e.status,
+        code: e.code,
+        message: e.message,
+      });
+      if (feedback.hint) setHints((h) => ({ ...h, [questionId]: feedback.hint as string }));
+      if (feedback.toast) onError(feedback.toast);
+      if (feedback.reload) void draft.refetch();
+    } finally {
+      setAnswering(null);
     }
   };
 
@@ -94,6 +149,9 @@ export function DraftReview({ draftId, occurredOn, onClose, onError, modal }: Dr
       onConfidenceChange={(id, c) => edit((d) => setConfidence(d, id, c))}
       onRemoveItem={(id) => edit((d) => removeItem(d, id))}
       onRelationshipTypeChange={(id, i, t) => edit((d) => setRelationshipType(d, id, i, t))}
+      onAnswerQuestion={onAnswerQuestion}
+      answering={answering}
+      questionHints={hints}
       confirming={update.isPending || confirm.isPending}
       onConfirm={onConfirm}
       onDiscard={() => discard.mutate({ id: draftId }, { onSuccess: onClose, onError: fail })}

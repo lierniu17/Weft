@@ -13,6 +13,8 @@ It contains what BOT-5 / BOT-9 rely on:
   fell out over borrowed money in 2026-09 — told by 小王 (可信度 转述);
 * five persons 喜欢露营 (one of them only by hearsay);
 * 小李 moved from 字节跳动 to 阿里巴巴 (history, AC-14); 我的评价 of 老张 (AC-23);
+* two persons called 老周 (指代确认, conversation-context BOT-1/2): 周涛 (大学同学) and
+  周建国 (老家的老邻居); and persons with several events (小李, 郭佳, 周建国) for 「那事」;
 * persons I only know through others (赵磊 via 周涛, 刘洋 via 小王, the descriptor person
   老张的女儿) for path questions and the graph's 间接认识 ring;
 * for the graph timeline (graph-viz AC-14): closeness that changes over the years (周涛 and
@@ -115,6 +117,7 @@ class SeedEntry:
     relationships: tuple[R, ...] = ()
     feelings: tuple[E, ...] = ()
     ends: tuple[tuple[str, str, str, str], ...] = ()  # (subject, predicate, object, until)
+    aliases: tuple[tuple[str, str], ...] = ()  # (known person, alias) first used here
 
 
 ENTRIES: tuple[SeedEntry, ...] = (
@@ -282,6 +285,14 @@ ENTRIES: tuple[SeedEntry, ...] = (
         feelings=(E(SELF, "冯强", "closeness", "casual"),),
     ),
     SeedEntry(
+        "过年回老家，碰到了老邻居周建国，大家都叫他老周。他退休前是钳工，现在天天在楼下下象棋。",
+        "2024-02-12",
+        persons=(("周建国", ("老周",)),),
+        facts=(F("周建国", "LIKES", "下象棋", W), F("周建国", "EXPERIENCED", "退休", S, "2019")),
+        relationships=(R(SELF, "周建国", SOCIAL, "邻居", "老家的老邻居", W, origin="老家"),),
+        feelings=(E(SELF, "周建国", "closeness", "casual"),),
+    ),
+    SeedEntry(
         "网友韩梅梅，一起打游戏两年了，还没见过面。",
         "2024-03-02",
         persons=(("韩梅梅", ()),),
@@ -351,6 +362,12 @@ ENTRIES: tuple[SeedEntry, ...] = (
         feelings=(E(SELF, "罗建华", "closeness", "familiar"),),
     ),
     SeedEntry(
+        "周涛从深圳回杭州出差，约我吃了顿饭。现在大家都叫他老周了，他说最近迷上了钓鱼。",
+        "2026-07-25",
+        aliases=(("周涛", "老周"),),
+        facts=(F("周涛", "LIKES", "钓鱼", S),),
+    ),
+    SeedEntry(
         "周末去露营认识了孙悦，她是摄影师，也很喜欢露营和徒步。",
         "2026-07-12",
         persons=(("孙悦", ()),),
@@ -392,12 +409,22 @@ ENTRIES: tuple[SeedEntry, ...] = (
         feelings=(E("小李", "老张", "trust", "low", H),),
     ),
     SeedEntry(
+        "听我妈说，老家的老邻居周建国上个月摔了一跤，住了半个月院。",
+        "2026-10-05",
+        facts=(F("周建国", "EXPERIENCED", "摔跤住院", H, "2026-09"),),
+    ),
+    SeedEntry(
         "搬家后认识了邻居林芳，她在市一院当护士，也喜欢露营。",
         "2026-10-15",
         persons=(("林芳", ()),),
         facts=(F("林芳", "WORKS_AT", "市一院", S), F("林芳", "LIKES", "露营", S)),
         relationships=(R(SELF, "林芳", SOCIAL, "邻居", "邻居", W, "2026-10", "搬家"),),
         feelings=(E(SELF, "林芳", "closeness", "familiar"),),
+    ),
+    SeedEntry(
+        "郭佳说她刚买了房，准备明年结婚。",
+        "2026-10-18",
+        facts=(F("郭佳", "EXPERIENCED", "买房", S, "2026-10"),),
     ),
     SeedEntry(
         "小李跟我说他上个月跳槽去了阿里巴巴，在那边的新同事宋佳很会做饭。",
@@ -528,6 +555,7 @@ class _Builder:
         self.names: dict[str, str] = {self_id: SELF}
         self.facts: dict[tuple[str, str, str], str] = {}
         self.relationships: dict[frozenset[str], RelationshipUpsert] = {}
+        self.shared: set[str] = set()  # aliases more than one person goes by (老周)
 
     def person(self, mention: str) -> str:
         return self.ids[mention]
@@ -539,10 +567,11 @@ class _Builder:
             pid = str(uuid.uuid4())
             self.ids[name] = pid
             self.names[pid] = name
-            for alias in aliases:
-                self.ids[alias] = pid
-                w.aliases.append(AliasAdd(pid, alias))
             w.persons.append(NewPerson(pid, name))
+            for alias in aliases:
+                w.aliases.append(self._alias(pid, alias))
+        for known, alias in e.aliases:
+            w.aliases.append(self._alias(self.person(known), alias))
         for subject, predicate, obj, until in e.ends:
             key = (self.person(subject), predicate, obj)
             w.invalidations.append(FactInvalidated(self.facts[key], PartialDate.parse(until)))
@@ -567,6 +596,15 @@ class _Builder:
         mentioned += [self.person(m) for r in e.relationships for m in (r.a, r.b)]
         w.mentions.extend(dict.fromkeys(mentioned))
         return w
+
+    def _alias(self, pid: str, alias: str) -> AliasAdd:
+        """An alias names its person in later Entries, unless two persons share it."""
+        if alias in self.shared or self.ids.get(alias, pid) != pid:
+            self.shared.add(alias)
+            self.ids.pop(alias, None)
+        else:
+            self.ids[alias] = pid
+        return AliasAdd(pid, alias)
 
     def draft(self, e: SeedEntry) -> Draft:
         """The confirmed Draft that would have written ``e``: one item per fact,

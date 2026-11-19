@@ -1,6 +1,6 @@
 /** Query hooks for 记录 and 草稿. Sending goes through 消息 (messages.ts). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Draft } from "../contracts/draft.ts";
+import type { Draft, QuestionAnswer, QuestionField } from "../contracts/draft.ts";
 import { api, enc, type Schemas } from "./client.ts";
 import { invalidateGraph, keys } from "./keys.ts";
 import { expectSummariesForAll } from "./summaryExpectation.ts";
@@ -82,3 +82,37 @@ export const useConfirmDraft = () =>
   useDraftAction((id) => `/drafts/${enc(id)}/confirm`, "post", expectSummariesForAll);
 export const useDiscardDraft = () => useDraftAction((id) => `/drafts/${enc(id)}/discard`);
 export const useRetryDraft = () => useDraftAction((id) => `/drafts/${enc(id)}/retry`);
+
+type QuestionAnswerInput = {
+  draftId: string;
+  questionId: string;
+  /** The question's field: an occurred answer moves the Entry's 发生日期. */
+  field: QuestionField;
+  answer: QuestionAnswer;
+};
+
+/**
+ * 补充追问 (conversation-context AC-6, AC-7): a clicked option is applied by the server
+ * without a model call; a typed answer (自己填) is read by one. The answered Draft comes
+ * back; no quota is counted. An occurred answer moved the Entry's 发生日期, which the
+ * message and 记录 show.
+ */
+export function useAnswerDraftQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ draftId, questionId, answer }: QuestionAnswerInput) =>
+      api.post<DraftOut>(`/drafts/${enc(draftId)}/questions/${enc(questionId)}/answer`, answer),
+    onSuccess: (draft, { field }) => {
+      qc.setQueryData(keys.draft(draft.id), draft);
+      if (field === "occurred") {
+        void qc.invalidateQueries({ queryKey: keys.messages });
+        void qc.invalidateQueries({ queryKey: keys.entries });
+      }
+    },
+  });
+}
+
+/** The Entry as it is now (e.g. its 发生日期 after a 补充追问 moved it). */
+export function fetchEntry(id: string) {
+  return api.get<EntryDetail>(`/entries/${enc(id)}`);
+}

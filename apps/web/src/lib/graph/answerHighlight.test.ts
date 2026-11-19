@@ -90,6 +90,9 @@ describe("answer → what lights up on the graph (AC-16, AC-17)", () => {
 
   it("no answer, or an answer about nobody, lights nothing", () => {
     expect(answerHighlight(answer({ kind: "no_answer" })).kind).toBe("none");
+    // a 指代确认 (legacy /api/ask may return one) names candidates, not an answer
+    const zhou = { person_id: "zt", name: "周涛" };
+    expect(answerHighlight(answer({ kind: "clarify", persons: [zhou] })).kind).toBe("none");
     expect(answerHighlight(answer({ kind: "text" })).kind).toBe("none");
     expect(answerHighlight(answer({ kind: "path", path: null })).kind).toBe("none");
   });

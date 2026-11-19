@@ -53,4 +53,85 @@ def unknown_person(llm: LLMScript) -> None:
     )
 
 
-__all__ = ["PROFILE", "UNKNOWN", "Calls", "final", "laozhang_profile", "unknown_person"]
+# --- 对话上下文 (conversation context): 指代确认 and 连续追问 over the seed ------------------
+
+LIKES = "老周喜欢什么？"
+WHICH = "你问的是哪位老周？"
+TAO = "周涛喜欢什么？"
+JIANGUO = "周建国喜欢什么？"
+# find_person sorts by name: P1 is 周建国, P2 周涛
+TWO_LAOZHOU = [
+    {"label": "老周（周涛，大学同学）", "question": TAO, "person": "P2"},
+    {"label": "老周（周建国，老家的老邻居）", "question": JIANGUO, "person": "P1"},
+]
+
+
+def which_laozhou(llm: LLMScript) -> None:
+    llm.ask(
+        LIKES,
+        [("find_person", {"name": "老周"})],
+        final("clarify", clarify_question=WHICH, options=TWO_LAOZHOU),
+    )
+
+
+def likes_of(llm: LLMScript, question: str, name: str, liked: str) -> None:
+    llm.ask(
+        question,
+        [("read_profile", {"person": name})],
+        final("text", (f"{name}喜欢{liked}。", ["E1"]), subjects=[name], persons=["P1"]),
+    )
+
+
+WORKS = "老张在哪上班？"
+WIFE = "那他老婆呢？"
+
+
+def laozhang_works(llm: LLMScript) -> None:
+    llm.ask(
+        WORKS,
+        [("read_profile", {"person": "老张"})],
+        final("text", ("老张在字节跳动上班。", ["E1"]), subjects=["老张"], persons=["P1"]),
+        history=[],
+    )
+
+
+def wife_follows(llm: LLMScript, history: list[str]) -> None:
+    llm.ask(
+        WIFE,
+        [("find_person", {"name": "老张"})],
+        [("read_relationship", {"person_a": "P1", "person_b": "黄丽"})],
+        final(
+            "text",
+            ("老张的老婆黄丽是中学老师。", ["E1"]),
+            subjects=["老张"],
+            persons=["P2"],
+            used_history=True,
+        ),
+        history=history,
+    )
+
+
+def wife_alone(llm: LLMScript) -> None:
+    llm.ask(WIFE, final("no_answer"), history=[])
+
+
+__all__ = [
+    "JIANGUO",
+    "LIKES",
+    "PROFILE",
+    "TAO",
+    "TWO_LAOZHOU",
+    "UNKNOWN",
+    "WHICH",
+    "WIFE",
+    "WORKS",
+    "Calls",
+    "final",
+    "laozhang_profile",
+    "laozhang_works",
+    "likes_of",
+    "unknown_person",
+    "which_laozhou",
+    "wife_alone",
+    "wife_follows",
+]

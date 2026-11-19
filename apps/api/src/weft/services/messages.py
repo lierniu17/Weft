@@ -26,6 +26,22 @@ AC-7). Then either
   takes clicks from then on (AC-6).
 
 A 反问 whose handling hit a used-up quota stays unresolved (AC-7).
+
+指代确认 (conversation-context spec): 问答 may answer a question with a 指代确认 instead
+(several persons or events fit). It is kept like a 反问 (``clarify`` with source ask, no
+answer yet); the ask counted when the question was sent covers it and whatever settles it
+(AC-2, AC-3):
+
+* clicking an option answers the option's question, counting nothing more;
+* a message typed while it is open (same waiting rule) is recognized with the question,
+  the confirmation and its candidates; if it says which one, the merged question is
+  answered on that message — free, and never confirmed a second time. Otherwise it is an
+  ordinary message.
+
+上文 (AC-9, AC-10): every recognition and every answer is given the user's latest answered
+questions (``history``: at most 3, within the window). A message whose answer was read with
+them records which (``history_used_of``); ``reanswer`` answers it again without them
+(「不接上文」), counting one ask.
 """
 
 from __future__ import annotations
@@ -34,10 +50,19 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from weft.domain.answer import Answer
+from weft.domain.answer import Answer, AnswerClarify, AnswerKind
+from weft.domain.conversation import MAX_HISTORY_TURNS, HistoryTurn, select_history, turn_of
 from weft.domain.dates import PartialDate
 from weft.domain.draft import DraftStatus
-from weft.domain.intent import UNCERTAIN_REPLY, ClarifyContext, Intent, Recognition
+from weft.domain.intent import (
+    UNCERTAIN_REPLY,
+    Clarification,
+    ClarifyContext,
+    ClarifyOption,
+    ClarifySource,
+    Intent,
+    Recognition,
+)
 from weft.domain.message import Part, Problem, awaits_answer, reroute_refusal
 from weft.domain.quota import LIMIT_REACHED_MESSAGE, next_reset
 from weft.infra import Infra
@@ -58,6 +83,8 @@ class MessageView:
     message: MessageRecord
     entry: EntryRecord | None
     draft: DraftRecord | None
+    # 上文 the answer was read with: (message id, its question), oldest first (AC-10)
+    follows: tuple[tuple[uuid.UUID, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -72,9 +99,17 @@ class Page:
     has_more: bool  # older messages exist
 
 
-def _view(row: MessageWithEntry) -> MessageView:
+def _view(row: MessageWithEntry, questions: dict[uuid.UUID, str] | None = None) -> MessageView:
     message, entry, draft = row
-    return MessageView(message=message, entry=entry, draft=draft)
+    known = questions or {}
+    follows = tuple((i, known[i]) for i in message.history_used_of if i in known)
+    return MessageView(message=message, entry=entry, draft=draft, follows=follows)
+
+
+async def _views(repo: MessageRepository, rows: list[MessageWithEntry]) -> list[MessageView]:
+    """The rows as views, with the questions their answers followed on (AC-10, AC-11)."""
+    questions = await repo.questions([i for m, _, _ in rows for i in m.history_used_of])
+    return [_view(r, questions) for r in rows]
 
 
 def _problem(part: Part, err: Err) -> Problem:
@@ -93,17 +128,72 @@ async def _record(
     return await entries.submit_entry(infra, text=text, occurred=occurred, dated_from_text=True)
 
 
-async def _ask(infra: Infra, question: str) -> Result[Answer]:
-    refused = ask.check_question(question) or await ask.charge(infra)
+@dataclass(frozen=True)
+class _Answered:
+    """How a question was handled: an answer, or a 指代确认 waiting for the user."""
+
+    answer: Answer | None
+    clarify: Clarification | None
+    history_used_of: tuple[uuid.UUID, ...]
+
+    def handling(self, *, replace_clarify: bool = False) -> dict[str, object]:
+        """The message's new handling columns. A 反问 already on the message stays (it was
+        settled) unless ``replace_clarify`` or a 指代确认 takes its place."""
+        out: dict[str, object] = {"answer": self.answer, "history_used_of": self.history_used_of}
+        if self.clarify is not None or replace_clarify:
+            out["clarify"] = self.clarify
+        return out
+
+
+def _confirmation(asked: AnswerClarify) -> Clarification:
+    """问答's 指代确认, kept like a 反问 (source ask): every option 查 its question."""
+    return Clarification(
+        question=asked.question,
+        options=tuple(
+            ClarifyOption(o.label, Intent.ASK, o.question, o.person_id) for o in asked.options
+        ),
+        source=ClarifySource.ASK,
+    )
+
+
+async def _ask(
+    infra: Infra,
+    question: str,
+    *,
+    history: list[HistoryTurn] | None = None,
+    charged: bool = True,
+    allow_clarify: bool = True,
+) -> Result[_Answered]:
+    """Answer ``question`` with the 上文 ``history``. ``charged=False``: the ask that started
+    it was counted already (an answer to a 指代确认, AC-2, AC-3)."""
+    refused = ask.check_question(question) or (await ask.charge(infra) if charged else None)
     if refused is not None:
         return refused
-    asked = await ask.answer(infra, question)
-    return asked if isinstance(asked, Err) else Ok(asked.value.answer)
+    turns = history or []
+    asked = await ask.answer(infra, question, history=turns, allow_clarify=allow_clarify)
+    if isinstance(asked, Err):
+        return asked
+    used = tuple(t.message_id for t in turns) if asked.value.used_history else ()
+    answer = asked.value.answer
+    if answer.kind is AnswerKind.CLARIFY and answer.clarify is not None:
+        return Ok(_Answered(None, _confirmation(answer.clarify), used))
+    return Ok(_Answered(answer, None, used))
+
+
+async def _history(infra: Infra) -> list[HistoryTurn]:
+    """The 上文 for a question asked now (AC-9)."""
+    async with infra.sql() as session:
+        recent, now = await MessageRepository(session, tenant()).answered(MAX_HISTORY_TURNS)
+    turns = [t for t in (turn_of(m) for m in recent) if t is not None]
+    window = timedelta(minutes=infra.settings.history_window_minutes)
+    return select_history(turns, now=now, window=window)
 
 
 async def _load(infra: Infra, message: MessageRecord) -> MessageView:
     async with infra.sql() as session:
-        return _view(await MessageRepository(session, tenant()).with_entry(message))
+        repo = MessageRepository(session, tenant())
+        [view] = await _views(repo, [await repo.with_entry(message)])
+        return view
 
 
 async def _update(infra: Infra, message_id: uuid.UUID, **values: object) -> MessageView:
@@ -111,7 +201,8 @@ async def _update(infra: Infra, message_id: uuid.UUID, **values: object) -> Mess
         repo = MessageRepository(session, tenant())
         updated = await repo.update_handling(message_id, **values)
         assert updated is not None  # the message is the caller's own and messages are not deleted
-        return _view(await repo.with_entry(updated))
+        [view] = await _views(repo, [await repo.with_entry(updated)])
+        return view
 
 
 async def _pending(infra: Infra) -> MessageRecord | None:
@@ -123,8 +214,40 @@ async def _pending(infra: Infra) -> MessageRecord | None:
 
 
 def _context(pending: MessageRecord) -> ClarifyContext:
-    asked = pending.clarify.question if pending.clarify else UNCERTAIN_REPLY
+    clarify = pending.clarify
+    if clarify is not None and clarify.source is ClarifySource.ASK:
+        return ClarifyContext(
+            original=pending.question or pending.text,
+            clarify_question=clarify.question,
+            source=ClarifySource.ASK,
+            options=tuple((o.label, o.question or "") for o in clarify.options),
+        )
+    asked = clarify.question if clarify else UNCERTAIN_REPLY
     return ClarifyContext(original=pending.text, clarify_question=asked)
+
+
+def _confirms(pending: MessageRecord | None) -> bool:
+    """``pending`` waits on 问答's 指代确认 (not on intent recognition's 反问)."""
+    return (
+        pending is not None
+        and pending.clarify is not None
+        and pending.clarify.source is ClarifySource.ASK
+    )
+
+
+def _settled(seen: Recognition) -> Recognition:
+    """A typed answer to a 指代确认 is a question: still unsure who is meant, it is asked as
+    it reads (原问题 + 回答) — answered by the existing rules, never confirmed again (AC-3)."""
+    if not seen.uncertain or seen.question is None:
+        return seen
+    return Recognition(
+        Intent.ASK,
+        seen.confidence,
+        False,
+        seen.occurred,
+        question=seen.question,
+        answers_clarification=True,
+    )
 
 
 def _stored_parts(seen: Recognition) -> tuple[str | None, str | None]:
@@ -144,8 +267,12 @@ async def send(infra: Infra, text: str) -> Result[Handled]:
 
     pending = await _pending(infra)
     context = None if pending is None else _context(pending)
-    seen = await intent.recognize(infra, body, context)  # free (AC-2; 反问 too, AC-7)
+    history = await _history(infra)
+    seen = await intent.recognize(infra, body, context, history)  # free (AC-2; 反问, AC-7)
     answered = pending if pending is not None and seen.answers_clarification else None
+    confirmed = answered is not None and _confirms(answered)
+    if confirmed:
+        seen = _settled(seen)
     problems: list[Problem] = []
     submitted: entries.Submitted | None = None
     if seen.intent in (Intent.RECORD, Intent.RECORD_ASK):
@@ -176,12 +303,18 @@ async def send(infra: Infra, text: str) -> Result[Handled]:
 
     view: MessageView | None = None
     if seen.intent in (Intent.ASK, Intent.RECORD_ASK):
-        asked = await _ask(infra, seen.question or body)
+        asked = await _ask(
+            infra,
+            seen.question or body,
+            history=history,
+            charged=not confirmed,  # the confirmed question was counted already (AC-3)
+            allow_clarify=answered is None,  # one round of asking back only
+        )
         if isinstance(asked, Err):
             problems.append(_problem("ask", asked))
             view = await _update(infra, message.id, problems=tuple(problems))
         else:
-            view = await _update(infra, message.id, answer=asked.value)
+            view = await _update(infra, message.id, **asked.value.handling())
     if answered is not None and not problems:
         await _update(infra, answered.id, clarification_resolved_at=infra.clock())
     return Ok(Handled(view or await _load(infra, message), new_draft_id))
@@ -217,6 +350,8 @@ async def clarify(infra: Infra, message_id: uuid.UUID, option: int) -> Result[Ha
         return Err("already_resolved", "这个反问已经处理过了")
     if not 0 <= option < len(message.clarify.options):
         return Err("no_such_option", "没有这个候选")
+    if message.clarify.source is ClarifySource.ASK:
+        return await _confirm(infra, message, message.clarify.options[option])
     chosen = message.clarify.options[option]
     question = chosen.question or message.text
     if chosen.intent is Intent.RECORD_ASK:
@@ -231,21 +366,25 @@ async def clarify(infra: Infra, message_id: uuid.UUID, option: int) -> Result[Ha
             return recorded
         submitted = recorded.value
     answer: Answer | None = None
+    used: tuple[uuid.UUID, ...] = ()
     problems: tuple[Problem, ...] = ()
     if chosen.intent in (Intent.ASK, Intent.RECORD_ASK):
-        asked = await _ask(infra, question)
+        # one round of asking back: the 反问 was it, so no 指代确认 after it
+        asked = await _ask(infra, question, history=await _history(infra), allow_clarify=False)
         if isinstance(asked, Err):
             if submitted is None:
                 return asked
             problems = (_problem("ask", asked),)  # the 记录 part is done: keep it
         else:
-            answer = asked.value
+            answer = asked.value.answer
+            used = asked.value.history_used_of
     view = await _update(
         infra,
         message.id,
         intent=chosen.intent,
         entry_id=submitted.entry.id if submitted else None,
         answer=answer,
+        history_used_of=used,
         reply=None,
         problems=problems,
         record_text=message.text if chosen.intent is Intent.RECORD_ASK else None,
@@ -253,6 +392,49 @@ async def clarify(infra: Infra, message_id: uuid.UUID, option: int) -> Result[Ha
         clarification_resolved_at=infra.clock(),
     )
     return Ok(Handled(view, submitted.draft.id if submitted else None))
+
+
+async def _confirm(infra: Infra, message: MessageRecord, chosen: ClarifyOption) -> Result[Handled]:
+    """Click a candidate of 问答's 指代确认 (AC-2): answer its question, counting nothing
+    (the question's ask covers it), without asking back again; the 确认 is resolved."""
+    question = chosen.question or message.question or message.text
+    asked = await _ask(infra, question, charged=False, allow_clarify=False)
+    if isinstance(asked, Err):
+        return asked
+    view = await _update(
+        infra,
+        message.id,
+        answer=asked.value.answer,
+        question=question,
+        problems=(),
+        clarification_resolved_at=infra.clock(),
+    )
+    return Ok(Handled(view))
+
+
+async def reanswer(infra: Infra, message_id: uuid.UUID) -> Result[Handled]:
+    """「不接上文」(AC-10): answer the message's question again on its own, without the 上文
+    its answer was read with, counting one ask; the new answer (or 指代确认) replaces it."""
+    async with infra.sql() as session:
+        message = await MessageRepository(session, tenant()).get(message_id)
+    if message is None:
+        return not_found("message")
+    if message.intent not in (Intent.ASK, Intent.RECORD_ASK) or not message.history_used_of:
+        return Err("no_history", "这条回答没有接上文")
+    asked = await _ask(
+        infra, message.question or message.text, allow_clarify=message.clarification_of is None
+    )
+    if isinstance(asked, Err):
+        return asked
+    confirming = asked.value.clarify is not None
+    view = await _update(
+        infra,
+        message.id,
+        **asked.value.handling(replace_clarify=True),
+        problems=tuple(p for p in message.problems if p.part != "ask"),
+        clarification_resolved_at=None if confirming else message.clarification_resolved_at,
+    )
+    return Ok(Handled(view))
 
 
 async def reroute(infra: Infra, message_id: uuid.UUID, target: Intent) -> Result[Handled]:
@@ -272,9 +454,10 @@ async def reroute(infra: Infra, message_id: uuid.UUID, target: Intent) -> Result
     refusal = reroute_refusal(message.intent, target, draft.status if draft else None)
     if refusal is not None:
         return Err(refusal.reason, refusal.message)
+    asked_back = message.uncertain or _confirms(message)
     settled: dict[str, object] = (
         {"clarification_resolved_at": infra.clock()}
-        if message.uncertain and message.clarification_resolved_at is None
+        if asked_back and message.clarification_resolved_at is None
         else {}
     )
 
@@ -299,11 +482,13 @@ async def reroute(infra: Infra, message_id: uuid.UUID, target: Intent) -> Result
         return answered
     if draft is not None and draft.status in UNCONFIRMED:
         await drafts.discard_draft(infra, draft.id)  # confirmed meanwhile: it simply stays
+    if answered.value.clarify is not None:  # a fresh 指代确认 replaces whatever was asked back
+        settled = {"clarification_resolved_at": None}
     view = await _update(
         infra,
         message.id,
         intent=Intent.ASK,
-        answer=answered.value,
+        **answered.value.handling(),
         reply=None,
         problems=(),
         **settled,
@@ -317,11 +502,13 @@ async def list_messages(
     """The latest ``limit`` messages older than ``before`` (if given), oldest first."""
     limit = max(1, min(limit, MAX_PAGE_SIZE))
     async with infra.sql() as session:
-        page = await MessageRepository(session, tenant()).page(before=before, limit=limit)
-    if page is None:
-        return not_found("message")
-    rows, has_more = page
-    return Ok(Page(messages=[_view(r) for r in rows], has_more=has_more))
+        repo = MessageRepository(session, tenant())
+        page = await repo.page(before=before, limit=limit)
+        if page is None:
+            return not_found("message")
+        rows, has_more = page
+        views = await _views(repo, rows)
+    return Ok(Page(messages=views, has_more=has_more))
 
 
 __all__ = [
@@ -333,6 +520,7 @@ __all__ = [
     "Page",
     "clarify",
     "list_messages",
+    "reanswer",
     "reroute",
     "send",
 ]

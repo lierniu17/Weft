@@ -22,8 +22,8 @@ async def test_seed_fills_an_empty_graph_and_refuses_a_second_time(
 ) -> None:
     user = await new_user(infra)
     assert await cli.run(["seed", "--user", user.username], infra=infra) == 0
-    assert "30 persons" in capsys.readouterr().out
-    assert len(await persons_of(infra, user)) == 30
+    assert "31 persons" in capsys.readouterr().out
+    assert len(await persons_of(infra, user)) == 31
     assert await cli.run(["seed", "--user", user.username], infra=infra) == 1
     assert "只有本人" in capsys.readouterr().err
 

@@ -69,6 +69,7 @@ class MessageRecord:
     clarify: Clarification | None = None  # 反问 and its options (拿不准 messages)
     clarification_of: uuid.UUID | None = None  # an answer: the message whose 反问 it answers
     clarification_resolved_at: datetime | None = None  # the 反问 was settled
+    history_used_of: tuple[uuid.UUID, ...] = ()  # 上文 the answer was read with (AC-10)
 
 
 @dataclass(frozen=True)

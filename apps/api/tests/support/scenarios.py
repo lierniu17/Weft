@@ -571,3 +571,156 @@ async def dinner_confirmed_as_in_bot2(infra: Infra, user: TestUser) -> DraftReco
         updated = await drafts.update_draft(infra, draft.id, content)
     assert isinstance(updated, Ok), updated
     return await confirmed(infra, user, draft.id)
+
+
+# --- 补充追问 (conversation-context BOT-3, BOT-4) -------------------------------------------
+
+XIAOLI_DINNER = "今天和小李吃饭了"
+XIAOLI_QUESTION = "小李是你的同事还是同学？"
+LAOMA = "前阵子见了老马，他胖了不少"
+LAOMA_QUESTION = "前阵子大概是什么时候？"
+AJIE_HIKE = "周末和阿杰去爬山了"
+
+
+def _type_option(label: str, subtype: str, category: str = "social") -> dict[str, Any]:
+    patch = {"types": [{"category": category, "subtype": subtype, "original": label}]}
+    return {"label": label, "patch": patch}
+
+
+def dinner_with_xiaoli(llm: LLMScript) -> None:
+    """BOT-3: the record does not say who 小李 is to me, so the Draft asks."""
+    llm.graphiti_entities(XIAOLI_DINNER, [("小李", "Person")])
+    llm.graphiti_facts(XIAOLI_DINNER, [])
+    llm.enrichment(
+        XIAOLI_DINNER,
+        {
+            "persons": ["小李"],
+            **_enriched(
+                facts=[
+                    {
+                        "index": None,
+                        "subject": "小李",
+                        "predicate": "EXPERIENCED",
+                        "object": "和我吃饭",
+                        "confidence": "witnessed",
+                        "valid_at": "2026-11-16",
+                    }
+                ]
+            ),
+            "questions": [
+                {
+                    "field": "relationship_type",
+                    "pair": ["我", "小李"],
+                    "prompt": XIAOLI_QUESTION,
+                    "options": [_type_option("同事", "同事"), _type_option("同学", "同学")],
+                }
+            ],
+        },
+    )
+
+
+def saw_laoma(llm: LLMScript) -> None:
+    """BOT-4: 前阵子 gives no month, so the Draft asks when it was."""
+    llm.graphiti_entities(LAOMA, [("老马", "Person")])
+    llm.graphiti_facts(LAOMA, [_fact("老马", "HAS_TRAIT", "胖了", "老马胖了不少")])
+    llm.enrichment(
+        LAOMA,
+        {
+            "persons": ["老马"],
+            **_enriched(
+                facts=[
+                    {
+                        "index": 0,
+                        "subject": "老马",
+                        "predicate": "HAS_TRAIT",
+                        "object": "胖了不少",
+                        "confidence": "witnessed",
+                        "valid_at": "2026-11-16",
+                    }
+                ]
+            ),
+            "questions": [
+                {
+                    "field": "occurred",
+                    "prompt": LAOMA_QUESTION,
+                    "options": [
+                        {"label": "这个月", "patch": {"occurred": "2026-11"}},
+                        {"label": "上个月", "patch": {"occurred": "2026-10"}},
+                        {"label": "两三个月前", "patch": {"occurred": "2026-09"}},
+                    ],
+                }
+            ],
+        },
+    )
+
+
+def hike_with_ajie_sloppy_questions(llm: LLMScript) -> None:
+    """The model asks five questions, most of them not allowed (AC-4: only whitelisted
+    fields, 2–4 legal options each, a patch only of its own field, at most 2)."""
+    llm.graphiti_entities(AJIE_HIKE, [("阿杰", "Person")])
+    llm.graphiti_facts(AJIE_HIKE, [])
+    llm.enrichment(
+        AJIE_HIKE,
+        {
+            "persons": ["阿杰"],
+            **_enriched(),
+            "questions": [
+                {  # not a whitelisted field
+                    "field": "gender",
+                    "pair": ["我", "阿杰"],
+                    "prompt": "阿杰是男是女？",
+                    "options": [{"label": "男", "patch": {}}, {"label": "女", "patch": {}}],
+                },
+                {  # one option also moves the occurred date; one left -> dropped
+                    "field": "relationship_type",
+                    "pair": ["我", "阿杰"],
+                    "prompt": "阿杰是你的什么人？",
+                    "options": [
+                        _type_option("朋友", "朋友"),
+                        {
+                            "label": "同事",
+                            "patch": {
+                                "types": [
+                                    {"category": "social", "subtype": "同事", "original": "同事"}
+                                ],
+                                "occurred": "2026-11",
+                            },
+                        },
+                    ],
+                },
+                {  # about someone the Draft does not know
+                    "field": "met",
+                    "pair": ["我", "小美"],
+                    "prompt": "你和小美怎么认识的？",
+                    "options": [
+                        {"label": "同学", "patch": {"origin": "同学"}},
+                        {"label": "同事", "patch": {"origin": "同事"}},
+                    ],
+                },
+                {  # kept as q1: the option dated in the future is dropped, two remain
+                    "field": "met",
+                    "pair": ["我", "阿杰"],
+                    "prompt": "你和阿杰怎么认识的？",
+                    "options": [
+                        {"label": "爬山认识的", "patch": {"origin": "爬山"}},
+                        {"label": "朋友介绍", "patch": {"origin": "朋友介绍"}},
+                        {"label": "明年认识", "patch": {"met_at": "2027"}},
+                    ],
+                },
+                {  # kept as q2
+                    "field": "occurred",
+                    "prompt": "周末是哪个周末？",
+                    "options": [
+                        {"label": "这周末", "patch": {"occurred": "2026-11-15"}},
+                        {"label": "上周末", "patch": {"occurred": "2026-11-08"}},
+                    ],
+                },
+                {  # legal, but a third question: dropped
+                    "field": "relationship_type",
+                    "pair": ["阿杰", "我"],
+                    "prompt": "阿杰是你的朋友还是同事？",
+                    "options": [_type_option("朋友", "朋友"), _type_option("同事", "同事")],
+                },
+            ],
+        },
+    )

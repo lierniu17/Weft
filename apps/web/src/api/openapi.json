@@ -130,6 +130,17 @@
       "title": "Citations",
       "type": "array"
      },
+     "clarify": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/AnswerClarify"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "kind = clarify: the 指代确认 question and its candidates"
+     },
      "follow_ups": {
       "description": "追问建议, e.g. 「他俩什么时候认识的？」",
       "items": {
@@ -208,13 +219,75 @@
     "title": "Answer",
     "type": "object"
    },
+   "AnswerClarify": {
+    "additionalProperties": false,
+    "description": "指代确认 (conversation-context AC-1): a question and 2–4 candidates to pick from.",
+    "properties": {
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/AnswerClarifyOption"
+      },
+      "maxItems": 4,
+      "minItems": 2,
+      "title": "Options",
+      "type": "array"
+     },
+     "question": {
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+     }
+    },
+    "required": [
+     "question",
+     "options"
+    ],
+    "title": "AnswerClarify",
+    "type": "object"
+   },
+   "AnswerClarifyOption": {
+    "additionalProperties": false,
+    "properties": {
+     "label": {
+      "description": "Who or which event, e.g. 「老周（周涛，大学同学）」",
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+     },
+     "person_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The person this option means (always in the user's graph)",
+      "title": "Person Id"
+     },
+     "question": {
+      "description": "The full question answered when this is picked",
+      "minLength": 1,
+      "title": "Question",
+      "type": "string"
+     }
+    },
+    "required": [
+     "label",
+     "question"
+    ],
+    "title": "AnswerClarifyOption",
+    "type": "object"
+   },
    "AnswerKind": {
     "enum": [
      "text",
      "path",
      "list",
      "stat",
-     "no_answer"
+     "no_answer",
+     "clarify"
     ],
     "title": "AnswerKind",
     "type": "string"
@@ -265,6 +338,40 @@
      "citations"
     ],
     "title": "AnswerListItem",
+    "type": "object"
+   },
+   "AnswerQuestionRequest": {
+    "additionalProperties": false,
+    "description": "Answer a 补充追问: click an option (no model call) or type an answer (one model call\nthat may only change the question's field). Exactly one of the two.",
+    "properties": {
+     "option": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Index of the clicked option in question.options",
+      "title": "Option"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "A typed answer (自己填)",
+      "title": "Text"
+     }
+    },
+    "title": "AnswerQuestionRequest",
     "type": "object"
    },
    "AnswerSegment": {
@@ -519,9 +626,21 @@
       "type": "string"
      },
      "label": {
-      "description": "What clicking does, e.g. 「记下：…」「查：…」",
+      "description": "What clicking does: 「记下：…」「查：…」; 指代确认: 「老周（周涛，同学）」",
       "title": "Label",
       "type": "string"
+     },
+     "person_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "指代确认 (source ask): the person this candidate means; null otherwise",
+      "title": "Person Id"
      },
      "question": {
       "anyOf": [
@@ -539,14 +658,15 @@
     "required": [
      "label",
      "intent",
-     "question"
+     "question",
+     "person_id"
     ],
     "title": "ClarifyOptionOut",
     "type": "object"
    },
    "ClarifyOut": {
     "additionalProperties": false,
-    "description": "反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options.",
+    "description": "反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options; or\n指代确认 (source ask, conversation context): which person / event a question meant, 2–4\noptions. Clicking either goes through ``POST /api/messages/{id}/clarify``.",
     "properties": {
      "options": {
       "items": {
@@ -563,9 +683,19 @@
       "description": "Settled (clicked, answered, re-routed): hide options",
       "title": "Resolved",
       "type": "boolean"
+     },
+     "source": {
+      "description": "intent: 反问 of intent recognition; ask: 问答's 指代确认 (clicking is free)",
+      "enum": [
+       "intent",
+       "ask"
+      ],
+      "title": "Source",
+      "type": "string"
      }
     },
     "required": [
+     "source",
      "question",
      "options",
      "resolved"
@@ -815,6 +945,14 @@
        "$ref": "#/components/schemas/DraftProfileItem"
       },
       "title": "Profile",
+      "type": "array"
+     },
+     "questions": {
+      "description": "补充追问, at most 2; server-owned (see module doc)",
+      "items": {
+       "$ref": "#/components/schemas/DraftQuestion"
+      },
+      "title": "Questions",
       "type": "array"
      },
      "relationships": {
@@ -1074,6 +1212,104 @@
      "confidence"
     ],
     "title": "DraftProfileItem",
+    "type": "object"
+   },
+   "DraftQuestion": {
+    "additionalProperties": false,
+    "properties": {
+     "answer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The clicked option's label or the typed answer",
+      "title": "Answer"
+     },
+     "answered": {
+      "default": false,
+      "title": "Answered",
+      "type": "boolean"
+     },
+     "field": {
+      "$ref": "#/components/schemas/QuestionField"
+     },
+     "id": {
+      "description": "Stable id of this item, unique within the draft",
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+     },
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/DraftQuestionOption"
+      },
+      "maxItems": 4,
+      "minItems": 2,
+      "title": "Options",
+      "type": "array"
+     },
+     "pair": {
+      "anyOf": [
+       {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+         {
+          "minLength": 1,
+          "type": "string"
+         },
+         {
+          "minLength": 1,
+          "type": "string"
+         }
+        ],
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The two person mentions asked about (relationship_type / met only)",
+      "title": "Pair"
+     },
+     "prompt": {
+      "description": "e.g. 小李是你的同事还是同学？",
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "field",
+     "prompt",
+     "options"
+    ],
+    "title": "DraftQuestion",
+    "type": "object"
+   },
+   "DraftQuestionOption": {
+    "additionalProperties": false,
+    "properties": {
+     "label": {
+      "description": "Button text, e.g. 同事",
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+     },
+     "patch": {
+      "$ref": "#/components/schemas/QuestionPatch"
+     }
+    },
+    "required": [
+     "label",
+     "patch"
+    ],
+    "title": "DraftQuestionOption",
     "type": "object"
    },
    "DraftRef": {
@@ -1571,6 +1807,27 @@
      "citations"
     ],
     "title": "FeelingOut",
+    "type": "object"
+   },
+   "FollowedOut": {
+    "additionalProperties": false,
+    "description": "An earlier question an answer was read with (上文, 「接着：…」).",
+    "properties": {
+     "message_id": {
+      "format": "uuid",
+      "title": "Message Id",
+      "type": "string"
+     },
+     "question": {
+      "title": "Question",
+      "type": "string"
+     }
+    },
+    "required": [
+     "message_id",
+     "question"
+    ],
+    "title": "FollowedOut",
     "type": "object"
    },
    "GraphEdgeOut": {
@@ -2140,6 +2397,14 @@
       ],
       "description": "record / record_ask: the Entry + Draft"
      },
+     "history_used_of": {
+      "description": "上文: the earlier questions the answer was read with, oldest first; empty when it was answered on its own. Non-empty: show 「接着：<last question>」 and offer 「不接上文」 (POST /api/messages/{id}/reanswer)",
+      "items": {
+       "$ref": "#/components/schemas/FollowedOut"
+      },
+      "title": "History Used Of",
+      "type": "array"
+     },
      "intent": {
       "$ref": "#/components/schemas/Intent",
       "description": "How the message is handled now (after any re-route)"
@@ -2202,7 +2467,8 @@
      "reply",
      "problems",
      "clarify",
-     "clarification_of"
+     "clarification_of",
+     "history_used_of"
     ],
     "title": "MessageOut",
     "type": "object"
@@ -2526,6 +2792,84 @@
      "summary"
     ],
     "title": "ProfileOut",
+    "type": "object"
+   },
+   "QuestionField": {
+    "enum": [
+     "relationship_type",
+     "met",
+     "occurred"
+    ],
+    "title": "QuestionField",
+    "type": "string"
+   },
+   "QuestionPatch": {
+    "additionalProperties": false,
+    "description": "The change one answer makes. Only the keys of the question's field may be set:\n``types`` (relationship_type); ``met_at`` and / or ``origin`` (met); ``occurred`` (the\nEntry's 发生日期, re-timing the Draft's dates anchored on it).",
+    "properties": {
+     "met_at": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Met At"
+     },
+     "occurred": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Occurred"
+     },
+     "origin": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Origin"
+     },
+     "types": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/DraftRelationshipType"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Types"
+     }
+    },
+    "title": "QuestionPatch",
     "type": "object"
    },
    "QuotaOut": {
@@ -3581,6 +3925,69 @@
     ]
    }
   },
+  "/api/drafts/{draft_id}/questions/{question_id}/answer": {
+   "post": {
+    "description": "补充追问: apply the clicked option, or the typed answer read by one model call\n(``not_understood`` leaves the Draft unchanged). Counts against no quota.",
+    "operationId": "answer_draft_question_api_drafts__draft_id__questions__question_id__answer_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "draft_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Draft Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "question_id",
+      "required": true,
+      "schema": {
+       "title": "Question Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnswerQuestionRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DraftOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Answer Draft Question",
+    "tags": [
+     "entries"
+    ]
+   }
+  },
   "/api/drafts/{draft_id}/retry": {
    "post": {
     "operationId": "retry_draft_api_drafts__draft_id__retry_post",
@@ -4026,7 +4433,7 @@
   },
   "/api/messages/{message_id}/clarify": {
    "post": {
-    "description": "Click option ``option`` of the message's 反问; returns the updated message.",
+    "description": "Click option ``option`` of the message's 反问 or 指代确认 (source ask: answers the\noption's question, counting nothing more); returns the updated message.",
     "operationId": "clarify_message_api_messages__message_id__clarify_post",
     "parameters": [
      {
@@ -4073,6 +4480,50 @@
      }
     },
     "summary": "Clarify Message",
+    "tags": [
+     "messages"
+    ]
+   }
+  },
+  "/api/messages/{message_id}/reanswer": {
+   "post": {
+    "description": "「不接上文」: answer the message's question again without the earlier questions it was\nread with; counts one ask and replaces the answer. 409 if it was not read with any.",
+    "operationId": "reanswer_message_api_messages__message_id__reanswer_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "message_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Message Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MessageOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reanswer Message",
     "tags": [
      "messages"
     ]

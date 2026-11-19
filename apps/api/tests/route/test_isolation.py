@@ -256,6 +256,15 @@ async def _discard(w: World) -> None:
     assert_not_found(await w.b.client.post(f"/api/drafts/{w.a_draft_pending}/discard"))
 
 
+@case("POST", "/api/drafts/{draft_id}/questions/{question_id}/answer")
+async def _answer_question(w: World) -> None:
+    for body in ({"option": 0}, {"text": "同事"}):
+        response = await w.b.client.post(
+            f"/api/drafts/{w.a_draft_pending}/questions/q1/answer", json=body
+        )
+        assert_not_found(response)
+
+
 @case("POST", "/api/drafts/{draft_id}/retry")
 async def _retry(w: World) -> None:
     assert_not_found(await w.b.client.post(f"/api/drafts/{w.a_draft_failed}/retry"))
@@ -299,6 +308,12 @@ async def _clarify(w: World) -> None:
             f"/api/messages/{w.a_message}/clarify", json={"option": option}, params=smuggled(w)
         )
         assert_not_found(response)
+
+
+@case("POST", "/api/messages/{message_id}/reanswer")
+async def _reanswer(w: World) -> None:
+    response = await w.b.client.post(f"/api/messages/{w.a_message}/reanswer", params=smuggled(w))
+    assert_not_found(response)
 
 
 # --- persons / relationships ------------------------------------------------------------

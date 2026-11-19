@@ -2,6 +2,8 @@
 
     uv run python -m weft.eval extraction [--samples PATH] [--split dev|heldout] [--limit N]
                                           [--out DIR] [--record DIR]
+    uv run python -m weft.eval questions  [--samples PATH] [--split dev|heldout] [--limit N]
+                                          [--out DIR] [--record DIR]
     uv run python -m weft.eval qa         [--questions PATH] [--out DIR] [--record DIR]
     uv run python -m weft.eval intent     [--samples PATH] [--split dev|heldout] [--limit N]
                                           [--out DIR] [--record DIR]
@@ -11,8 +13,14 @@
 * ``extraction`` (AC-42): the real pipeline over ``eval/extraction/samples.jsonl``, scored
   by ``eval/extraction/score.py`` (person F1 ≥ 0.9, relationship-type and confidence
   accuracy ≥ 0.8).
+* ``questions`` (conversation-context AC-13): the same pipeline over
+  ``eval/extraction/questions.jsonl``, scoring only the 补充追问 the Drafts ask
+  (``eval/extraction/questions_score.py``: question hit rate ≥ 0.80, false-question rate on
+  complete records ≤ 0.10; decided on the held-out split).
 * ``qa`` (AC-36, AC-38): ``eval/qa/questions.jsonl`` over the seed graph; per-kind accuracy
-  and the fabrication rate on the no-answer questions (must be 0).
+  and the fabrication rate on the no-answer questions (must be 0). Conversation context
+  (conversation-context AC-12): confirm rate ≥ 0.85, false-confirm rate ≤ 0.10 and follow-up
+  accuracy ≥ 0.80, per split (the original 43 are ``base``; judged on ``heldout``).
 * ``intent`` (intent-routing AC-11): message recognition over ``eval/intent/samples.jsonl``,
   scored by ``eval/intent/score.py`` (accuracy ≥ 0.95, record miss rate ≤ 0.02, false
   record rate ≤ 0.05, time accuracy ≥ 0.90; decided on the held-out split).
@@ -73,6 +81,12 @@ def _parser() -> argparse.ArgumentParser:
         "--split", choices=("dev", "heldout"), default=None, help="only that split's samples"
     )
     ext.add_argument("--limit", type=int, default=None, help="only the first N samples")
+    qs = sub.add_parser("questions", help="补充追问 quality (conversation-context AC-13)")
+    qs.add_argument("--samples", type=Path, default=extraction.QUESTIONS_PATH)
+    qs.add_argument(
+        "--split", choices=("dev", "heldout"), default=None, help="only that split's samples"
+    )
+    qs.add_argument("--limit", type=int, default=None, help="only the first N samples")
     qa_cmd = sub.add_parser("qa", help="Q&A quality (AC-36, AC-38)")
     qa_cmd.add_argument("--questions", type=Path, default=QUESTIONS_PATH)
     intent_cmd = sub.add_parser("intent", help="intent recognition quality (AC-11)")
@@ -87,7 +101,7 @@ def _parser() -> argparse.ArgumentParser:
         "--split", choices=("dev", "heldout"), default=None, help="only that split's groups"
     )
     clarify_cmd.add_argument("--limit", type=int, default=None, help="only the first N groups")
-    for cmd in (ext, qa_cmd, intent_cmd, clarify_cmd):
+    for cmd in (ext, qs, qa_cmd, intent_cmd, clarify_cmd):
         cmd.add_argument("--out", type=Path, default=OUT_DIR)
         cmd.add_argument("--record", type=Path, default=None, help="save replay fixtures here")
     return parser
@@ -142,6 +156,14 @@ async def _run(args: argparse.Namespace, settings: Settings) -> int:
             samples = [json.loads(line) for line in lines if line.strip()]
             samples = intent_eval.load_scorer().select(samples, args.split)[: args.limit]
             predictions, report = await intent_eval.run(infra, samples)
+            report["predictions"] = predictions
+            passed = bool(report["passed"]) and not report["errors"]
+        elif args.which == "questions":
+            lines = args.samples.read_text(encoding="utf-8").splitlines()
+            samples = [json.loads(line) for line in lines if line.strip()]
+            scorer = extraction.load_scorer("questions_score")
+            samples = scorer.select(samples, args.split)[: args.limit]
+            predictions, report = await extraction.run_questions(infra, samples)
             report["predictions"] = predictions
             passed = bool(report["passed"]) and not report["errors"]
         elif args.which == "extraction":

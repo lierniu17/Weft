@@ -108,7 +108,22 @@ def tool_calls_completion(calls: list[tuple[str, dict[str, Any]]], turn: int) ->
     return completion
 
 
-def _ask_turn(body: dict[str, Any], question: str, turn: int) -> bool:
+HISTORY_MARKER = "\n上文："  # weft.services.ask: the 上文 JSON follows it in the system prompt
+
+
+def _ask_history(body: dict[str, Any]) -> list[str]:
+    """The questions of the 上文 a Q&A request carries (oldest first; [] if none)."""
+    messages = body.get("messages") or [{}]
+    system = messages[0].get("content") or ""
+    if HISTORY_MARKER not in system:
+        return []
+    turns = json.loads(system.rsplit(HISTORY_MARKER, 1)[1])
+    return [t["question"] for t in turns]
+
+
+def _ask_turn(
+    body: dict[str, Any], question: str, turn: int, history: list[str] | None = None
+) -> bool:
     tools = {t["function"]["name"] for t in body.get("tools") or []}
     messages = body.get("messages", [])
     return (
@@ -116,7 +131,12 @@ def _ask_turn(body: dict[str, Any], question: str, turn: int) -> bool:
         and len(messages) > 1
         and messages[1].get("content") == question
         and sum(m.get("role") == "assistant" for m in messages) == turn
+        and (history is None or _ask_history(body) == history)
     )
+
+
+def _task_history(task: dict[str, Any]) -> list[str]:
+    return [t["question"] for t in task.get("history") or []]
 
 
 def _schema_name(body: dict[str, Any]) -> str | None:
@@ -274,6 +294,21 @@ class LLMScript:
         self.rules.append(Rule(f"enrich-timeout[{text[:12]}]", matches, None))
         return self
 
+    def question_answer(self, prompt: str, text: str, patch: Any) -> LLMScript:
+        """The model's patch for ``text`` typed as the answer to the 补充追问 ``prompt``
+        (conversation-context AC-7); ``patch`` may be anything, to test the checks."""
+
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return (
+                task is not None
+                and task["task"] == "answer_draft_question"
+                and task["question"]["prompt"] == prompt
+                and task["answer"] == text
+            )
+
+        return self._add(f"question-answer[{prompt[:8]}][{text[:8]}]", matches, {"patch": patch})
+
     def person_match(
         self, mention: str, *, decision: str, candidates: list[int] | None = None
     ) -> LLMScript:
@@ -304,9 +339,11 @@ class LLMScript:
         question: str | None = None,
         reply: str | None = None,
         clarify: Any = None,
+        history: list[str] | None = None,
     ) -> LLMScript:
         """The model's reading of a chat message (``weft.services.intent``), sent without a
-        pending 反问. ``clarify``: the 反问 the model writes (any JSON, to test the checks)."""
+        pending 反问. ``clarify``: the 反问 the model writes (any JSON, to test the checks).
+        ``history``: only if sent with that 上文 (its questions, oldest first)."""
 
         def matches(body: dict[str, Any]) -> bool:
             task = _weft_task(body)
@@ -315,10 +352,11 @@ class LLMScript:
                 and task["task"] == "intent"
                 and task["text"] == text
                 and "context" not in task
+                and (history is None or _task_history(task) == history)
             )
 
         return self._add(
-            f"intent[{text[:12]}]",
+            f"intent[{text[:12]}]{'+history' if history else ''}",
             matches,
             {
                 "intent": intent,
@@ -372,6 +410,50 @@ class LLMScript:
                 "question": question,
                 "reply": reply,
                 "clarify": clarify,
+                "answers_clarification": answers,
+            },
+        )
+
+    def intent_confirm(
+        self,
+        original: str,
+        clarify_question: str,
+        text: str,
+        intent: str,
+        *,
+        answers: bool,
+        confidence: float = 0.93,
+        question: str | None = None,
+        record_text: str | None = None,
+        reply: str | None = None,
+    ) -> LLMScript:
+        """The model's reading of ``text`` sent right after the question ``original`` got
+        问答's 指代确认 ``clarify_question`` (conversation-context AC-3): whether it says which
+        person or event was meant, and the full ``question`` then."""
+
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            context = (task or {}).get("context") or {}
+            return (
+                task is not None
+                and task["task"] == "intent"
+                and task["text"] == text
+                and context.get("kind") == "confirm"
+                and context.get("original") == original
+                and context.get("clarify_question") == clarify_question
+            )
+
+        return self._add(
+            f"intent-confirm[{original[:8]}][{text[:12]}]",
+            matches,
+            {
+                "intent": intent,
+                "confidence": confidence,
+                "occurred": None,
+                "record_text": record_text,
+                "question": question,
+                "reply": reply,
+                "clarify": None,
                 "answers_clarification": answers,
             },
         )
@@ -432,14 +514,21 @@ class LLMScript:
 
     # --- 问答 ------------------------------------------------------------------
 
-    def ask(self, question: str, *turns: list[tuple[str, dict[str, Any]]]) -> LLMScript:
+    def ask(
+        self,
+        question: str,
+        *turns: list[tuple[str, dict[str, Any]]],
+        history: list[str] | None = None,
+    ) -> LLMScript:
         """A Q&A conversation: turn ``i`` answers the request that already carries ``i``
-        assistant turns, by calling the given tools (the last turn calls final_answer)."""
+        assistant turns, by calling the given tools (the last turn calls final_answer).
+        ``history``: only if sent with that 上文 (its questions, oldest first; [] for none)."""
+        suffix = "" if history is None else f"+history{len(history)}"
         for turn, calls in enumerate(turns):
             self.rules.append(
                 Rule(
-                    f"ask[{question[:12]}]#{turn}",
-                    lambda b, t=turn: _ask_turn(b, question, t),
+                    f"ask[{question[:12]}]{suffix}#{turn}",
+                    lambda b, t=turn: _ask_turn(b, question, t, history),
                     tool_calls_completion(calls, turn),
                 )
             )

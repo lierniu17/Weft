@@ -1,0 +1,52 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你帮用户把他对草稿追问的打字回答，转换成对草稿的一处修改。\n输入给出记录原文（entry）、追问（question：field、pair、prompt 和候选 options）\n和用户的回答（answer）。\n只输出 JSON 对象：{\"patch\": {...}} 或 {\"patch\": null}。\npatch 只能写追问对应的字段，写法和候选里的 patch 一样：\n- relationship_type：{\"types\": [{\"category\": ..., \"subtype\": ..., \"original\": ...}]}，\n  category 和 subtype 取自 relationship_types（放不下时用该大类的“其他”），\n  original 保留回答里的说法；\n- met：{\"met_at\": \"YYYY、YYYY-MM 或 YYYY-MM-DD\"}、{\"origin\": \"认识途径\"}，或两者都写；\n- occurred：{\"occurred\": \"YYYY、YYYY-MM 或 YYYY-MM-DD\"}。\n回答里的相对时间（“上个月中旬”“去年夏天”“三年前”）以 written_on（写记录的日子）为参照换算；\n精度只到回答说到的程度（“上个月中旬”只写到月，“去年”只写年），日期不能晚于 written_on。\n回答没有给出这个字段的信息、答非所问、说不知道或想跳过时，patch 为 null。不要编造。"
+        },
+        {
+          "role": "user",
+          "content": "{\"task\": \"answer_draft_question\", \"entry\": {\"text\": \"前阵子见了老马，他胖了不少\", \"occurred\": \"2026-11-16\", \"precision\": \"day\"}, \"written_on\": \"2026-11-19\", \"question\": {\"field\": \"occurred\", \"pair\": null, \"prompt\": \"前阵子大概是什么时候？\", \"options\": [{\"label\": \"这个月\", \"patch\": {\"occurred\": \"2026-11\"}}, {\"label\": \"上个月\", \"patch\": {\"occurred\": \"2026-10\"}}, {\"label\": \"两三个月前\", \"patch\": {\"occurred\": \"2026-09\"}}]}, \"answer\": \"大概上个月中旬\"}"
+        }
+      ],
+      "stream": false,
+      "temperature": 0.0,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-fixture",
+      "object": "chat.completion",
+      "created": 1763251200,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"patch\": {\"occurred\": \"2026-10\"}}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 812,
+        "completion_tokens": 164,
+        "total_tokens": 976
+      },
+      "system_fingerprint": "fp_weft_fixture"
+    }
+  }
+}

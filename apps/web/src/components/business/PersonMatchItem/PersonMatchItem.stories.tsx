@@ -101,6 +101,7 @@ function Choosing() {
     relationships: [],
     feelings: [],
     profile: [],
+    questions: [],
   });
   return (
     <PersonMatchItem
