@@ -378,7 +378,14 @@ def test_feeling_levels_have_chinese_labels() -> None:
 
 def test_json_schema_exposes_spec_field_names() -> None:
     schema = draft_json_schema()
-    assert set(schema["properties"]) == {"persons", "facts", "relationships", "feelings", "profile"}
+    assert set(schema["properties"]) == {
+        "persons",
+        "facts",
+        "relationships",
+        "feelings",
+        "profile",
+        "questions",
+    }
     assert set(schema["required"]) == set(schema["properties"])  # always emitted
     text = json.dumps(schema, ensure_ascii=False)
     for name in [

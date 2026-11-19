@@ -201,3 +201,41 @@ async def test_a_failed_extraction_can_be_retried(register: Register, llm: LLMSc
     assert (await user.client.get(f"/api/drafts/{draft_id}")).json()["status"] == "pending"
     again = await user.client.post(f"/api/drafts/{draft_id}/retry")
     assert (again.status_code, again.json()["error"]) == (409, "not_failed")
+
+
+# --- 补充追问 (conversation-context AC-6, AC-7, AC-11) ---------------------------------------
+
+
+async def test_draft_questions_come_back_with_the_draft_and_are_answered_by_route(
+    register: Register, llm: LLMScript
+) -> None:
+    sc.dinner_with_xiaoli(llm)
+    llm.question_answer(sc.XIAOLI_QUESTION, "不知道", None)
+    user = await register()
+    draft_id = (await submit(user, sc.XIAOLI_DINNER))["draft"]["id"]
+    url = f"/api/drafts/{draft_id}/questions/q1/answer"
+
+    [question] = (await user.client.get(f"/api/drafts/{draft_id}")).json()["content"]["questions"]
+    assert question["prompt"] == sc.XIAOLI_QUESTION
+    assert question["answered"] is False
+    assert [o["label"] for o in question["options"]] == ["同事", "同学"]
+
+    both = await user.client.post(url, json={"option": 0, "text": "同事"})
+    neither = await user.client.post(url, json={})
+    not_understood = await user.client.post(url, json={"text": "不知道"})
+    assert (both.status_code, both.json()["error"]) == (422, "validation_error")
+    assert (neither.status_code, neither.json()["error"]) == (422, "validation_error")
+    assert (not_understood.status_code, not_understood.json()["error"]) == (422, "not_understood")
+    assert not_understood.json()["message"] == "没理解这个回答，可以直接在草稿里改"
+
+    clicked = await user.client.post(url, json={"option": 0})
+    assert clicked.status_code == 200, clicked.text
+    content = clicked.json()["content"]
+    assert content["questions"][0]["answered"] is True
+    assert [t["subtype"] for t in content["relationships"][0]["types"]] == ["同事"]
+    again = await user.client.post(url, json={"option": 1})
+    assert (again.status_code, again.json()["error"]) == (409, "already_answered")
+    missing = await user.client.post(url.replace("q1", "q7"), json={"option": 0})
+    assert (missing.status_code, missing.json()["error"]) == (404, "not_found")
+    restored = (await user.client.get(f"/api/drafts/{draft_id}")).json()["content"]
+    assert restored == content

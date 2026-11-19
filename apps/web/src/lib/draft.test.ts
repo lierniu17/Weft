@@ -59,6 +59,7 @@ const draft: Draft = {
   profile: [
     { id: "g1", person: "小李", field: "hometown", value: "湖南长沙", confidence: "self_told" },
   ],
+  questions: [],
 };
 
 describe("草稿：需选择未选时不能确认 (AC-12)", () => {

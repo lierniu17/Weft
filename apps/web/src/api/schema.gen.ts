@@ -154,6 +154,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/drafts/{draft_id}/questions/{question_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Draft Question
+         * @description 补充追问: apply the clicked option, or the typed answer read by one model call
+         *     (``not_understood`` leaves the Draft unchanged). Counts against no quota.
+         */
+        post: operations["answer_draft_question_api_drafts__draft_id__questions__question_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/drafts/{draft_id}/retry": {
         parameters: {
             query?: never;
@@ -629,6 +650,23 @@ export interface components {
              */
             subtitle?: string | null;
         };
+        /**
+         * AnswerQuestionRequest
+         * @description Answer a 补充追问: click an option (no model call) or type an answer (one model call
+         *     that may only change the question's field). Exactly one of the two.
+         */
+        AnswerQuestionRequest: {
+            /**
+             * Option
+             * @description Index of the clicked option in question.options
+             */
+            option?: number | null;
+            /**
+             * Text
+             * @description A typed answer (自己填)
+             */
+            text?: string | null;
+        };
         /** AnswerSegment */
         AnswerSegment: {
             /**
@@ -886,6 +924,11 @@ export interface components {
             persons?: components["schemas"]["DraftPerson"][];
             /** Profile */
             profile?: components["schemas"]["DraftProfileItem"][];
+            /**
+             * Questions
+             * @description 补充追问, at most 2; server-owned (see module doc)
+             */
+            questions?: components["schemas"]["DraftQuestion"][];
             /** Relationships */
             relationships?: components["schemas"]["DraftRelationship"][];
         };
@@ -979,6 +1022,49 @@ export interface components {
             person: string;
             /** Value */
             value: string;
+        };
+        /** DraftQuestion */
+        DraftQuestion: {
+            /**
+             * Answer
+             * @description The clicked option's label or the typed answer
+             */
+            answer?: string | null;
+            /**
+             * Answered
+             * @default false
+             */
+            answered: boolean;
+            field: components["schemas"]["QuestionField"];
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            /** Options */
+            options: components["schemas"]["DraftQuestionOption"][];
+            /**
+             * Pair
+             * @description The two person mentions asked about (relationship_type / met only)
+             */
+            pair?: [
+                string,
+                string
+            ] | null;
+            /**
+             * Prompt
+             * @description e.g. 小李是你的同事还是同学？
+             */
+            prompt: string;
+        };
+        /** DraftQuestionOption */
+        DraftQuestionOption: {
+            /**
+             * Label
+             * @description Button text, e.g. 同事
+             */
+            label: string;
+            patch: components["schemas"]["QuestionPatch"];
         };
         /** DraftRef */
         DraftRef: {
@@ -1554,6 +1640,27 @@ export interface components {
             person: components["schemas"]["PersonOut"];
             summary: components["schemas"]["SummaryOut"] | null;
         };
+        /**
+         * QuestionField
+         * @enum {string}
+         */
+        QuestionField: "relationship_type" | "met" | "occurred";
+        /**
+         * QuestionPatch
+         * @description The change one answer makes. Only the keys of the question's field may be set:
+         *     ``types`` (relationship_type); ``met_at`` and / or ``origin`` (met); ``occurred`` (the
+         *     Entry's 发生日期, re-timing the Draft's dates anchored on it).
+         */
+        QuestionPatch: {
+            /** Met At */
+            met_at?: string | null;
+            /** Occurred */
+            occurred?: string | null;
+            /** Origin */
+            origin?: string | null;
+            /** Types */
+            types?: components["schemas"]["DraftRelationshipType"][] | null;
+        };
         /** QuotaOut */
         QuotaOut: {
             /** Limit */
@@ -2067,6 +2174,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_draft_question_api_drafts__draft_id__questions__question_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerQuestionRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

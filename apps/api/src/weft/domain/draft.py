@@ -8,6 +8,7 @@ Shape follows the spec (「录入与草稿流程」 step 3)::
       relationships: [{id, pair, types[], met_at?, origin?, introduced_by?, status?, confidence}]
       feelings: [{id, from, to, dimension, level, confidence}]
       profile:  [{id, person, field, value, confidence}]
+      questions: [{id, field, pair?, prompt, options[{label, patch}], answered, answer?}]
     }
 
 Every item has an ``id`` that is stable and unique within the draft (补充约定); the web
@@ -18,6 +19,12 @@ Person references (fact subject, relationship pair / introducer, feeling from / 
 profile person) are ``persons[].mention`` strings. Self appears as an ordinary person
 entry matched to the Self person. A fact's ``object`` is free text (an organization,
 interest, event, ...), not necessarily a person.
+
+``questions`` are the 补充追问 (Draft questions, conversation-context AC-4): what the record
+left out (relationship type, how / when two people met, a too vague occurred date), each
+with 2–4 options whose ``patch`` changes only that field. They are owned by the server: an
+edit of the Draft keeps them as they are, answering one goes through its own endpoint, and
+confirmation ignores them (``weft.domain.draft_questions``).
 
 Relationships carry a ``confidence`` because AC-10 requires every draft item to show one
 and AC-28 shows it on third-party relationships.
@@ -264,6 +271,69 @@ class DraftProfileItem(_Model):
     confidence: Confidence
 
 
+# --- questions (补充追问) ------------------------------------------------------
+
+
+class QuestionField(StrEnum):
+    RELATIONSHIP_TYPE = "relationship_type"  # 关系类型
+    MET = "met"  # 认识时间或途径
+    OCCURRED = "occurred"  # 发生日期
+
+
+class QuestionPatch(_Model):
+    """The change one answer makes. Only the keys of the question's field may be set:
+    ``types`` (relationship_type); ``met_at`` and / or ``origin`` (met); ``occurred`` (the
+    Entry's 发生日期, re-timing the Draft's dates anchored on it)."""
+
+    types: list[DraftRelationshipType] | None = None
+    met_at: PartialDate | None = None
+    origin: str | None = None
+    occurred: PartialDate | None = None
+
+    def set_keys(self) -> frozenset[str]:
+        return frozenset(k for k in type(self).model_fields if getattr(self, k) is not None)
+
+
+PATCH_KEYS: dict[QuestionField, frozenset[str]] = {
+    QuestionField.RELATIONSHIP_TYPE: frozenset({"types"}),
+    QuestionField.MET: frozenset({"met_at", "origin"}),
+    QuestionField.OCCURRED: frozenset({"occurred"}),
+}
+
+
+class DraftQuestionOption(_Model):
+    label: NonEmpty = Field(description="Button text, e.g. 同事")
+    patch: QuestionPatch
+
+
+class DraftQuestion(_Model):
+    id: ItemId
+    field: QuestionField
+    pair: tuple[NonEmpty, NonEmpty] | None = Field(
+        default=None,
+        description="The two person mentions asked about (relationship_type / met only)",
+    )
+    prompt: NonEmpty = Field(description="e.g. 小李是你的同事还是同学？")
+    options: Annotated[list[DraftQuestionOption], Field(min_length=2, max_length=4)]
+    answered: bool = False
+    answer: str | None = Field(
+        default=None, description="The clicked option's label or the typed answer"
+    )
+
+    @model_validator(mode="after")
+    def _patches_fit_the_field(self) -> Self:
+        if (self.pair is None) != (self.field is QuestionField.OCCURRED):
+            raise ValueError("relationship questions need a pair; an occurred question none")
+        if self.pair is not None and self.pair[0] == self.pair[1]:
+            raise ValueError("a question pair must be two different people")
+        allowed = PATCH_KEYS[self.field]
+        for option in self.options:
+            keys = option.patch.set_keys()
+            if not keys or not keys <= allowed:
+                raise ValueError(f"a {self.field.value} option may only set {sorted(allowed)}")
+        return self
+
+
 # --- the draft -------------------------------------------------------------
 
 
@@ -281,6 +351,9 @@ class Draft(_Model):
     relationships: list[DraftRelationship] = Field(default_factory=list)
     feelings: list[DraftFeeling] = Field(default_factory=list)
     profile: list[DraftProfileItem] = Field(default_factory=list)
+    questions: list[DraftQuestion] = Field(
+        default_factory=list, description="补充追问, at most 2; server-owned (see module doc)"
+    )
 
     @model_validator(mode="after")
     def _ids_are_unique(self) -> Self:
@@ -290,6 +363,9 @@ class Draft(_Model):
             (dupes if item_id in seen else seen).add(item_id)
         if dupes:
             raise ValueError(f"item ids must be unique within a draft: {', '.join(sorted(dupes))}")
+        question_ids = [q.id for q in self.questions]
+        if len(question_ids) != len(set(question_ids)):
+            raise ValueError("question ids must be unique within a draft")
         return self
 
     @model_validator(mode="after")
@@ -396,6 +472,7 @@ def draft_json_schema() -> dict[str, Any]:
 __all__ = [
     "FEELING_DIMENSION_LABELS",
     "FEELING_LEVEL_LABELS",
+    "PATCH_KEYS",
     "AffinityLevel",
     "Candidate",
     "ClosenessLevel",
@@ -405,12 +482,16 @@ __all__ = [
     "DraftNotConfirmableError",
     "DraftPerson",
     "DraftProfileItem",
+    "DraftQuestion",
+    "DraftQuestionOption",
     "DraftRelationship",
     "DraftRelationshipType",
     "DraftStatus",
     "FactConflict",
     "PersonMatch",
     "ProfileField",
+    "QuestionField",
+    "QuestionPatch",
     "RelationshipStatus",
     "TrustLevel",
     "draft_json_schema",

@@ -340,6 +340,40 @@
     "title": "AnswerListItem",
     "type": "object"
    },
+   "AnswerQuestionRequest": {
+    "additionalProperties": false,
+    "description": "Answer a 补充追问: click an option (no model call) or type an answer (one model call\nthat may only change the question's field). Exactly one of the two.",
+    "properties": {
+     "option": {
+      "anyOf": [
+       {
+        "minimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "Index of the clicked option in question.options",
+      "title": "Option"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "maxLength": 200,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "A typed answer (自己填)",
+      "title": "Text"
+     }
+    },
+    "title": "AnswerQuestionRequest",
+    "type": "object"
+   },
    "AnswerSegment": {
     "additionalProperties": false,
     "properties": {
@@ -913,6 +947,14 @@
       "title": "Profile",
       "type": "array"
      },
+     "questions": {
+      "description": "补充追问, at most 2; server-owned (see module doc)",
+      "items": {
+       "$ref": "#/components/schemas/DraftQuestion"
+      },
+      "title": "Questions",
+      "type": "array"
+     },
      "relationships": {
       "items": {
        "$ref": "#/components/schemas/DraftRelationship"
@@ -1170,6 +1212,104 @@
      "confidence"
     ],
     "title": "DraftProfileItem",
+    "type": "object"
+   },
+   "DraftQuestion": {
+    "additionalProperties": false,
+    "properties": {
+     "answer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The clicked option's label or the typed answer",
+      "title": "Answer"
+     },
+     "answered": {
+      "default": false,
+      "title": "Answered",
+      "type": "boolean"
+     },
+     "field": {
+      "$ref": "#/components/schemas/QuestionField"
+     },
+     "id": {
+      "description": "Stable id of this item, unique within the draft",
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+     },
+     "options": {
+      "items": {
+       "$ref": "#/components/schemas/DraftQuestionOption"
+      },
+      "maxItems": 4,
+      "minItems": 2,
+      "title": "Options",
+      "type": "array"
+     },
+     "pair": {
+      "anyOf": [
+       {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+         {
+          "minLength": 1,
+          "type": "string"
+         },
+         {
+          "minLength": 1,
+          "type": "string"
+         }
+        ],
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "The two person mentions asked about (relationship_type / met only)",
+      "title": "Pair"
+     },
+     "prompt": {
+      "description": "e.g. 小李是你的同事还是同学？",
+      "minLength": 1,
+      "title": "Prompt",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "field",
+     "prompt",
+     "options"
+    ],
+    "title": "DraftQuestion",
+    "type": "object"
+   },
+   "DraftQuestionOption": {
+    "additionalProperties": false,
+    "properties": {
+     "label": {
+      "description": "Button text, e.g. 同事",
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+     },
+     "patch": {
+      "$ref": "#/components/schemas/QuestionPatch"
+     }
+    },
+    "required": [
+     "label",
+     "patch"
+    ],
+    "title": "DraftQuestionOption",
     "type": "object"
    },
    "DraftRef": {
@@ -2654,6 +2794,84 @@
     "title": "ProfileOut",
     "type": "object"
    },
+   "QuestionField": {
+    "enum": [
+     "relationship_type",
+     "met",
+     "occurred"
+    ],
+    "title": "QuestionField",
+    "type": "string"
+   },
+   "QuestionPatch": {
+    "additionalProperties": false,
+    "description": "The change one answer makes. Only the keys of the question's field may be set:\n``types`` (relationship_type); ``met_at`` and / or ``origin`` (met); ``occurred`` (the\nEntry's 发生日期, re-timing the Draft's dates anchored on it).",
+    "properties": {
+     "met_at": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Met At"
+     },
+     "occurred": {
+      "anyOf": [
+       {
+        "description": "Date with precision: YYYY (year), YYYY-MM (month) or YYYY-MM-DD (day).",
+        "examples": [
+         "2015",
+         "2015-06",
+         "2026-11-16"
+        ],
+        "pattern": "^\\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\\d|3[01]))?)?$",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Occurred"
+     },
+     "origin": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Origin"
+     },
+     "types": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/DraftRelationshipType"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Types"
+     }
+    },
+    "title": "QuestionPatch",
+    "type": "object"
+   },
    "QuotaOut": {
     "additionalProperties": false,
     "properties": {
@@ -3702,6 +3920,69 @@
      }
     },
     "summary": "Discard Draft",
+    "tags": [
+     "entries"
+    ]
+   }
+  },
+  "/api/drafts/{draft_id}/questions/{question_id}/answer": {
+   "post": {
+    "description": "补充追问: apply the clicked option, or the typed answer read by one model call\n(``not_understood`` leaves the Draft unchanged). Counts against no quota.",
+    "operationId": "answer_draft_question_api_drafts__draft_id__questions__question_id__answer_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "draft_id",
+      "required": true,
+      "schema": {
+       "format": "uuid",
+       "title": "Draft Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "question_id",
+      "required": true,
+      "schema": {
+       "title": "Question Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnswerQuestionRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/DraftOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Answer Draft Question",
     "tags": [
      "entries"
     ]

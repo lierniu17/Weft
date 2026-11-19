@@ -9,9 +9,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from weft.domain.answer import Answer
 from weft.domain.confidence import Confidence
@@ -483,6 +490,24 @@ class UpdateDraftRequest(_In):
             "The Draft's dates anchored on the old date are re-timed; nothing is re-extracted."
         ),
     )
+
+
+class AnswerQuestionRequest(_In):
+    """Answer a 补充追问: click an option (no model call) or type an answer (one model call
+    that may only change the question's field). Exactly one of the two."""
+
+    option: int | None = Field(
+        default=None, ge=0, description="Index of the clicked option in question.options"
+    )
+    text: Annotated[str, Field(max_length=200)] | None = Field(
+        default=None, description="A typed answer (自己填)"
+    )
+
+    @model_validator(mode="after")
+    def _one_way(self) -> Self:
+        if (self.option is None) == (self.text is None):
+            raise ValueError("give either option or text")
+        return self
 
 
 # --- messages (intent routing) ------------------------------------------------------------

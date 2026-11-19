@@ -170,6 +170,48 @@ export type Person = string;
 export type ProfileField = "name" | "gender" | "birthday" | "hometown";
 export type Value = string;
 export type Profile = DraftProfileItem[];
+/**
+ * Stable id of this item, unique within the draft
+ */
+export type Id7 = string;
+/**
+ * This interface was referenced by `Draft`'s JSON-Schema
+ * via the `definition` "QuestionField".
+ */
+export type QuestionField = "relationship_type" | "met" | "occurred";
+/**
+ * The two person mentions asked about (relationship_type / met only)
+ */
+export type Pair1 = [string, string] | null;
+/**
+ * e.g. 小李是你的同事还是同学？
+ */
+export type Prompt = string;
+/**
+ * @minItems 2
+ * @maxItems 4
+ */
+export type Options =
+  | [DraftQuestionOption, DraftQuestionOption]
+  | [DraftQuestionOption, DraftQuestionOption, DraftQuestionOption]
+  | [DraftQuestionOption, DraftQuestionOption, DraftQuestionOption, DraftQuestionOption];
+/**
+ * Button text, e.g. 同事
+ */
+export type Label = string;
+export type Types1 = DraftRelationshipType[] | null;
+export type MetAt1 = string | null;
+export type Origin1 = string | null;
+export type Occurred = string | null;
+export type Answered = boolean;
+/**
+ * The clicked option's label or the typed answer
+ */
+export type Answer = string | null;
+/**
+ * 补充追问, at most 2; server-owned (see module doc)
+ */
+export type Questions = DraftQuestion[];
 
 export interface Draft {
   persons: Persons;
@@ -177,6 +219,7 @@ export interface Draft {
   relationships: Relationships;
   feelings: Feelings;
   profile: Profile;
+  questions: Questions;
 }
 /**
  * This interface was referenced by `Draft`'s JSON-Schema
@@ -291,4 +334,39 @@ export interface DraftProfileItem {
   field: ProfileField;
   value: Value;
   confidence: Confidence;
+}
+/**
+ * This interface was referenced by `Draft`'s JSON-Schema
+ * via the `definition` "DraftQuestion".
+ */
+export interface DraftQuestion {
+  id: Id7;
+  field: QuestionField;
+  pair?: Pair1;
+  prompt: Prompt;
+  options: Options;
+  answered?: Answered;
+  answer?: Answer;
+}
+/**
+ * This interface was referenced by `Draft`'s JSON-Schema
+ * via the `definition` "DraftQuestionOption".
+ */
+export interface DraftQuestionOption {
+  label: Label;
+  patch: QuestionPatch;
+}
+/**
+ * The change one answer makes. Only the keys of the question's field may be set:
+ * ``types`` (relationship_type); ``met_at`` and / or ``origin`` (met); ``occurred`` (the
+ * Entry's 发生日期, re-timing the Draft's dates anchored on it).
+ *
+ * This interface was referenced by `Draft`'s JSON-Schema
+ * via the `definition` "QuestionPatch".
+ */
+export interface QuestionPatch {
+  types?: Types1;
+  met_at?: MetAt1;
+  origin?: Origin1;
+  occurred?: Occurred;
 }

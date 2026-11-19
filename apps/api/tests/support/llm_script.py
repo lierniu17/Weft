@@ -294,6 +294,21 @@ class LLMScript:
         self.rules.append(Rule(f"enrich-timeout[{text[:12]}]", matches, None))
         return self
 
+    def question_answer(self, prompt: str, text: str, patch: Any) -> LLMScript:
+        """The model's patch for ``text`` typed as the answer to the 补充追问 ``prompt``
+        (conversation-context AC-7); ``patch`` may be anything, to test the checks."""
+
+        def matches(body: dict[str, Any]) -> bool:
+            task = _weft_task(body)
+            return (
+                task is not None
+                and task["task"] == "answer_draft_question"
+                and task["question"]["prompt"] == prompt
+                and task["answer"] == text
+            )
+
+        return self._add(f"question-answer[{prompt[:8]}][{text[:8]}]", matches, {"patch": patch})
+
     def person_match(
         self, mention: str, *, decision: str, candidates: list[int] | None = None
     ) -> LLMScript:
