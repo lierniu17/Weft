@@ -12,19 +12,32 @@ import {
 } from "../../../lib/draft.ts";
 import { token } from "../../../test/color.ts";
 import { Button } from "../../basics/Button/Button.tsx";
+import { WHEN_QUESTION, XIAOLI_QUESTION } from "../DraftQuestionItem/fixtures.ts";
 import { DraftReviewSheet, type DraftReviewSheetProps } from "./DraftReviewSheet.tsx";
-import { REVIEW_DRAFT, TAXONOMY, TAXONOMY_WITH_CUSTOM } from "./fixtures.ts";
+import {
+  answered,
+  NOT_UNDERSTOOD,
+  REVIEW_DRAFT,
+  TAXONOMY,
+  TAXONOMY_WITH_CUSTOM,
+} from "./fixtures.ts";
 
 const today = new Date(2026, 10, 16);
 const onConfirm = fn();
 const onDiscard = fn();
 const onOccurredOnChange = fn();
+const onAnswerQuestion = fn();
 
 type HarnessProps = {
   initial: Draft;
   occurredOn?: OccurredOn;
   taxonomy?: Taxonomy;
   variant?: DraftReviewSheetProps["variant"];
+};
+
+const XIAOLI_DRAFT: Draft = {
+  ...REVIEW_DRAFT,
+  questions: [XIAOLI_QUESTION, WHEN_QUESTION],
 };
 
 /** Applies the sheet's keyed callbacks with lib/draft.ts, as the page will. */
@@ -35,6 +48,7 @@ function Harness({ initial, occurredOn: initialDate, taxonomy = TAXONOMY, varian
     initialDate ?? { precision: "day", year: 2026, month: 11, day: 16 },
   );
   const [retimed, setRetimed] = useState(false);
+  const [hints, setHints] = useState<Record<string, string>>({});
   return (
     <>
       <Button variant="secondary" onClick={() => setOpen(true)}>
@@ -58,6 +72,16 @@ function Harness({ initial, occurredOn: initialDate, taxonomy = TAXONOMY, varian
         onConfidenceChange={(id, c) => setDraft((d) => setConfidence(d, id, c))}
         onRemoveItem={(id) => setDraft((d) => removeItem(d, id))}
         onRelationshipTypeChange={(id, i, t) => setDraft((d) => setRelationshipType(d, id, i, t))}
+        onAnswerQuestion={(id, answer) => {
+          onAnswerQuestion(id, answer);
+          const out = answered(draft, id, answer);
+          if ("hint" in out) setHints({ [id]: out.hint });
+          else {
+            setHints({});
+            setDraft(out.draft);
+          }
+        }}
+        questionHints={hints}
         onConfirm={onConfirm}
         onDiscard={onDiscard}
       />
@@ -332,5 +356,140 @@ export const Retiming: Story = {
   play: async () => {
     const s = await sheet();
     await expect(within(s).getByRole("button", { name: "发生在：今天" })).toBeDisabled();
+  },
+};
+
+const questionsOf = (s: HTMLElement) =>
+  within(s).getByRole("heading", { name: "还差一点" }).closest("section") as HTMLElement;
+
+/**
+ * Conversation context AC-5: every unanswered 补充追问 sits at the top, right under
+ * 「发生在」 and above the persons, each with its candidates and 「自己填」.
+ */
+export const QuestionsAtTheTop: Story = {
+  args: { draft: XIAOLI_DRAFT },
+  play: async () => {
+    const s = await sheet();
+    const headings = within(s)
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
+    await expect(headings[0]).toBe("还差一点");
+    const section = questionsOf(s);
+    const date = within(s).getByRole("button", { name: "发生在：今天" });
+    await expect(date.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      section.getBoundingClientRect().top,
+    );
+    const asked = [...section.querySelectorAll("[data-draft-question]")];
+    await expect(asked.map((q) => q.querySelector("p")?.textContent)).toEqual([
+      "小李是你的同事还是同学？",
+      "前阵子是什么时候？",
+    ]);
+    const xiaoli = within(section).getByRole("group", { name: "小李是你的同事还是同学？" });
+    await expect(
+      within(xiaoli)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["同事", "同学", "自己填"]);
+  },
+};
+
+/**
+ * AC-6: clicking 「同事」 answers it at once: the relationship is in the draft, the question
+ * hides, the other one stays; an item removed before stays removed.
+ */
+export const ClickACandidate: Story = {
+  args: { draft: XIAOLI_DRAFT },
+  play: async () => {
+    const s = await sheet();
+    await userEvent.click(within(s).getByRole("button", { name: "删除「张伟的籍贯是湖南长沙」" }));
+    await userEvent.click(within(questionsOf(s)).getByRole("button", { name: "同事" }));
+    await expect(onAnswerQuestion).toHaveBeenLastCalledWith("q1", { option: 0 });
+    await expect(within(s).queryByText("小李是你的同事还是同学？")).toBeNull();
+    await expect(within(s).getByText("前阵子是什么时候？")).toBeVisible();
+    await expect(within(s).getByText("我是小李的同事")).toBeVisible();
+    await expect(within(s).queryByText("张伟的籍贯是湖南长沙")).toBeNull();
+  },
+};
+
+/** AC-6: with every question answered the section is gone. */
+export const AllAnswered: Story = {
+  args: {
+    draft: {
+      ...XIAOLI_DRAFT,
+      questions: [
+        { ...XIAOLI_QUESTION, answered: true, answer: "同事" },
+        { ...WHEN_QUESTION, answered: true, answer: "上个月" },
+      ],
+    },
+  },
+  play: async () => {
+    const s = await sheet();
+    await expect(within(s).queryByRole("heading", { name: "还差一点" })).toBeNull();
+    await expect(s.querySelector("[data-draft-question]")).toBeNull();
+  },
+};
+
+/**
+ * AC-7: 「自己填」 opens a single-line input; a typed answer the server did not understand
+ * says so under it and changes nothing; an understood one hides the question.
+ */
+export const TypeAnAnswer: Story = {
+  args: { draft: XIAOLI_DRAFT },
+  play: async () => {
+    const s = await sheet();
+    const when = within(questionsOf(s)).getByRole("group", { name: "前阵子是什么时候？" });
+    await userEvent.click(within(when).getByRole("button", { name: "自己填" }));
+    const input = within(s).getByRole("textbox", { name: "自己填：前阵子是什么时候？" });
+    await userEvent.type(input, "不记得了{Enter}");
+    await expect(onAnswerQuestion).toHaveBeenLastCalledWith("q2", { text: "不记得了" });
+    await expect(input).toHaveAccessibleDescription(NOT_UNDERSTOOD);
+    await expect(within(s).getByText("前阵子是什么时候？")).toBeVisible();
+    await userEvent.clear(input);
+    await userEvent.type(input, "大概上个月中旬{Enter}");
+    await expect(onAnswerQuestion).toHaveBeenLastCalledWith("q2", { text: "大概上个月中旬" });
+    await expect(within(s).queryByText("前阵子是什么时候？")).toBeNull();
+  },
+};
+
+/** AC-8: unanswered questions never block 确认入图谱. */
+export const ConfirmWithoutAnswering: Story = {
+  args: {
+    draft: {
+      ...XIAOLI_DRAFT,
+      persons: REVIEW_DRAFT.persons.filter((p) => p.match !== "ambiguous"),
+    },
+  },
+  play: async () => {
+    const s = await sheet();
+    await expect(within(s).getByText("小李是你的同事还是同学？")).toBeVisible();
+    const confirm = within(s).getByRole("button", { name: "确认入图谱" });
+    await expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+    await expect(onConfirm).toHaveBeenCalled();
+  },
+};
+
+/** While one answer is applied, the other question's candidates wait. */
+export const Answering: Story = {
+  args: { draft: XIAOLI_DRAFT },
+  render: (args) => (
+    <DraftReviewSheet {...args} onAnswerQuestion={onAnswerQuestion} answering="q1" />
+  ),
+  play: async () => {
+    const s = await sheet();
+    const xiaoli = within(s).getByRole("group", { name: "小李是你的同事还是同学？" });
+    await expect(xiaoli).toHaveAttribute("aria-busy", "true");
+    const other = within(s).getByRole("group", { name: "前阵子是什么时候？" });
+    await expect(within(other).getByRole("button", { name: "上个月" })).toBeDisabled();
+  },
+};
+
+/** Without onAnswerQuestion (not a pending draft) the questions are not asked. */
+export const QuestionsNotOffered: Story = {
+  args: { draft: XIAOLI_DRAFT },
+  render: (args) => <DraftReviewSheet {...args} />,
+  play: async () => {
+    const s = await sheet();
+    await expect(within(s).queryByRole("heading", { name: "还差一点" })).toBeNull();
   },
 };

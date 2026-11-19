@@ -2,13 +2,76 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://weft.local/contracts/answer.schema.json",
   "$defs": {
+    "AnswerClarify": {
+      "additionalProperties": false,
+      "description": "指代确认 (conversation-context AC-1): a question and 2–4 candidates to pick from.",
+      "properties": {
+        "question": {
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/AnswerClarifyOption"
+          },
+          "maxItems": 4,
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        }
+      },
+      "required": [
+        "question",
+        "options"
+      ],
+      "title": "AnswerClarify",
+      "type": "object"
+    },
+    "AnswerClarifyOption": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "description": "Who or which event, e.g. 「老周（周涛，大学同学）」",
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "question": {
+          "description": "The full question answered when this is picked",
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "person_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The person this option means (always in the user's graph)",
+          "title": "Person Id"
+        }
+      },
+      "required": [
+        "label",
+        "question"
+      ],
+      "title": "AnswerClarifyOption",
+      "type": "object"
+    },
     "AnswerKind": {
       "enum": [
         "text",
         "path",
         "list",
         "stat",
-        "no_answer"
+        "no_answer",
+        "clarify"
       ],
       "title": "AnswerKind",
       "type": "string"
@@ -307,6 +370,18 @@
       },
       "title": "Follow Ups",
       "type": "array"
+    },
+    "clarify": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnswerClarify"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "kind = clarify: the 指代确认 question and its candidates"
     }
   },
   "required": [

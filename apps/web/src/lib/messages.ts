@@ -1,7 +1,7 @@
 /**
- * Pure rules of the chat's messages (intent routing, ADR 0005; intent clarify): which 纠正
- * buttons and 反问 options a message shows, and how a part that could not be done is told.
- * The chat page renders from these.
+ * Pure rules of the chat's messages (intent routing, ADR 0005; intent clarify; conversation
+ * context): which 纠正 buttons, 反问 / 指代确认 options and 「接着：…」 line a message shows,
+ * and how a part that could not be done is told. The chat page renders from these.
  */
 import type { DraftStatus } from "../contracts/draft.ts";
 import { quotaMessages } from "./pageModels.ts";
@@ -21,8 +21,15 @@ export type MessageActions = {
   options: ClarifyChoice[];
 };
 
-/** The 反问 a 拿不准 message carries (MessageOut.clarify). */
-export type MessageClarify = { options: { label: string }[]; resolved: boolean };
+/**
+ * The 反问 a 拿不准 message carries, or 问答's 指代确认 on a question (MessageOut.clarify;
+ * `source` intent / ask).
+ */
+export type MessageClarify = {
+  options: { label: string }[];
+  resolved: boolean;
+  source?: "intent" | "ask";
+};
 
 const NONE: MessageActions = { bubble: [], reply: [], options: [] };
 
@@ -35,6 +42,10 @@ const NONE: MessageActions = { bubble: [], reply: [], options: [] };
  * options instead of 记下来 / 帮我查 until it is resolved (an option clicked, or answered by
  * the next message), then nothing; once an option has handled it, it offers 纠正 by its new
  * kind like any other message.
+ *
+ * 指代确认 (conversation-context AC-1, AC-2): a 提问 whose answer asks back which person or
+ * event was meant offers the candidates (「老周（周涛，大学同学）」) until one is clicked or the
+ * next message says which; its bubble keeps 改为记录.
  *
  * `draftStatus` is the Draft's live status (it changes while the chat is open); an Entry with
  * no Draft at all is one recorded before drafts existed, so it is in the graph already.
@@ -50,16 +61,15 @@ export function messageActions(
       return inGraph ? NONE : { ...NONE, bubble: [{ target: "ask", label: "改为提问" }] };
     }
     case "ask":
-      return { ...NONE, bubble: [{ target: "record", label: "改为记录" }] };
+      return {
+        ...NONE,
+        bubble: [{ target: "record", label: "改为记录" }],
+        options: openOptions(message.clarify),
+      };
     case "record_ask":
       return NONE;
     case "chitchat": {
-      const clarify = message.clarify;
-      if (clarify) {
-        return clarify.resolved
-          ? NONE
-          : { ...NONE, options: clarify.options.map((o, i) => ({ target: i, label: o.label })) };
-      }
+      if (message.clarify) return { ...NONE, options: openOptions(message.clarify) };
       return {
         ...NONE,
         reply: [
@@ -69,6 +79,26 @@ export function messageActions(
       };
     }
   }
+}
+
+/** The options of a 反问 / 指代确认 still open (none once it is resolved, or without one). */
+function openOptions(clarify: MessageClarify | null | undefined): ClarifyChoice[] {
+  if (!clarify || clarify.resolved) return [];
+  return clarify.options.map((o, i) => ({ target: i, label: o.label }));
+}
+
+/**
+ * 「接着：<上一个问题>」 (conversation-context AC-10): the question an answer was read with —
+ * the latest of the 上文 it used — or `null` when it was answered on its own (no line, no
+ * 「不接上文」). Only an answer that is there is said to follow on.
+ */
+export function followedQuestion(message: {
+  answer: unknown;
+  history_used_of?: { message_id: string; question: string }[] | null;
+}): string | null {
+  const used = message.history_used_of ?? [];
+  if (!message.answer || used.length === 0) return null;
+  return used[used.length - 1].question;
 }
 
 /**

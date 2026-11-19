@@ -30,6 +30,8 @@ HANDLING_FIELDS = frozenset(
         "record_text",
         "question",
         "clarification_resolved_at",
+        "clarify",
+        "history_used_of",
     }
 )
 
@@ -53,6 +55,7 @@ def _message(row: MessageRow) -> MessageRecord:
         clarify=None if row.clarify_json is None else Clarification.from_json(row.clarify_json),
         clarification_of=row.clarification_of,
         clarification_resolved_at=row.clarification_resolved_at,
+        history_used_of=tuple(uuid.UUID(i) for i in row.history_used_of or []),
     )
 
 
@@ -64,6 +67,12 @@ def _column_values(values: dict[str, Any]) -> dict[str, Any]:
         out["answer"] = out["answer"].model_dump(mode="json")
     if "problems" in out:
         out["problems"] = [p.to_json() for p in out["problems"]]
+    if "clarify" in out:
+        clarify = out.pop("clarify")
+        out["clarify_json"] = None if clarify is None else clarify.to_json()
+    if "history_used_of" in out:
+        used = [str(i) for i in out["history_used_of"] or ()]
+        out["history_used_of"] = used or None
     return out
 
 
@@ -93,6 +102,7 @@ class MessageRepository:
         problems: tuple[Problem, ...] = (),
         clarify: Clarification | None = None,
         clarification_of: uuid.UUID | None = None,
+        history_used_of: tuple[uuid.UUID, ...] = (),
     ) -> MessageRecord:
         row = MessageRow(
             user_id=self.tenant.user_id,
@@ -102,10 +112,11 @@ class MessageRepository:
             occurred_on=None if occurred is None else occurred.isoformat(),
             record_text=record_text,
             question=question,
-            clarify_json=None if clarify is None else clarify.to_json(),
             clarification_of=clarification_of,
             **_column_values(
                 {
+                    "clarify": clarify,
+                    "history_used_of": history_used_of,
                     "intent": intent,
                     "uncertain": uncertain,
                     "entry_id": entry_id,
@@ -142,6 +153,36 @@ class MessageRepository:
         now = await self._s.scalar(select(func.now()))
         assert now is not None
         return (None if row is None else _message(row)), now
+
+    @tenant_scoped
+    async def answered(self, limit: int) -> tuple[list[MessageRecord], datetime]:
+        """The user's ``limit`` newest messages that were answered as questions (newest
+        first), and the database's current time (the clock ``created_at`` uses)."""
+        rows = await self._s.scalars(
+            select(MessageRow)
+            .where(
+                MessageRow.user_id == self.tenant.user_id,
+                MessageRow.intent.in_([Intent.ASK.value, Intent.RECORD_ASK.value]),
+                func.jsonb_typeof(MessageRow.answer) == "object",  # JSON null too
+            )
+            .order_by(MessageRow.created_at.desc(), MessageRow.id.desc())
+            .limit(limit)
+        )
+        now = await self._s.scalar(select(func.now()))
+        assert now is not None
+        return [_message(r) for r in rows], now
+
+    @tenant_scoped
+    async def questions(self, ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+        """The question each of these messages (the user's own) asked: id -> question."""
+        if not ids:
+            return {}
+        rows = await self._s.execute(
+            select(MessageRow.id, MessageRow.question, MessageRow.text).where(
+                MessageRow.user_id == self.tenant.user_id, MessageRow.id.in_(set(ids))
+            )
+        )
+        return {i: question or text for i, question, text in rows}
 
     @tenant_scoped
     async def update_handling(self, message_id: uuid.UUID, **values: Any) -> MessageRecord | None:

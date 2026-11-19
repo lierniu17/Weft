@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { composerQuota, messageActions, optionPart, problemText } from "./messages.ts";
+import {
+  composerQuota,
+  followedQuestion,
+  messageActions,
+  optionPart,
+  problemText,
+} from "./messages.ts";
 
 const draft = { id: "d1" };
 const usage = (entryLeft: number, askLeft: number) => ({
@@ -177,5 +183,67 @@ describe("输入框的额度提示", () => {
     expect(composerQuota(usage(0, 0))).toEqual({
       blocked: "今日已达上限：今天的记录和提问都已用完，北京时间 0 点重置",
     });
+  });
+});
+
+describe("指代确认的候选 (conversation-context AC-1, AC-2)", () => {
+  const confirm = (resolved: boolean) => ({
+    question: "你问的是哪位老周？",
+    source: "ask" as const,
+    options: [
+      { label: "老周（周涛，大学同学）", intent: "ask" as const, question: "周涛喜欢什么？" },
+      { label: "老周（周建国，老家邻居）", intent: "ask" as const, question: "周建国喜欢什么？" },
+    ],
+    resolved,
+  });
+
+  it("an open 指代确认 on a 提问: its candidates in order; the bubble keeps 改为记录", () => {
+    expect(
+      messageActions({ intent: "ask", entry: null, clarify: confirm(false) }, undefined),
+    ).toEqual({
+      bubble: [{ target: "record", label: "改为记录" }],
+      reply: [],
+      options: [
+        { target: 0, label: "老周（周涛，大学同学）" },
+        { target: 1, label: "老周（周建国，老家邻居）" },
+      ],
+    });
+  });
+
+  it("clicked, or said by the next message: the candidates are gone", () => {
+    expect(
+      messageActions({ intent: "ask", entry: null, clarify: confirm(true) }, undefined).options,
+    ).toEqual([]);
+  });
+});
+
+describe("「接着：…」 (conversation-context AC-10)", () => {
+  const answer = { kind: "text" };
+
+  it("an answer read with the 上文: the latest question it followed", () => {
+    expect(
+      followedQuestion({
+        answer,
+        history_used_of: [
+          { message_id: "m1", question: "老张在哪上班？" },
+          { message_id: "m2", question: "他老婆叫什么？" },
+        ],
+      }),
+    ).toBe("他老婆叫什么？");
+  });
+
+  it("answered on its own: no line, no 不接上文", () => {
+    expect(followedQuestion({ answer, history_used_of: [] })).toBeNull();
+    expect(followedQuestion({ answer, history_used_of: null })).toBeNull();
+    expect(followedQuestion({ answer })).toBeNull();
+  });
+
+  it("no answer (a 指代确认 instead, or Q&A down): no line", () => {
+    expect(
+      followedQuestion({
+        answer: null,
+        history_used_of: [{ message_id: "m1", question: "老张在哪上班？" }],
+      }),
+    ).toBeNull();
   });
 });

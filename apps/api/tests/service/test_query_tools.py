@@ -52,11 +52,11 @@ def names(persons: object) -> list[str]:
 # --- the seed itself ------------------------------------------------------------------
 
 
-async def test_the_seed_has_thirty_persons_of_every_category_and_refuses_a_second_run(
+async def test_the_seed_has_thirty_one_persons_of_every_category_and_refuses_a_second_run(
     infra: Infra, s: Seeded
 ) -> None:
     everyone = await qt.find_person(infra, "")
-    assert len(everyone) == 30
+    assert len(everyone) == 31
     relationships = await qt.all_relationships(infra)
     assert {t.category for r in relationships for t in r.types} == {c.value for c in Category}
     again = await seed.seed_graph(infra)

@@ -1,4 +1,5 @@
-"""Drafts (草稿): extraction job, edits, confirmation, discard, retry (AC-6, AC-10..AC-19)."""
+"""Drafts (草稿): extraction job, edits, confirmation, discard, retry (AC-6, AC-10..AC-19),
+and answering a 补充追问 (conversation-context AC-4, AC-6..AC-8)."""
 
 from __future__ import annotations
 
@@ -16,13 +17,22 @@ from weft.domain.draft import (
     DraftFact,
     DraftPerson,
     DraftProfileItem,
+    DraftQuestion,
     DraftRelationship,
     DraftRelationshipType,
     DraftStatus,
     FactConflict,
     PersonMatch,
+    QuestionField,
+    QuestionPatch,
     retime,
 )
+from weft.domain.draft_questions import (
+    QuestionOutdatedError,
+    parse_patch,
+    parse_questions,
+)
+from weft.domain.draft_questions import answer as apply_answer
 from weft.domain.graph_write import (
     OPINION,
     PREDICATE_TARGETS,
@@ -40,10 +50,13 @@ from weft.domain.graph_write import (
     RelationshipUpsert,
     fact_sentence,
 )
+from weft.domain.quota import beijing_day
 from weft.domain.taxonomy import OTHER, Category, RelationshipType, Taxonomy
+from weft.extraction.answers import answer_payload, read_answer
 from weft.extraction.matching import MatchDecision, match_person
-from weft.extraction.pipeline import ExtractionInput, RawExtraction, extract
+from weft.extraction.pipeline import SELF_MENTION, ExtractionInput, RawExtraction, extract
 from weft.infra import Infra
+from weft.llm import LLMError
 from weft.repositories.entries import DraftRepository, EntryRepository
 from weft.repositories.graph import GraphRepository
 from weft.repositories.records import (
@@ -146,7 +159,7 @@ async def draft_for(infra: Infra, entry: EntryRecord, taxonomy: Taxonomy) -> Dra
             written_on=entry.written_on,
         ),
     )
-    return await _draft_from(infra, g, raw, entry, persons)
+    return await _draft_from(infra, g, raw, entry, persons, taxonomy)
 
 
 async def _current_or(
@@ -177,6 +190,7 @@ async def _draft_from(
     raw: RawExtraction,
     entry: EntryRecord,
     persons: list[PersonRecord],
+    taxonomy: Taxonomy,
 ) -> Draft:
     draft_persons: list[DraftPerson] = []
     matched_ids: dict[str, str] = {}  # mention -> graph person id
@@ -268,7 +282,7 @@ async def _draft_from(
         )
         for i, p in enumerate(raw.profile, start=1)
     ]
-    return Draft.model_validate(
+    draft = Draft.model_validate(
         {
             "persons": draft_persons,
             "facts": facts,
@@ -277,6 +291,39 @@ async def _draft_from(
             "profile": profile,
         }
     )
+    questions = parse_questions(
+        raw.questions, draft=draft, taxonomy=taxonomy, entry=entry.occurred, today=infra.today()
+    )
+    self_id = next((p.id for p in persons if p.is_self), None)
+    known = {**matched_ids, **({SELF_MENTION: self_id} if self_id else {})}
+    questions = await _not_known_in_graph(g, questions, known)
+    return draft.model_copy(update={"questions": questions})
+
+
+async def _not_known_in_graph(
+    g: GraphRepository, questions: list[DraftQuestion], ids: dict[str, str]
+) -> list[DraftQuestion]:
+    """Drop the questions the graph already answers: a relationship type, or how / when
+    two people met, of two persons the Draft matched (「今天和小李吃饭了」 about a 小李
+    already known as a colleague asks nothing). Kept questions are renumbered."""
+    pairs = [
+        (ids[q.pair[0]], ids[q.pair[1]])
+        for q in questions
+        if q.pair is not None and q.pair[0] in ids and q.pair[1] in ids
+    ]
+    known = await g.relationships_between(pairs) if pairs else {}
+    kept: list[DraftQuestion] = []
+    for q in questions:
+        rel = None
+        if q.pair is not None and q.pair[0] in ids and q.pair[1] in ids:
+            rel = known.get(frozenset((ids[q.pair[0]], ids[q.pair[1]])))
+        if rel is not None and (
+            (q.field is QuestionField.RELATIONSHIP_TYPE and rel.types)
+            or (q.field is QuestionField.MET and (rel.met_at or rel.origin))
+        ):
+            continue
+        kept.append(q.model_copy(update={"id": f"q{len(kept) + 1}"}))
+    return kept
 
 
 def _current_values(facts: list[FactRecord], subject_id: str, predicate: str) -> list[FactRecord]:
@@ -314,6 +361,10 @@ async def update_draft(
             return not_found("draft")
         if current.status is not DraftStatus.PENDING:
             return _not_pending(current.status)
+        # 补充追问 are the server's: an edit keeps them as they are (answered or not)
+        content = content.model_copy(
+            update={"questions": current.content.questions if current.content else []}
+        )
         entries = EntryRepository(session, scope)
         entry = await entries.get(current.entry_id)
         assert entry is not None  # drafts cascade with their entry
@@ -363,6 +414,142 @@ async def _check_persons(g: GraphRepository, content: Draft) -> Err | None:
     if unknown:
         return Err("unknown_person", "草稿里引用了不存在的人物", {"person_ids": unknown})
     return None
+
+
+# --- 补充追问 (Draft questions) ------------------------------------------------------
+
+NOT_UNDERSTOOD = "not_understood"
+NOT_UNDERSTOOD_MESSAGE = "没理解这个回答，可以直接在草稿里改"
+
+
+async def answer_question(
+    infra: Infra,
+    draft_id: uuid.UUID,
+    question_id: str,
+    *,
+    option: int | None = None,
+    text: str | None = None,
+) -> Result[DraftRecord]:
+    """Answer a 待确认 Draft's 补充追问 by clicking ``option`` or typing ``text``.
+
+    A click applies the option's patch with no model call (AC-6); typed text takes one
+    model call that may only patch the question's field, and an answer it cannot turn
+    into a legal patch is ``not_understood`` with the Draft unchanged (AC-7). The patch
+    goes onto the Draft as it is now, so the user's other edits stay; the question is
+    then answered. Neither way counts against a quota.
+    """
+    scope = tenant()
+    async with infra.sql() as session:
+        current = await DraftRepository(session, scope).get(draft_id)
+        if current is None:
+            return not_found("draft")
+        if current.status is not DraftStatus.PENDING or current.content is None:
+            return _not_pending(current.status)
+        entry = await EntryRepository(session, scope).get(current.entry_id)
+        taxonomy = await taxonomy_in(session)
+    assert entry is not None  # drafts cascade with their entry
+    question = next((q for q in current.content.questions if q.id == question_id), None)
+    if question is None:
+        return not_found("question")
+    if question.answered:
+        return Err("already_answered", "这个追问已经回答过了")
+
+    if option is not None:
+        if not 0 <= option < len(question.options):
+            return Err("invalid_option", "没有这个选项", {"options": len(question.options)})
+        chosen = question.options[option]
+        patch, answer_text = chosen.patch, chosen.label
+    else:
+        answer_text = (text or "").strip()
+        if not answer_text:
+            return Err("blank_text", "回答不能为空")
+        typed = await _patch_from_text(infra, entry, question, answer_text, taxonomy)
+        if typed is None:
+            return Err(NOT_UNDERSTOOD, NOT_UNDERSTOOD_MESSAGE)
+        patch = typed
+
+    async with infra.sql() as session, session.begin():
+        drafts = DraftRepository(session, scope)
+        current = await drafts.get(draft_id)  # again: the user may have edited meanwhile
+        if current is None:
+            return not_found("draft")
+        if current.status is not DraftStatus.PENDING or current.content is None:
+            return _not_pending(current.status)
+        entries = EntryRepository(session, scope)
+        entry = await entries.get(current.entry_id)
+        assert entry is not None
+        content = current.content
+        if any(q.id == question_id and q.answered for q in content.questions):
+            return Err("already_answered", "这个追问已经回答过了")
+        try:
+            answered = apply_answer(
+                content,
+                question_id,
+                patch,
+                answer_text=answer_text,
+                entry=entry.occurred,
+                self_person=await _self_person(infra, content),
+            )
+        except KeyError:
+            return not_found("question")
+        except QuestionOutdatedError as exc:
+            return Err("question_outdated", "草稿已经改过，这个追问对不上了", {"detail": str(exc)})
+        if answered.occurred is not None:
+            try:
+                answered.occurred.ensure_not_future(today=infra.today())
+            except FutureDateError:
+                return Err("future_date", "发生日期不能晚于今天")
+        updated = await drafts.transition(
+            draft_id,
+            from_statuses=[DraftStatus.PENDING],
+            to=DraftStatus.PENDING,
+            content=answered.draft,
+        )
+        if updated is None:
+            return _not_pending(current.status)
+        if answered.occurred is not None and answered.occurred != entry.occurred:
+            await entries.set_occurred(entry.id, answered.occurred)
+    return Ok(updated)
+
+
+async def _patch_from_text(
+    infra: Infra, entry: EntryRecord, question: DraftQuestion, text: str, taxonomy: Taxonomy
+) -> QuestionPatch | None:
+    """The patch the model reads from a typed answer, if it is a legal one (AC-7)."""
+    written_on = entry.written_on or beijing_day(entry.created_at)
+    payload = answer_payload(
+        entry_text=entry.text,
+        occurred=entry.occurred,
+        written_on=written_on,
+        question=question,
+        text=text,
+        taxonomy=taxonomy,
+    )
+    try:
+        raw = await read_answer(infra.llm, payload)
+    except LLMError as exc:
+        logger.info("typed answer to a draft question not read: %r", exc)
+        return None
+    return parse_patch(
+        question.field, raw, taxonomy=taxonomy, entry=entry.occurred, today=infra.today()
+    )
+
+
+async def _self_person(infra: Infra, content: Draft) -> DraftPerson | None:
+    """我 as a Draft person, for an answer that relates someone to me when the Draft does
+    not list me yet."""
+    if any(p.mention == SELF_MENTION for p in content.persons):
+        return None
+    me = await graph(infra).get_self()
+    if me is None:
+        return None
+    taken = set(content.item_ids())
+    n = len(content.persons) + 1
+    while f"p{n}" in taken:
+        n += 1
+    return DraftPerson(
+        id=f"p{n}", mention=SELF_MENTION, match=PersonMatch.MATCHED, person_id=SELF_ID, name=me.name
+    )
 
 
 # --- confirmation ----------------------------------------------------------------
@@ -696,7 +883,9 @@ async def discard_draft(infra: Infra, draft_id: uuid.UUID) -> Result[DraftRecord
 
 
 __all__ = [
+    "NOT_UNDERSTOOD",
     "SELF_ID",
+    "answer_question",
     "confirm_draft",
     "discard_draft",
     "draft_for",

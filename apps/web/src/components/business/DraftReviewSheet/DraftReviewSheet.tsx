@@ -5,16 +5,18 @@ import type {
   DraftItem,
   DraftRelationshipType,
   PersonChoice,
+  QuestionAnswer,
 } from "../../../contracts/draft.ts";
 import type { Taxonomy } from "../../../contracts/taxonomy.ts";
 import type { OccurredOn } from "../../../lib/datePrecision.ts";
-import { canConfirm, itemSentence, unresolvedPersons } from "../../../lib/draft.ts";
+import { canConfirm, itemSentence, openQuestions, unresolvedPersons } from "../../../lib/draft.ts";
 import { Button } from "../../basics/Button/Button.tsx";
 import { DatePicker } from "../../basics/DatePicker/DatePicker.tsx";
 import { Drawer, type DrawerVariant } from "../../basics/Drawer/Drawer.tsx";
 import { Modal } from "../../basics/Modal/Modal.tsx";
 import { SectionHeader } from "../../composites/SectionHeader/SectionHeader.tsx";
 import { DraftFactItem } from "../DraftFactItem/DraftFactItem.tsx";
+import { DraftQuestionItem } from "../DraftQuestionItem/DraftQuestionItem.tsx";
 import { PersonMatchItem } from "../PersonMatchItem/PersonMatchItem.tsx";
 import { RelationshipTypeEditor } from "./RelationshipTypeEditor.tsx";
 
@@ -48,6 +50,15 @@ export type DraftReviewSheetProps = {
     index: number,
     type: Omit<DraftRelationshipType, "original">,
   ) => void;
+  /**
+   * A 补充追问 was answered (an option or 自己填). Omit to hide the questions (they are
+   * only asked on a pending draft).
+   */
+  onAnswerQuestion?: (questionId: string, answer: QuestionAnswer) => void;
+  /** The question whose answer is being applied. */
+  answering?: string | null;
+  /** Per question: why its typed answer was not understood, shown under its input. */
+  questionHints?: Record<string, string>;
   onConfirm: () => void;
   /** Called after the second confirmation in the danger Modal. */
   onDiscard: () => void;
@@ -67,7 +78,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 /**
  * Where a draft is checked before it enters the graph: 「发生在：…」 (tap to change the
  * 发生日期, intent-routing AC-9), persons (with matching), facts,
- * profile changes, relationship changes, feeling changes. Every item shows a pickable
+ * profile changes, relationship changes, feeling changes. Right under 「发生在」, the draft's
+ * unanswered 补充追问 (conversation-context AC-5): each with its candidates and 「自己填」;
+ * an answered one hides. Leaving them unanswered never blocks 确认 (AC-8). Every item shows a pickable
  * confidence and can be removed. 确认入图谱 stays disabled while any person is 需选择 (AC-12);
  * 放弃 asks again in a danger Modal (AC-17).
  */
@@ -87,6 +100,9 @@ export function DraftReviewSheet({
   onConfidenceChange,
   onRemoveItem,
   onRelationshipTypeChange,
+  onAnswerQuestion,
+  answering,
+  questionHints,
   onConfirm,
   onDiscard,
   confirming,
@@ -95,6 +111,7 @@ export function DraftReviewSheet({
   const hintId = useId();
   const unresolved = unresolvedPersons(draft).length;
   const confirmable = canConfirm(draft);
+  const questions = onAnswerQuestion ? openQuestions(draft) : [];
 
   const item = (it: DraftItem, children?: ReactNode) => {
     const conflict = "conflict" in it ? it.conflict : null;
@@ -170,6 +187,20 @@ export function DraftReviewSheet({
             </p>
           )}
         </div>
+        {questions.length > 0 && onAnswerQuestion && (
+          <Section title="还差一点">
+            {questions.map((q) => (
+              <DraftQuestionItem
+                key={q.id}
+                question={q}
+                onAnswer={(a) => onAnswerQuestion(q.id, a)}
+                pending={answering === q.id}
+                disabled={answering != null && answering !== q.id}
+                hint={questionHints?.[q.id]}
+              />
+            ))}
+          </Section>
+        )}
         {draft.persons.length > 0 && (
           <Section title="涉及的人物">
             {draft.persons.map((p) => (

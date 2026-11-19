@@ -176,10 +176,11 @@ def test_json_schema_mirrors_the_web_answer_shape() -> None:
         "items",
         "stat",
         "follow_ups",
+        "clarify",
     }
     assert set(schema["required"]) == {"kind", "segments", "citations", "persons", "follow_ups"}
     defs = schema["$defs"]
-    assert defs["AnswerKind"]["enum"] == ["text", "path", "list", "stat", "no_answer"]
+    assert defs["AnswerKind"]["enum"] == ["text", "path", "list", "stat", "no_answer", "clarify"]
     assert set(defs["Citation"]["required"]) == {
         "index",
         "entry_id",
@@ -190,6 +191,8 @@ def test_json_schema_mirrors_the_web_answer_shape() -> None:
     assert set(defs["PersonRef"]["required"]) == {"person_id", "name"}
     assert set(defs["AnswerListItem"]["required"]) == {"person_id", "name", "citations"}
     assert set(defs["AnswerSegment"]["required"]) == {"text"}
+    assert set(defs["AnswerClarify"]["required"]) == {"question", "options"}
+    assert set(defs["AnswerClarifyOption"]["required"]) == {"label", "question"}
 
 
 def test_json_schema_citation_pair_is_two_person_refs() -> None:
@@ -199,3 +202,38 @@ def test_json_schema_citation_pair_is_two_person_refs() -> None:
     array = next(s for s in pair["anyOf"] if s.get("type") == "array")
     assert array["items"] == {"$ref": "#/$defs/PersonRef"}
     assert (array["minItems"], array["maxItems"]) == (2, 2)
+
+
+# --- 指代确认 (conversation-context AC-1) ------------------------------------------------
+
+
+def _confirmation(n: int = 2) -> dict[str, Any]:
+    return {
+        "kind": "clarify",
+        "segments": [{"text": "你问的是哪位老周？"}],
+        "citations": [],
+        "persons": [],
+        "follow_ups": [],
+        "clarify": {
+            "question": "你问的是哪位老周？",
+            "options": [
+                {"label": f"老周（候选{i}）", "question": f"候选{i}喜欢什么？"} for i in range(n)
+            ],
+        },
+    }
+
+
+def test_a_confirmation_has_two_to_four_options_and_cites_nothing() -> None:
+    assert Answer.model_validate(_confirmation()).clarify is not None
+    for n in (1, 5):
+        with pytest.raises(ValidationError):
+            Answer.model_validate(_confirmation(n))
+    with pytest.raises(ValidationError):
+        Answer.model_validate({**_confirmation(), "citations": [_citation(1)]})
+
+
+def test_only_a_confirmation_carries_clarify() -> None:
+    with pytest.raises(ValidationError):
+        Answer.model_validate({**_confirmation(), "kind": "text"})
+    with pytest.raises(ValidationError):
+        Answer.model_validate({**_confirmation(), "clarify": None})

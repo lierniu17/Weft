@@ -4,7 +4,7 @@
  * This interface was referenced by `Answer`'s JSON-Schema
  * via the `definition` "AnswerKind".
  */
-export type AnswerKind = "text" | "path" | "list" | "stat" | "no_answer";
+export type AnswerKind = "text" | "path" | "list" | "stat" | "no_answer" | "clarify";
 export type Text = string;
 /**
  * Indices of the citations backing this piece of text
@@ -74,6 +74,27 @@ export type Persons1 = PersonRef[];
  * 追问建议, e.g. 「他俩什么时候认识的？」
  */
 export type FollowUps = string[];
+export type Question = string;
+/**
+ * @minItems 2
+ * @maxItems 4
+ */
+export type Options =
+  | [AnswerClarifyOption, AnswerClarifyOption]
+  | [AnswerClarifyOption, AnswerClarifyOption, AnswerClarifyOption]
+  | [AnswerClarifyOption, AnswerClarifyOption, AnswerClarifyOption, AnswerClarifyOption];
+/**
+ * Who or which event, e.g. 「老周（周涛，大学同学）」
+ */
+export type Label = string;
+/**
+ * The full question answered when this is picked
+ */
+export type Question1 = string;
+/**
+ * The person this option means (always in the user's graph)
+ */
+export type PersonId2 = string | null;
 
 export interface Answer {
   kind: AnswerKind;
@@ -87,6 +108,10 @@ export interface Answer {
    */
   stat?: AnswerStat | null;
   follow_ups: FollowUps;
+  /**
+   * kind = clarify: the 指代确认 question and its candidates
+   */
+  clarify?: AnswerClarify | null;
 }
 /**
  * This interface was referenced by `Answer`'s JSON-Schema
@@ -137,4 +162,23 @@ export interface AnswerListItem {
 export interface AnswerStat {
   count: Count;
   persons: Persons1;
+}
+/**
+ * 指代确认 (conversation-context AC-1): a question and 2–4 candidates to pick from.
+ *
+ * This interface was referenced by `Answer`'s JSON-Schema
+ * via the `definition` "AnswerClarify".
+ */
+export interface AnswerClarify {
+  question: Question;
+  options: Options;
+}
+/**
+ * This interface was referenced by `Answer`'s JSON-Schema
+ * via the `definition` "AnswerClarifyOption".
+ */
+export interface AnswerClarifyOption {
+  label: Label;
+  question: Question1;
+  person_id?: PersonId2;
 }

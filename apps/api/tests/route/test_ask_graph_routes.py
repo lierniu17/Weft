@@ -161,7 +161,7 @@ async def test_the_local_graph_of_an_unknown_person_is_not_found(seeded: Seeded)
 async def test_the_panorama_is_everyone_around_self(seeded: Seeded) -> None:
     graph = (await seeded.api.client.get("/api/graph")).json()
     me = next(n for n in graph["nodes"] if n["is_self"])
-    assert graph["center_id"] == me["id"] and len(graph["nodes"]) == 30
+    assert graph["center_id"] == me["id"] and len(graph["nodes"]) == 31
 
 
 async def test_the_panorama_filters_by_category_and_closeness(seeded: Seeded) -> None:

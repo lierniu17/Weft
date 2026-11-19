@@ -13,6 +13,7 @@ import {
   type Message,
   useClarify,
   useMessages,
+  useReanswer,
   useReroute,
   useSendMessage,
 } from "../../api/messages.ts";
@@ -63,6 +64,7 @@ export function ChatPage() {
   const send = useSendMessage();
   const reroute = useReroute();
   const clarify = useClarify();
+  const reanswer = useReanswer();
 
   const [text, setText] = useState("");
   const [reviewing, setReviewing] = useState<{ draftId: string; occurredOn: string } | null>(null);
@@ -102,6 +104,7 @@ export function ChatPage() {
   const sending = send.isPending ? send.variables : null;
   const rerouting = reroute.isPending ? reroute.variables : null;
   const clarifying = clarify.isPending ? clarify.variables : null;
+  const reanswering = reanswer.isPending ? reanswer.variables.id : null;
   const firstUse = chat.isSuccess && messages.length === 0 && sending === null;
   const latestConfirmed = [...entries].reverse().find((e) => e.draft?.status === "confirmed");
 
@@ -173,6 +176,26 @@ export function ChatPage() {
                 )
               : e.message,
           );
+        },
+      },
+    );
+  };
+
+  // 「不接上文」 (conversation context AC-10): the answer is replaced in place; one ask is
+  // counted, so a used-up quota reads like the composer's notice. 409: it changed meanwhile.
+  const onReanswer = (message: Message) => {
+    reanswer.mutate(
+      { id: message.message_id },
+      {
+        onError: (e) => {
+          if (!(e instanceof ApiError)) {
+            setToast("操作失败，请稍后再试");
+            return;
+          }
+          if (e.status === 409 || e.status === 404) {
+            void qc.invalidateQueries({ queryKey: keys.messages });
+          }
+          setToast(problemText({ part: "ask", error: e.code, message: e.message }, usage.data));
         },
       },
     );
@@ -266,6 +289,8 @@ export function ChatPage() {
                     rerouting={rerouting?.id === m.message_id ? rerouting.as : null}
                     onClarify={(option) => onClarify(m, option)}
                     clarifying={clarifying?.id === m.message_id ? clarifying.option : null}
+                    onReanswer={() => onReanswer(m)}
+                    reanswering={reanswering === m.message_id}
                     answerProps={answerProps}
                   />
                 ))}

@@ -31,8 +31,9 @@ describe("types generated from apps/api/contracts/*.schema.json", () => {
     const ts = await generateContract(byName("Answer"));
     expect(ts).toContain("export interface Answer {");
     expect(ts).toContain(
-      'export type AnswerKind = "text" | "path" | "list" | "stat" | "no_answer";',
+      'export type AnswerKind = "text" | "path" | "list" | "stat" | "no_answer" | "clarify";',
     );
+    expect(ts).toContain("export interface AnswerClarify {");
     expect(ts).toContain("export interface Citation {");
     expect(ts).toContain("export interface PersonRef {");
     expect(ts).toContain("export type Pair = [PersonRef, PersonRef] | null;");

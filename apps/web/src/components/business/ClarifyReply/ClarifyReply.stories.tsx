@@ -108,3 +108,50 @@ export const LongOptions: Story = {
     }
   },
 };
+
+/**
+ * Conversation context AC-1, AC-2 (指代确认): the same look when 问答 asks which person was
+ * meant — the question, then one candidate per person (「称呼（姓名，关系）」); clicking one
+ * hands its index back, and the page answers that candidate's question.
+ */
+export const WhichPerson: Story = {
+  args: {
+    question: "你问的是哪位老周？",
+    options: [
+      { target: 0, label: "老周（周涛，大学同学）" },
+      { target: 1, label: "老周（周建国，老家的老邻居）" },
+    ],
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("你问的是哪位老周？")).toBeVisible();
+    const group = canvas.getByRole("group", { name: "选一个，或直接回答" });
+    await expect(
+      within(group)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["老周（周涛，大学同学）", "老周（周建国，老家的老邻居）"]);
+    await userEvent.click(canvas.getByRole("button", { name: "老周（周建国，老家的老邻居）" }));
+    await expect(args.onOption).toHaveBeenLastCalledWith(1);
+  },
+};
+
+/** 指代确认 of 「那事」: one candidate per event, with its time; up to four. */
+export const WhichEvent: Story = {
+  args: {
+    question: "你问的是周建国的哪件事？",
+    options: [
+      { target: 0, label: "退休（2019 年）" },
+      { target: 1, label: "摔跤住院（2026 年 9 月）" },
+      { target: 2, label: "搬去儿子家（2025 年）" },
+      { target: 3, label: "开了个棋牌室（2024 年 5 月）" },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const group = within(canvasElement).getByRole("group", { name: "选一个，或直接回答" });
+    await expect(within(group).getAllByRole("button")).toHaveLength(4);
+    for (const b of within(group).getAllByRole("button")) {
+      await expect(b.getBoundingClientRect().right).toBeLessThanOrEqual(375.5);
+    }
+  },
+};

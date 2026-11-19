@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { Draft } from "../contracts/draft.ts";
+import type { Draft, DraftQuestion } from "../contracts/draft.ts";
 import {
   canConfirm,
   choosePerson,
   draftItems,
+  draftQuestionLine,
   draftSummary,
   itemSentence,
+  openQuestions,
+  questionAnswerFeedback,
   removeItem,
   setConfidence,
   setRelationshipType,
@@ -59,6 +62,7 @@ const draft: Draft = {
   profile: [
     { id: "g1", person: "小李", field: "hometown", value: "湖南长沙", confidence: "self_told" },
   ],
+  questions: [],
 };
 
 describe("草稿：需选择未选时不能确认 (AC-12)", () => {
@@ -161,5 +165,94 @@ describe("草稿摘要与条目文案", () => {
       confidence: "witnessed",
     }).text;
     expect(kin).toBe("老张和李明认识");
+  });
+});
+
+describe("补充追问 (conversation-context AC-5, AC-6, AC-7)", () => {
+  const relType: DraftQuestion = {
+    id: "q1",
+    field: "relationship_type",
+    pair: ["我", "小李"],
+    prompt: "小李是你的同事还是同学？",
+    options: [
+      {
+        label: "同事",
+        patch: { types: [{ category: "social", subtype: "同事", original: "同事" }] },
+      },
+      {
+        label: "同学",
+        patch: { types: [{ category: "social", subtype: "同学", original: "同学" }] },
+      },
+    ],
+    answered: false,
+  };
+  const when: DraftQuestion = {
+    id: "q2",
+    field: "occurred",
+    prompt: "前阵子是什么时候？",
+    options: [
+      { label: "这个月", patch: { occurred: "2026-11" } },
+      { label: "上个月", patch: { occurred: "2026-10" } },
+    ],
+    answered: false,
+  };
+  const asking = (...questions: DraftQuestion[]): Draft => ({ ...draft, questions });
+
+  it("open questions keep their order; answered ones hide", () => {
+    expect(openQuestions(asking(relType, when)).map((q) => q.id)).toEqual(["q1", "q2"]);
+    expect(
+      openQuestions(asking({ ...relType, answered: true, answer: "同事" }, when)).map((q) => q.id),
+    ).toEqual(["q2"]);
+  });
+
+  it("a draft from before questions existed asks nothing", () => {
+    const { questions: _, ...old } = draft;
+    expect(openQuestions(old as Draft)).toEqual([]);
+  });
+
+  it("the draft card shows the first open question while 待确认", () => {
+    expect(draftQuestionLine(asking(relType, when), "pending")).toBe(
+      "还差一点：小李是你的同事还是同学？",
+    );
+    expect(draftQuestionLine(asking({ ...relType, answered: true }, when), "pending")).toBe(
+      "还差一点：前阵子是什么时候？",
+    );
+  });
+
+  it("no line when everything is answered, nothing was asked, or the draft is not 待确认", () => {
+    expect(draftQuestionLine(asking({ ...relType, answered: true }), "pending")).toBeNull();
+    expect(draftQuestionLine(asking(), "pending")).toBeNull();
+    for (const status of ["extracting", "failed", "confirmed", "discarded"] as const) {
+      expect(draftQuestionLine(asking(relType), status)).toBeNull();
+    }
+    expect(draftQuestionLine(undefined, "pending")).toBeNull();
+  });
+
+  it("a typed answer not understood is said next to the input, the draft unchanged", () => {
+    expect(
+      questionAnswerFeedback({
+        status: 422,
+        code: "not_understood",
+        message: "没理解这个回答，可以直接在草稿里改",
+      }),
+    ).toEqual({ hint: "没理解这个回答，可以直接在草稿里改", reload: false });
+  });
+
+  it("a draft that changed meanwhile (409) is reloaded, with a toast", () => {
+    for (const code of ["not_pending", "already_answered", "question_outdated"]) {
+      expect(
+        questionAnswerFeedback({ status: 409, code, message: "这个追问已经回答过了" }),
+      ).toEqual({ toast: "这个追问已经回答过了", reload: true });
+    }
+  });
+
+  it("other refusals (invalid option, a future date, Q&A down) are a toast only", () => {
+    expect(
+      questionAnswerFeedback({ status: 422, code: "future_date", message: "日期不能晚于今天" }),
+    ).toEqual({ toast: "日期不能晚于今天", reload: false });
+    expect(questionAnswerFeedback({ status: 503, code: "unknown", message: "" })).toEqual({
+      toast: "操作失败，请稍后再试",
+      reload: false,
+    });
   });
 });

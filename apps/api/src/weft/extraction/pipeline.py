@@ -5,7 +5,9 @@
    date as the reference time.
 3. Weft's own enrichment call (DeepSeek, JSON) — turns the candidates into Draft facts
    with predicate, Confidence and dates with precision, and adds Relationships, Feelings and
-   identity (profile) fields, classifying Relationship Types into the user's vocabulary.
+   identity (profile) fields, classifying Relationship Types into the user's vocabulary;
+   and proposes at most two 补充追问 (Draft questions) about what the Entry left out, which
+   the service checks with ``weft.domain.draft_questions`` (conversation-context AC-4).
 
 Never calls Graphiti's ``add_episode`` and never touches the database: person matching,
 conflict detection and every write happen in the service layer through the tenant-scoped
@@ -198,6 +200,9 @@ class Enrichment(_Out):
     relationships: list[EnrichedRelationship] = Field(default_factory=list)
     feelings: list[EnrichedFeeling] = Field(default_factory=list)
     profile: list[EnrichedProfile] = Field(default_factory=list)
+    # 补充追问 as the model wrote them; checked item by item later (draft_questions), so a
+    # bad question never sends the whole enrichment back
+    questions: list[Any] = Field(default_factory=list)
 
 
 # --- result ------------------------------------------------------------------------
@@ -248,6 +253,7 @@ class RawExtraction:
     relationships: list[RawRelationship] = field(default_factory=list)
     feelings: list[RawFeeling] = field(default_factory=list)
     profile: list[RawProfile] = field(default_factory=list)
+    questions: list[Any] = field(default_factory=list)  # unchecked; see draft_questions
 
 
 @dataclass(frozen=True)
@@ -289,6 +295,7 @@ ENRICH_SYSTEM = """你是 Weft 的信息整理助手。用户（“我”）写�
   每一项都必须带 confidence。
 - profile：人物的身份信息，每一项都必须带 person（人物叫法）、field、value、confidence；
   field 取 name / gender / birthday / hometown。
+- questions：补充追问，见下方“补充追问”。
 
 事实的类别（predicate），容易混的是 喜好与厌恶 和 相处之道：
 - LIKES / DISLIKES（画像里的“喜好与厌恶”）：这个人自己的喜好、厌恶、口味和习惯，
@@ -335,6 +342,29 @@ ENRICH_SYSTEM = """你是 Weft 的信息整理助手。用户（“我”）写�
 - inferred：我的猜测或推断，或者从迹象推断出来的结论；内容本身带“估计”“好像”“可能”
   “感觉”“看样子”等不确定语气的也是 inferred。只是我对转述的真假表示怀疑
   （“不知道是不是真的”）时，仍按来源判断（hearsay）。
+
+补充追问（questions）——记录缺了关键信息时，问用户一句，最多 2 个；信息齐全时输出空数组。
+只在下面三种情况追问，别的缺失一律不问：
+1. relationship_type：我和某人有来往（一起吃饭、见面、聊天、出游、帮忙等），
+   但记录没交代他是我的什么人（同事、同学、朋友、亲戚……），
+   relationships 里也给不出我和他的关系类型。pair 写 ["我", 他的叫法]。
+   称呼已经说明了关系（“我堂哥”“楼下李姐”“高中同桌阿明”），
+   或者他只出现在别人的事里、和我没有来往，都不问。
+2. met：记录提到我和某人认识这件事（“打小就认识”“早些年结识的”“新交的朋友”），
+   但认识的时间或途径含糊、没说。pair 写 ["我", 他的叫法]。
+   记录没提认识这件事，或者已经说清时间和途径，都不问。
+3. occurred：记录讲的那件事（见面、聚餐、搬家、旅行……）是什么时候发生的，
+   只用了泛指过去某个时候、说不出年月的词（如“前阵子”“那会儿”“有一回”“早些时候”），
+   就要问，即使 facts 里没有需要写日期的条目。不写 pair。
+   “今天”“昨天”“上周末”“去年”“上个月”这类能换算的时间不问；
+   “最近”“平时”用来说习惯、状态或近况时也不问。
+每个追问写 field、pair、prompt（一句口语化的问题，
+如“小王是你的同事还是同学？”“前阵子大概是什么时候？”）和 options（2–4 个最可能的候选）。
+每个候选写 label（按钮上的字，如“同事”“上个月”）和 patch（选它之后对草稿的修改，只能改这个字段）：
+- relationship_type：{"types": [{"category": ..., "subtype": ..., "original": ...}]}，
+  category 和 subtype 取自 relationship_types；
+- met：{"met_at": "YYYY 或 YYYY-MM"}、{"origin": "认识途径"}，或两者都写；
+- occurred：{"occurred": "YYYY-MM 或 YYYY"}，以 entry.occurred 为参照换算，不得晚于它。
 
 没有的内容输出空数组。不要编造记录中没有的信息。"""
 
@@ -468,7 +498,14 @@ def _valid_items(content: str) -> Enrichment | None:
         sections[name] = kept
     names = data.get("persons")
     persons = [n for n in names if isinstance(n, str)] if isinstance(names, list) else []
-    return Enrichment.model_validate({"persons": persons, **sections})
+    questions = data.get("questions")
+    return Enrichment.model_validate(
+        {
+            "persons": persons,
+            **sections,
+            "questions": questions if isinstance(questions, list) else [],
+        }
+    )
 
 
 async def _enrich(llm: ExtractionLLM, payload: dict[str, Any]) -> Enrichment:
@@ -620,6 +657,7 @@ def _assemble(inp: ExtractionInput, person_names: list[str], e: Enrichment) -> R
         relationships=relationships,
         feelings=feelings,
         profile=profile,
+        questions=list(e.questions),
     )
 
 

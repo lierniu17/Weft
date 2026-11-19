@@ -11,7 +11,9 @@
   Entries behind it and the persons it concerns, which ``weft.domain.answering`` turns
   into Citations;
 * every name it looks up is remembered, so the question's subjects can be checked: a
-  name from the question that resolves to nobody makes the answer no_answer (AC-38).
+  name from the question that resolves to nobody makes the answer no_answer (AC-38);
+* every fact it shows is kept as an ``EventFact`` too, so 「X 那件事」 can be checked
+  against the events the model was shown (指代确认, conversation-context AC-1).
 """
 
 from __future__ import annotations
@@ -25,11 +27,13 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from weft.domain.answer import PersonRef
 from weft.domain.answering import Evidence, FinalAnswer, Source, Subjects
 from weft.domain.confidence import Confidence
+from weft.domain.confirming import EventFact
 from weft.domain.dates import PartialDate
 from weft.domain.draft import FEELING_DIMENSION_LABELS, FEELING_LEVEL_LABELS
 from weft.domain.feelings import DIMENSIONS, by_direction
 from weft.domain.graph_write import FACT_LABELS
-from weft.domain.taxonomy import Category
+from weft.domain.relatives import Tie, related, relation_phrase
+from weft.domain.taxonomy import OTHER, RELATION_WORDS, Category
 from weft.domain.tenancy import FORBIDDEN_TENANT_KWARGS
 from weft.infra import Infra
 from weft.llm import ToolSpec
@@ -55,6 +59,9 @@ Predicate = Literal[
 Closeness = Literal["intimate", "close", "familiar", "casual", "distant"]
 PERSON_HINT = "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”"
 DATE_HINT = "日期 YYYY、YYYY-MM 或 YYYY-MM-DD"
+PRONOUNS = frozenset(
+    {"他", "她", "它", "他们", "她们", "他俩", "她俩", "ta", "TA", "这人", "那人", "此人", "对方"}
+)
 
 
 class _Args(BaseModel):
@@ -164,6 +171,8 @@ class AskSession:
         self._episodes: dict[str, EpisodeRecord] = {}
         self.calls: list[tuple[str, dict[str, Any]]] = []  # every tool call, in order
         self.lookups: dict[str, list[PersonRecord]] = {}  # name looked up -> who it found
+        self.facts_shown: dict[str, EventFact] = {}  # every fact the model was shown, by id
+        self._ties: list[Tie] | None = None  # every relationship type, for relation phrases
         self._tools: dict[str, tuple[type[_Args], Callable[[Any], Awaitable[dict[str, Any]]]]] = {
             "find_person": (FindPersonArgs, self._find_person),
             "read_profile": (ReadProfileArgs, self._read_profile),
@@ -210,6 +219,31 @@ class AskSession:
             for h, p in self.persons.items()
         }
 
+    def name_of(self, person_id: str) -> str | None:
+        """The name of a person the tools returned, by id."""
+        handle = self._handles.get(person_id)
+        return None if handle is None else self.persons[handle].name
+
+    async def identity_words(self, person_ids: Iterable[str]) -> dict[str, list[str]]:
+        """What tells each of these persons apart, from the graph: name, aliases, note, and
+        my relationship with them (its types as said, e.g. 「老家的老邻居」, and where we met)."""
+        me = next(iter(await qt.find_person(self._infra, "我")), None)
+        out: dict[str, list[str]] = {}
+        for pid in dict.fromkeys(person_ids):
+            handle = self._handles.get(pid)
+            if handle is None:
+                continue
+            p = self.persons[handle]
+            texts = [p.name, *p.aliases, *([p.note] if p.note else [])]
+            pair = None if me is None else await qt.read_relationship(self._infra, me.id, pid)
+            rel = None if pair is None else pair.relationship
+            if rel is not None:
+                texts += [t.original for t in rel.types if t.original]
+                texts += [t.subtype for t in rel.types if t.subtype]
+                texts += [rel.origin] if rel.origin else []
+            out[pid] = texts
+        return out
+
     def _person(self, p: PersonRecord) -> dict[str, Any]:
         out: dict[str, Any] = {"person": self.ref(p), "name": "我" if p.is_self else p.name}
         if p.is_self:
@@ -231,9 +265,16 @@ class AskSession:
         The names the model declared in ``final_answer.subjects``, plus every name it
         looked up in vain that the question itself contains (「老王」 in 「老王喜欢什么？」) —
         so a model that forgets to declare 老王 and answers about 老张 is still caught.
+        A pronoun (「他」 in a follow-up read with the 上文) names nobody and is skipped.
+
+        A relation phrase nobody is called (「我老婆」「老张的老婆」「闺蜜」) resolves to
+        whom it points to through the graph's relationships (``_related``); one that
+        points nowhere the graph can follow from who it is relative to (「闺蜜」 of someone
+        unsaid, 「他老婆」) is skipped rather than taken for an unknown name.
         """
         names = [n.strip() for n in declared if n.strip()]
         names += [n for n, found in self.lookups.items() if not found and n in question]
+        names = [n for n in names if n not in PRONOUNS]
         out: dict[str, tuple[PersonRef, ...]] = {}
         for name in dict.fromkeys(names):
             if name in self.persons:
@@ -242,10 +283,51 @@ class AskSession:
                 found = self.lookups[name]
             else:
                 found = await self._lookup(name)
+            if not found:
+                related = await self._related(name)
+                if related is None:
+                    continue
+                found = related
             out[name] = tuple(
                 PersonRef(person_id=p.id, name=p.name, is_self=p.is_self) for p in found
             )
         return out
+
+    async def _related(self, phrase: str, depth: int = 0) -> list[PersonRecord] | None:
+        """Whom a relation phrase points to: its relation word followed from its anchor
+        along the relationships (「我老婆」: 刘婷; 「我老婆的闺蜜」: 杜鹃). ``[]`` — nobody,
+        so an unknown subject — when ``phrase`` is no relation phrase, its anchor is a name
+        nobody has exactly (「王老师」, 「马云的老婆」), or the anchor (「我」, a person)
+        has no such relation (「陈静的老公」). ``None`` — skip it — when there is no anchor
+        to follow from: a pronoun (「他老婆」), or none and 「我」 has no such relation."""
+        if self._ties is None:
+            rels = await qt.all_relationships(self._infra)
+            self._ties = [
+                Tie(r.person_a, r.person_b, t.subtype, t.original) for r in rels for t in r.types
+            ]
+        graph_words = {w for t in self._ties for w in (t.subtype, t.original) if w != OTHER}
+        rel = relation_phrase(phrase, RELATION_WORDS | graph_words)
+        if rel is None or depth > 2:
+            return []
+        people = await self._people()
+        me = [p for p in people.values() if p.is_self]
+        if rel.anchor in PRONOUNS:
+            return None
+        if not rel.anchor or rel.anchor in qt.SELF_WORDS:
+            anchors: list[PersonRecord] | None = me
+        else:
+            anchors = [
+                p
+                for p in people.values()
+                if not p.is_self and (p.name == rel.anchor or rel.anchor in p.aliases)
+            ] or await self._related(rel.anchor, depth + 1)
+        if not anchors:
+            return anchors
+        ids = related({p.id for p in anchors}, rel.word, self._ties)
+        found = sorted((people[i] for i in ids if i in people), key=lambda p: (p.name, p.id))
+        if not found and not rel.anchor:
+            return None
+        return found
 
     async def _resolve(self, ref: str) -> PersonRecord:
         text = ref.strip()
@@ -311,6 +393,21 @@ class AskSession:
 
     def _fact(self, f: FactRecord, people: dict[str, PersonRecord]) -> dict[str, Any]:
         subject = people.get(f.subject_id)
+        if f.kind == "fact":
+            if f.invalid_at is not None:
+                text = f"{f.fact}（{f.invalid_at.isoformat()} 起不再是）"
+            elif f.valid_at is not None:
+                text = f"{f.fact}（{f.valid_at.isoformat()}）"
+            else:
+                text = f.fact
+            self.facts_shown[f.id] = EventFact(
+                id=f.id,
+                predicate=f.predicate,
+                subject_id=f.subject_id,
+                object_id=f.object_id or None,
+                text=text,
+                ended=f.invalid_at is not None,
+            )
         out: dict[str, Any] = {
             "evidence": self._evidence(
                 "fact",
