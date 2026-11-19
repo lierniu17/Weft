@@ -1,4 +1,5 @@
-"""记录与草稿: submit / list / detail Entries; read / edit / confirm / discard / retry Drafts."""
+"""记录与草稿: submit / list / detail Entries; read / edit / confirm / discard / retry Drafts;
+answer a Draft's 补充追问."""
 
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ from weft.infra import Infra
 from weft.routes.deps import InfraDep, SessionDep, unwrap
 from weft.routes.jobs import summary_job
 from weft.routes.schemas import (
+    AnswerQuestionRequest,
     DraftOut,
     EntryDetailOut,
     EntryOut,
@@ -37,6 +39,14 @@ DRAFT_ERRORS = {
     "unknown_relationship_type": 422,
     "graph_write_failed": 503,
     "future_date": 422,
+}
+QUESTION_ERRORS = {
+    **DRAFT_ERRORS,
+    "already_answered": 409,
+    "question_outdated": 409,
+    "invalid_option": 422,
+    "blank_text": 422,
+    "not_understood": 422,
 }
 
 
@@ -128,3 +138,20 @@ async def retry_draft(
         draft = unwrap(await drafts.retry_extraction(infra, draft_id), DRAFT_ERRORS)
     background.add_task(extraction_job, infra, session.tenant, draft.id)
     return DraftOut.of(draft)
+
+
+@router.post("/drafts/{draft_id}/questions/{question_id}/answer", response_model=DraftOut)
+async def answer_draft_question(
+    draft_id: uuid.UUID,
+    question_id: str,
+    body: AnswerQuestionRequest,
+    session: SessionDep,
+    infra: InfraDep,
+) -> DraftOut:
+    """补充追问: apply the clicked option, or the typed answer read by one model call
+    (``not_understood`` leaves the Draft unchanged). Counts against no quota."""
+    with tenant_scope(session.tenant):
+        result = await drafts.answer_question(
+            infra, draft_id, question_id, option=body.option, text=body.text
+        )
+    return DraftOut.of(unwrap(result, QUESTION_ERRORS))

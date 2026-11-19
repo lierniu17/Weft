@@ -48,6 +48,7 @@ async def test_a_record_message_returns_the_entry_and_its_draft_extracted_in_the
         "problems",
         "clarify",
         "clarification_of",
+        "history_used_of",
     }
     assert (body["intent"], body["recognized_intent"], body["uncertain"]) == (
         "record",
@@ -261,10 +262,21 @@ async def test_a_clarification_is_returned_restored_and_settled_by_a_click(
 
     assert (body["intent"], body["uncertain"], body["reply"]) == ("chitchat", True, UNSURE_ASKED)
     assert body["clarify"] == {
+        "source": "intent",
         "question": UNSURE_ASKED,
         "options": [
-            {"label": "记下：小蒋最近不开心", "intent": "record", "question": None},
-            {"label": "查：小蒋最近怎么样", "intent": "ask", "question": "小蒋最近怎么样？"},
+            {
+                "label": "记下：小蒋最近不开心",
+                "intent": "record",
+                "question": None,
+                "person_id": None,
+            },
+            {
+                "label": "查：小蒋最近怎么样",
+                "intent": "ask",
+                "question": "小蒋最近怎么样？",
+                "person_id": None,
+            },
         ],
         "resolved": False,
     }

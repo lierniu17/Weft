@@ -10,6 +10,8 @@ import pytest
 
 from weft.domain.answer import (
     Answer,
+    AnswerClarify,
+    AnswerClarifyOption,
     AnswerKind,
     AnswerListItem,
     AnswerSegment,
@@ -64,16 +66,40 @@ def q(**kw: object) -> Question:
 
 
 def test_the_question_set_covers_six_kinds_and_ten_no_answer_questions() -> None:
-    questions = load_questions(QUESTIONS_PATH)
+    questions = [x for x in load_questions(QUESTIONS_PATH) if x.split is None]
     kinds = Counter(x.kind for x in questions)
-    assert len({x.id for x in questions}) == len(questions)
+    assert len(questions) == 43  # the original set, never changed (AC-12: no regression)
     assert sum(n for k, n in kinds.items() if k != "no_answer") >= 30
     assert kinds["no_answer"] == 10
-    assert all(kinds[k] >= 5 for k in KINDS if k != "no_answer")
+    assert all(kinds[k] >= 5 for k in KINDS if k not in ("no_answer", "confirm", "follow_up"))
     for x in questions:
         assert (x.kind == "no_answer") == x.gold.no_answer, x.id
         has_gold = x.gold.persons or x.gold.text or x.gold.path or x.gold.count is not None
         assert x.gold.no_answer or has_gold, x.id
+
+
+def test_the_conversation_questions_are_split_into_dev_and_heldout() -> None:
+    """AC-12: about 20 new questions — 同名指代, 一人多事, 连续追问 (2 and 3 rounds, timed
+    out, a new topic) — each in dev (prompt iteration) or held-out (judged)."""
+    everything = load_questions(QUESTIONS_PATH)
+    assert len({x.id for x in everything}) == len(everything)
+    new = [x for x in everything if x.split is not None]
+    assert 20 <= len(new) <= 55  # dev (incl. earlier held-out sets) + held-out
+    assert {x.kind for x in new} == {"confirm", "follow_up"}
+    for split in ("dev", "heldout"):
+        part = [x for x in new if x.split == split]
+        assert any(x.gold.clarify for x in part), split
+        assert any(x.kind == "confirm" and not x.gold.clarify for x in part), split
+        assert any(x.kind == "follow_up" for x in part), split
+    follow_ups = [x for x in new if x.kind == "follow_up"]
+    assert all(x.history for x in follow_ups)
+    assert {len(x.history) for x in follow_ups} >= {1, 2}  # 2 and 3 rounds
+    assert any(x.history_minutes_ago > 30 for x in follow_ups)  # timed out
+    assert any(x.gold.used_history is False and not x.gold.no_answer for x in follow_ups)
+    assert all(x.gold.clarify or x.gold.no_answer or x.gold.text or x.gold.persons for x in new)
+    assert not [
+        x.id for x in everything if x.split is None and x.kind != "no_answer" and x.gold.no_answer
+    ]
 
 
 def test_the_question_file_is_one_json_object_per_line() -> None:
@@ -163,6 +189,83 @@ def test_the_report_has_per_kind_accuracy_and_the_fabrication_rate() -> None:
     assert report["fabricated"] == ["n2"]
     assert report["accuracy"] == 0.5
     assert report["passed"] is False  # fabrication must be 0
+
+
+# --- 对话上下文 (AC-12) ---------------------------------------------------------------------
+
+
+def confirmation(*labels: str) -> Answer:
+    return Answer(
+        kind=AnswerKind.CLARIFY,
+        segments=[AnswerSegment(text="你问的是哪位？")],
+        citations=[],
+        persons=[],
+        follow_ups=[],
+        clarify=AnswerClarify(
+            question="你问的是哪位？",
+            options=[AnswerClarifyOption(label=label, question=f"{label}？") for label in labels],
+        ),
+    )
+
+
+def test_a_confirmation_question_needs_a_candidate_for_each_expected_one() -> None:
+    gold = q(kind="confirm", gold={"clarify": True, "persons": ["周涛", "周建国"]})
+    assert grade(gold, confirmation("老周（周涛）", "老周（周建国）"), ALIASES).correct
+    one = grade(gold, confirmation("老周（周涛）", "老周（某人）"), ALIASES)
+    assert not one.correct and "周建国" in one.reason
+    direct = grade(gold, answer(AnswerKind.TEXT, "周涛喜欢钓鱼"), ALIASES)
+    assert not direct.correct and "without confirming" in direct.reason
+    events = q(kind="confirm", gold={"clarify": True, "text": ["升职", "买房"]})
+    assert grade(events, confirmation("升职（6 月）", "买房（10 月）"), ALIASES).correct
+
+
+def test_confirming_when_the_answer_is_clear_is_wrong() -> None:
+    gold = q(kind="confirm", gold={"text": ["钓鱼"]})
+    result = grade(gold, confirmation("老周（周涛）", "老周（周建国）"), ALIASES)
+    assert not result.correct and "asked to confirm" in result.reason
+
+
+def test_a_follow_up_checks_whether_the_history_was_used_and_who_it_is_about() -> None:
+    gold = q(kind="follow_up", gold={"text": ["中学"], "used_history": True})
+    good = answer(AnswerKind.TEXT, "黄丽是中学老师。")
+    assert grade(gold, good, ALIASES, used_history=True).correct
+    assert not grade(gold, good, ALIASES, used_history=False).correct
+    topic = q(kind="follow_up", gold={"text": ["杭州"], "not_persons": ["张伟"]})
+    assert grade(topic, answer(AnswerKind.TEXT, "陈静住在杭州。"), ALIASES).correct
+    assert not grade(topic, answer(AnswerKind.TEXT, "陈静住在杭州，老张也在。"), ALIASES).correct
+
+
+def test_the_report_has_confirm_false_confirm_and_follow_up_rates_per_split() -> None:
+    questions = [
+        q(id="c1", kind="confirm", split="dev", gold={"clarify": True, "persons": ["张伟"]}),
+        q(id="c2", kind="confirm", split="heldout", gold={"clarify": True, "persons": ["张伟"]}),
+        q(id="s1", kind="confirm", split="heldout", gold={"text": ["急性子"]}),
+        q(
+            id="f1",
+            kind="follow_up",
+            split="heldout",
+            history=["老张呢？"],
+            gold={"text": ["靠谱"]},
+        ),
+        q(id="p1", kind="profile", gold={"text": ["急性子"]}),
+    ]
+    answers = {
+        "c1": confirmation("老张（张伟）", "老张（某人）"),
+        "c2": answer(AnswerKind.TEXT, "急性子"),
+        "s1": confirmation("老张（张伟）", "老张（某人）"),
+        "f1": answer(AnswerKind.TEXT, "靠谱"),
+        "p1": answer(AnswerKind.TEXT, "急性子"),
+    }
+    report = score(questions, answers, ALIASES, errors={}, used_history={"f1": True})
+    assert report["confirm_rate"] == 0.5
+    assert report["false_confirm_rate"] == pytest.approx(1 / 3)
+    assert report["false_confirmed"] == ["s1"]
+    assert report["follow_up_accuracy"] == 1.0
+    assert report["passed"] is False
+    splits = report["splits"]
+    assert set(splits) == {"base", "dev", "heldout"}
+    assert splits["dev"]["confirm_rate"] == 1.0 and splits["heldout"]["confirm_rate"] == 0.0
+    assert splits["base"]["confirm_rate"] is None and splits["base"]["passed"] is True
 
 
 def test_a_question_that_errored_counts_as_wrong() -> None:

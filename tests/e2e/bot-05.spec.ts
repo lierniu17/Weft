@@ -15,7 +15,7 @@ test("BOT-5 问答、出处与第三方关系页", { tag: "@llm" }, async ({ pag
   const first = answers.nth(0);
   await expect(first).toContainText("大学室友", { timeout: LLM_WAIT });
   await expect(first).toContainText("借钱");
-  await expect(first).toContainText("据小王说");
+  await expect(first).toContainText(/据小王(说|转述)/); // the real model words hearsay either way
   // 直接说话就是提问：没有草稿卡，输入框里也没有“记录 / 提问”切换
   await expect(page.locator("[data-draft-card]")).toHaveCount(0);
   await expect(page.getByRole("radio", { name: "记录" })).toHaveCount(0);

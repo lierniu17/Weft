@@ -12,6 +12,14 @@ sent with it as ``context`` under ``INTENT_CONTEXT_SYSTEM`` (the prompt plus
 message answers it (AC-4); the fast path is skipped then, since a clear question may still be
 the answer.
 
+指代确认 (conversation-context AC-3): when 问答 asked which person or event a question meant,
+the next message is sent with that question, the confirmation and its candidates under
+``INTENT_CONFIRM_SYSTEM`` (``CONFIRM_RULES`` instead of ``CONTEXT_RULES``).
+
+上文 (AC-9): the user's latest answered questions go along as ``history`` (with
+``HISTORY_RULES``), so 「那他老婆呢」 is read as a follow-up question. Messages sent without
+history see exactly the prompt they saw before.
+
 The prompt's examples are invented; none is taken from the intent eval
 (``eval/intent/samples.jsonl``) — ``tests/unit/test_eval_intent.py`` checks that.
 """
@@ -20,10 +28,13 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from datetime import date
 
+from weft.domain.conversation import HistoryTurn
 from weft.domain.intent import (
     ClarifyContext,
+    ClarifySource,
     IntentReading,
     Recognition,
     decide,
@@ -98,31 +109,74 @@ CONTEXT_RULES = """context（反问之后的下一条消息）：这次输入里
   例：同一个反问，text“晚上约了大刘吃火锅” → answers_clarification = false，record。"""
 INTENT_CONTEXT_SYSTEM = INTENT_SYSTEM + "\n\n" + CONTEXT_RULES
 
+# Sent only when 问答's 指代确认 is pending (conversation-context AC-3).
+CONFIRM_RULES = """context（指代确认之后的下一条消息）：这次输入里有 context 且 context.kind = "confirm"，说明用户上一条是一个提问 context.original，图谱里有几个可能的人或几件可能的事，已经反问了 context.clarify_question，候选是 context.options（每项有 label 和 question）。text 是用户接着发来的消息。输出的 JSON 里再加一个字段 "answers_clarification": true | false。先判断 text 是不是在说明指的是哪一个：
+- 在说明（选了某个候选，说了身份、关系、全名、是哪件事，或者用“第一个”“后一个”指代候选）→ answers_clarification = true，intent = ask，question 写成说明之后的完整问题：对得上某个候选就照抄那个候选的 question；对不上候选就把原问题里的称呼或“那事”换成用户说明的人或事。还是没说清的，也是 true、ask，question 写原问题加上用户的补充。这一轮不要再反问，clarify 填 null。
+- 说“算了”“不用了” → answers_clarification = true，chitchat。
+- 不是在说明（说起了别的人或别的事、问了一个和原问题无关的问题、打招呼）→ answers_clarification = false，只按 text 本身判断，和没有 context 时一样。
+例：原问题“小林最近忙啥？”，反问“你问的是哪位小林？”，候选“小林（林一凡，同事）”“小林（林小雨，表妹）”，text“表妹那个” → answers_clarification = true，ask，question = “林小雨最近忙啥？”。
+例：同一个反问，text“下周约了大刘爬山” → answers_clarification = false，record。"""
+INTENT_CONFIRM_SYSTEM = INTENT_SYSTEM + "\n\n" + CONFIRM_RULES
 
-def _payload(text: str, today: date, context: ClarifyContext | None) -> str:
+# Sent only with 上文 (conversation-context AC-9): messages without history never see it.
+HISTORY_RULES = """history（上文）：输入里有 history 时，是用户最近问过的几个问题和得到的回答（较早的在前，persons 是回答涉及的人物）。
+- text 是接着上文追问的——用“他”“她”“他们”“那”“这事”指代上文的人或事，或者省略了人物、只问一个方面（“那他儿子呢”“她老家哪的”“后来呢”“那大刘呢”“他俩呢”）——是 ask，即使没有问号；question 照原话填。
+- text 带来了新信息的仍然是 record；有新信息又追问的是 record_ask。上文只帮你理解指代，不改变其他判断规则。"""
+
+
+def _system(context: ClarifyContext | None, history: Sequence[HistoryTurn]) -> str:
+    if context is None:
+        system = INTENT_SYSTEM
+    elif context.source is ClarifySource.ASK:
+        system = INTENT_CONFIRM_SYSTEM
+    else:
+        system = INTENT_CONTEXT_SYSTEM
+    return system + "\n\n" + HISTORY_RULES if history else system
+
+
+def _payload(
+    text: str,
+    today: date,
+    context: ClarifyContext | None,
+    history: Sequence[HistoryTurn] = (),
+) -> str:
     payload: dict[str, object] = {
         "task": "intent",
         "today": today.isoformat(),
         "weekday": WEEKDAYS[today.weekday()],
         "text": text,
     }
-    if context is not None:
+    if context is not None and context.source is ClarifySource.ASK:
+        payload["context"] = {
+            "kind": "confirm",
+            "original": context.original,
+            "clarify_question": context.clarify_question,
+            "options": [{"label": label, "question": q} for label, q in context.options],
+        }
+    elif context is not None:
         payload["context"] = {
             "original": context.original,
             "clarify_question": context.clarify_question,
         }
+    if history:
+        payload["history"] = [t.to_json() for t in history]
     return json.dumps(payload, ensure_ascii=False)
 
 
-async def read(infra: Infra, text: str, context: ClarifyContext | None = None) -> IntentReading:
+async def read(
+    infra: Infra,
+    text: str,
+    context: ClarifyContext | None = None,
+    history: Sequence[HistoryTurn] = (),
+) -> IntentReading:
     """The model's raw reading of ``text`` (before the threshold). Raises ``LLMError``."""
     request = ChatRequest(
         model=infra.llm.model,
         messages=[
+            ChatMessage(role="system", content=_system(context, history)),
             ChatMessage(
-                role="system", content=INTENT_SYSTEM if context is None else INTENT_CONTEXT_SYSTEM
+                role="user", content=_payload(text.strip(), infra.today(), context, history)
             ),
-            ChatMessage(role="user", content=_payload(text.strip(), infra.today(), context)),
         ],
         temperature=0.0,
         json_output=True,
@@ -130,14 +184,19 @@ async def read(infra: Infra, text: str, context: ClarifyContext | None = None) -
     return await infra.llm.chat.chat_json(request, IntentReading)
 
 
-async def recognize(infra: Infra, text: str, context: ClarifyContext | None = None) -> Recognition:
-    """What ``text`` is (AC-2), read together with a pending 反问 if there is one (AC-4).
-    Never raises; never counts against a quota."""
+async def recognize(
+    infra: Infra,
+    text: str,
+    context: ClarifyContext | None = None,
+    history: Sequence[HistoryTurn] = (),
+) -> Recognition:
+    """What ``text`` is (AC-2), read together with a pending 反问 if there is one (AC-4)
+    and the 上文 (conversation-context AC-9). Never raises; never counts against a quota."""
     fast = None if context is not None else fast_path(text)
     if fast is not None:
         return fast
     try:
-        reading = await read(infra, text, context)
+        reading = await read(infra, text, context, history)
     except LLMError as exc:
         logger.warning("intent recognition failed: %r", exc)
         return unrecognized()
@@ -150,4 +209,13 @@ async def recognize(infra: Infra, text: str, context: ClarifyContext | None = No
     )
 
 
-__all__ = ["CONTEXT_RULES", "INTENT_CONTEXT_SYSTEM", "INTENT_SYSTEM", "read", "recognize"]
+__all__ = [
+    "CONFIRM_RULES",
+    "CONTEXT_RULES",
+    "HISTORY_RULES",
+    "INTENT_CONFIRM_SYSTEM",
+    "INTENT_CONTEXT_SYSTEM",
+    "INTENT_SYSTEM",
+    "read",
+    "recognize",
+]

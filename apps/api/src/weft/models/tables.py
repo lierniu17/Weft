@@ -186,6 +186,9 @@ class MessageRow(Base):
         ForeignKey("messages.id", ondelete="SET NULL")
     )
     clarification_resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 上文 (conversation-context AC-10): ids of the earlier asking messages the answer was
+    # read with (["<uuid>", ...]); NULL when it was answered on its own.
+    history_used_of: Mapped[list[str] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

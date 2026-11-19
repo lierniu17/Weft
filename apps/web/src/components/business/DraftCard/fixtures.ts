@@ -39,6 +39,7 @@ export const PENDING_DRAFT: Draft = {
   profile: [
     { id: "g1", person: "老张", field: "hometown", value: "湖南长沙", confidence: "self_told" },
   ],
+  questions: [],
 };
 
 export const CONFIRMED_PERSONS = [

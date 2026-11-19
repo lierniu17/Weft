@@ -25,6 +25,8 @@ export type ChipProps = {
   className?: string;
   "aria-label"?: string;
   "aria-haspopup"?: "dialog" | "listbox" | "menu" | boolean;
+  /** A chip that opens something in place (e.g. 自己填): whether it is open. */
+  "aria-expanded"?: boolean;
   ref?: Ref<HTMLButtonElement>;
 };
 

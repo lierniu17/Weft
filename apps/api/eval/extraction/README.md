@@ -97,6 +97,23 @@ The report has the overall scores plus `splits.dev` and `splits.heldout`. **Tune
 uv run python eval/extraction/score.py predictions.jsonl [--split heldout]
 ```
 
+## 补充追问 quality (conversation-context AC-13)
+
+`questions.jsonl` holds 17 Entries for the Draft questions (补充追问): 9 that should be asked about (`ask-*`, category `该追问`: relationship type, how / when two people met, a vague occurred date) and 8 complete records that must not be (`none-*`, `不该追问`, one of them with the person already known in `graph_context`). Same format as `samples.jsonl`, except that `gold` only has `questions`: `[{"field": "relationship_type" | "met" | "occurred", "about": <mention> | null}]`, or `[]`.
+
+`questions-split.json` is the dev / held-out split (half of each category to dev, seed 42), fixed before the prompt was written. `questions_score.py` scores:
+
+| Metric | Threshold | Definition |
+| --- | --- | --- |
+| Question hit rate | ≥ 0.8 | Share of gold questions whose field the Draft asks about. `about_hit_rate` (reported) also wants the asked pair to contain the gold person. |
+| False-question rate | ≤ 0.1 | Share of complete records that got any question. |
+
+```bash
+uv run python -m weft.eval questions --split heldout
+```
+
+The original 50 samples and AC-42 are unchanged; run `extraction` as well after a prompt change.
+
 ## Q&A quality (AC-36, AC-38)
 
 `eval/qa/questions.jsonl` holds 43 questions over the seed graph (`weft.services.seed`): profile 6, relationship 5, path 5, filter 6, time 6, count 5, and 10 questions the graph cannot answer. `weft.eval.qa_score` explains the gold format. The runner registers a throwaway account, seeds it, asks every question through `POST /api/ask`'s service, reports per-kind accuracy and the fabrication rate (must be 0), and deletes the account:

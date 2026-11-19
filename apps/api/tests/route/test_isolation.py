@@ -88,7 +88,9 @@ async def world(register: Register, llm: LLMScript) -> World:
     sc.graphiti_only(llm, sc.FLAKY)
     sc.flaky_ok(llm)
     sc.graphiti_only(llm, sc.GARBLED)
-    llm.enrichment_raw(sc.GARBLED, "这不是 JSON")
+    llm.enrichment_raw(
+        sc.GARBLED, "抱歉，我暂时无法处理这条记录。"
+    )  # same as test_drafts: one response per request
     b_asks_about_laozhang(llm)
     llm.intent(THANKS, "chitchat", confidence=0.98, reply="不客气")
     a, b = await register("甲"), await register("乙")
@@ -254,6 +256,15 @@ async def _discard(w: World) -> None:
     assert_not_found(await w.b.client.post(f"/api/drafts/{w.a_draft_pending}/discard"))
 
 
+@case("POST", "/api/drafts/{draft_id}/questions/{question_id}/answer")
+async def _answer_question(w: World) -> None:
+    for body in ({"option": 0}, {"text": "同事"}):
+        response = await w.b.client.post(
+            f"/api/drafts/{w.a_draft_pending}/questions/q1/answer", json=body
+        )
+        assert_not_found(response)
+
+
 @case("POST", "/api/drafts/{draft_id}/retry")
 async def _retry(w: World) -> None:
     assert_not_found(await w.b.client.post(f"/api/drafts/{w.a_draft_failed}/retry"))
@@ -297,6 +308,12 @@ async def _clarify(w: World) -> None:
             f"/api/messages/{w.a_message}/clarify", json={"option": option}, params=smuggled(w)
         )
         assert_not_found(response)
+
+
+@case("POST", "/api/messages/{message_id}/reanswer")
+async def _reanswer(w: World) -> None:
+    response = await w.b.client.post(f"/api/messages/{w.a_message}/reanswer", params=smuggled(w))
+    assert_not_found(response)
 
 
 # --- persons / relationships ------------------------------------------------------------

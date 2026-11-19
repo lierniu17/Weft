@@ -16,6 +16,7 @@ from weft.domain.tenancy import tenant_scope
 from weft.infra import Infra
 from weft.repositories.entries import DraftRepository
 from weft.services import entries
+from weft.services import query_tools as qt
 from weft.services.drafts import SELF_ID
 from weft.services.results import Ok
 from weft.services.seed import ENTRIES, SELF
@@ -99,7 +100,17 @@ async def test_each_seed_alias_is_learned_by_the_entry_that_introduced_it(infra:
         assert isinstance(result, Ok)
         expected = [
             (alias, seeded.ids[name], name) for name, aliases in entry.persons for alias in aliases
-        ]
+        ] + [(alias, seeded.ids[name], name) for name, alias in entry.aliases]
         learned = [(a.alias, a.person_id, a.name) for a in result.value.learned_aliases]
         assert learned == expected, entry.text
     assert any(e.persons and any(a for _, a in e.persons) for e in ENTRIES)
+    assert any(e.aliases for e in ENTRIES)  # an alias learned for a known person (老周)
+
+
+async def test_two_seed_persons_go_by_laozhou(infra: Infra) -> None:
+    """指代确认 (conversation-context BOT-1): 周涛 and 周建国 are both 老周."""
+    seeded = await seeded_user(infra)
+    with tenant_scope(seeded.user.tenant):
+        found = await qt.find_person(infra, "老周")
+    assert sorted(p.name for p in found) == ["周建国", "周涛"]
+    assert "老周" not in seeded.ids  # the seed's name map never guesses which one

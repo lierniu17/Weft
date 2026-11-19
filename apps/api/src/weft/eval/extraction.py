@@ -6,6 +6,10 @@ sample's occurred date, and collect ``{"id", "draft"}``. Then ``eval/extraction/
 scores the predictions against the gold Drafts, overall and per dev / held-out split
 (``eval/extraction/split.json``; AC-42 is decided on the held-out split). A sample whose
 extraction fails is left out (reported under ``missing_predictions`` and ``errors``).
+
+``run_questions`` does the same over ``eval/extraction/questions.jsonl`` and scores only
+the 补充追问 the Drafts ask (``eval/extraction/questions_score.py``, conversation-context
+AC-13).
 """
 
 from __future__ import annotations
@@ -41,15 +45,16 @@ logger = logging.getLogger(__name__)
 
 EVAL_DIR = API_DIR / "eval" / "extraction"
 SAMPLES_PATH = EVAL_DIR / "samples.jsonl"
+QUESTIONS_PATH = EVAL_DIR / "questions.jsonl"
 SELF_ID = "self"
 
 Sample = dict[str, Any]
 
 
-def load_scorer() -> ModuleType:
-    """``eval/extraction/score.py`` (standard library only, kept outside the package)."""
+def load_scorer(name: str = "score") -> ModuleType:
+    """``eval/extraction/<name>.py`` (standard library only, kept outside the package)."""
     spec = importlib.util.spec_from_file_location(
-        "weft_eval_extraction_score", EVAL_DIR / "score.py"
+        f"weft_eval_extraction_{name}", EVAL_DIR / f"{name}.py"
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -124,8 +129,9 @@ async def predict(infra: Infra, sample: Sample) -> dict[str, Any]:
     return {"id": sample["id"], "draft": draft.model_dump(mode="json", by_alias=True)}
 
 
-async def run(infra: Infra, samples: list[Sample]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Predict every sample and score; returns (predictions, report)."""
+async def _predict_all(
+    infra: Infra, samples: list[Sample]
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
     predictions: list[dict[str, Any]] = []
     errors: dict[str, str] = {}
     for sample in samples:
@@ -134,6 +140,12 @@ async def run(infra: Infra, samples: list[Sample]) -> tuple[list[dict[str, Any]]
         except Exception as exc:  # one failed sample must not stop the run
             logger.warning("extraction eval: sample %s failed: %r", sample["id"], exc)
             errors[sample["id"]] = f"{type(exc).__name__}: {str(exc)[:200]}"
+    return predictions, errors
+
+
+async def run(infra: Infra, samples: list[Sample]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Predict every sample and score; returns (predictions, report)."""
+    predictions, errors = await _predict_all(infra, samples)
     scorer = load_scorer()
     by_id = {p["id"]: p["draft"] for p in predictions}
     report: dict[str, Any] = scorer.score(samples, by_id)
@@ -142,4 +154,17 @@ async def run(infra: Infra, samples: list[Sample]) -> tuple[list[dict[str, Any]]
     return predictions, report
 
 
-__all__ = ["SAMPLES_PATH", "load_scorer", "predict", "run"]
+async def run_questions(
+    infra: Infra, samples: list[Sample]
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Predict every 补充追问 sample and score the questions; returns (predictions, report)."""
+    predictions, errors = await _predict_all(infra, samples)
+    scorer = load_scorer("questions_score")
+    by_id = {p["id"]: p["draft"] for p in predictions}
+    report: dict[str, Any] = scorer.score(samples, by_id)
+    report["splits"] = scorer.score_by_split(samples, by_id)
+    report["errors"] = errors
+    return predictions, report
+
+
+__all__ = ["QUESTIONS_PATH", "SAMPLES_PATH", "load_scorer", "predict", "run", "run_questions"]

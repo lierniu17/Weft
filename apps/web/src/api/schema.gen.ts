@@ -154,6 +154,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/drafts/{draft_id}/questions/{question_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Draft Question
+         * @description 补充追问: apply the clicked option, or the typed answer read by one model call
+         *     (``not_understood`` leaves the Draft unchanged). Counts against no quota.
+         */
+        post: operations["answer_draft_question_api_drafts__draft_id__questions__question_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/drafts/{draft_id}/retry": {
         parameters: {
             query?: never;
@@ -287,9 +308,31 @@ export interface paths {
         put?: never;
         /**
          * Clarify Message
-         * @description Click option ``option`` of the message's 反问; returns the updated message.
+         * @description Click option ``option`` of the message's 反问 or 指代确认 (source ask: answers the
+         *     option's question, counting nothing more); returns the updated message.
          */
         post: operations["clarify_message_api_messages__message_id__clarify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/{message_id}/reanswer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reanswer Message
+         * @description 「不接上文」: answer the message's question again without the earlier questions it was
+         *     read with; counts one ask and replaces the answer. 409 if it was not read with any.
+         */
+        post: operations["reanswer_message_api_messages__message_id__reanswer_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -526,6 +569,8 @@ export interface components {
         Answer: {
             /** Citations */
             citations: components["schemas"]["Citation"][];
+            /** @description kind = clarify: the 指代确认 question and its candidates */
+            clarify?: components["schemas"]["AnswerClarify"] | null;
             /**
              * Follow Ups
              * @description 追问建议, e.g. 「他俩什么时候认识的？」
@@ -553,10 +598,38 @@ export interface components {
             stat?: components["schemas"]["AnswerStat"] | null;
         };
         /**
+         * AnswerClarify
+         * @description 指代确认 (conversation-context AC-1): a question and 2–4 candidates to pick from.
+         */
+        AnswerClarify: {
+            /** Options */
+            options: components["schemas"]["AnswerClarifyOption"][];
+            /** Question */
+            question: string;
+        };
+        /** AnswerClarifyOption */
+        AnswerClarifyOption: {
+            /**
+             * Label
+             * @description Who or which event, e.g. 「老周（周涛，大学同学）」
+             */
+            label: string;
+            /**
+             * Person Id
+             * @description The person this option means (always in the user's graph)
+             */
+            person_id?: string | null;
+            /**
+             * Question
+             * @description The full question answered when this is picked
+             */
+            question: string;
+        };
+        /**
          * AnswerKind
          * @enum {string}
          */
-        AnswerKind: "text" | "path" | "list" | "stat" | "no_answer";
+        AnswerKind: "text" | "path" | "list" | "stat" | "no_answer" | "clarify";
         /** AnswerListItem */
         AnswerListItem: {
             /** Citations */
@@ -576,6 +649,23 @@ export interface components {
              * @description e.g. 同学 / 客户
              */
             subtitle?: string | null;
+        };
+        /**
+         * AnswerQuestionRequest
+         * @description Answer a 补充追问: click an option (no model call) or type an answer (one model call
+         *     that may only change the question's field). Exactly one of the two.
+         */
+        AnswerQuestionRequest: {
+            /**
+             * Option
+             * @description Index of the clicked option in question.options
+             */
+            option?: number | null;
+            /**
+             * Text
+             * @description A typed answer (自己填)
+             */
+            text?: string | null;
         };
         /** AnswerSegment */
         AnswerSegment: {
@@ -694,9 +784,14 @@ export interface components {
             intent: "record" | "ask" | "record_ask";
             /**
              * Label
-             * @description What clicking does, e.g. 「记下：…」「查：…」
+             * @description What clicking does: 「记下：…」「查：…」; 指代确认: 「老周（周涛，同学）」
              */
             label: string;
+            /**
+             * Person Id
+             * @description 指代确认 (source ask): the person this candidate means; null otherwise
+             */
+            person_id: string | null;
             /**
              * Question
              * @description ask / record_ask: the question that is answered
@@ -705,7 +800,9 @@ export interface components {
         };
         /**
          * ClarifyOut
-         * @description 反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options.
+         * @description 反问 (intent clarify): a concrete question about a 拿不准 message, with 1–3 options; or
+         *     指代确认 (source ask, conversation context): which person / event a question meant, 2–4
+         *     options. Clicking either goes through ``POST /api/messages/{id}/clarify``.
          */
         ClarifyOut: {
             /** Options */
@@ -717,6 +814,12 @@ export interface components {
              * @description Settled (clicked, answered, re-routed): hide options
              */
             resolved: boolean;
+            /**
+             * Source
+             * @description intent: 反问 of intent recognition; ask: 问答's 指代确认 (clicking is free)
+             * @enum {string}
+             */
+            source: "intent" | "ask";
         };
         /** ClarifyRequest */
         ClarifyRequest: {
@@ -821,6 +924,11 @@ export interface components {
             persons?: components["schemas"]["DraftPerson"][];
             /** Profile */
             profile?: components["schemas"]["DraftProfileItem"][];
+            /**
+             * Questions
+             * @description 补充追问, at most 2; server-owned (see module doc)
+             */
+            questions?: components["schemas"]["DraftQuestion"][];
             /** Relationships */
             relationships?: components["schemas"]["DraftRelationship"][];
         };
@@ -914,6 +1022,49 @@ export interface components {
             person: string;
             /** Value */
             value: string;
+        };
+        /** DraftQuestion */
+        DraftQuestion: {
+            /**
+             * Answer
+             * @description The clicked option's label or the typed answer
+             */
+            answer?: string | null;
+            /**
+             * Answered
+             * @default false
+             */
+            answered: boolean;
+            field: components["schemas"]["QuestionField"];
+            /**
+             * Id
+             * @description Stable id of this item, unique within the draft
+             */
+            id: string;
+            /** Options */
+            options: components["schemas"]["DraftQuestionOption"][];
+            /**
+             * Pair
+             * @description The two person mentions asked about (relationship_type / met only)
+             */
+            pair?: [
+                string,
+                string
+            ] | null;
+            /**
+             * Prompt
+             * @description e.g. 小李是你的同事还是同学？
+             */
+            prompt: string;
+        };
+        /** DraftQuestionOption */
+        DraftQuestionOption: {
+            /**
+             * Label
+             * @description Button text, e.g. 同事
+             */
+            label: string;
+            patch: components["schemas"]["QuestionPatch"];
         };
         /** DraftRef */
         DraftRef: {
@@ -1107,6 +1258,19 @@ export interface components {
             occurred_at: string;
             /** Source */
             source: string;
+        };
+        /**
+         * FollowedOut
+         * @description An earlier question an answer was read with (上文, 「接着：…」).
+         */
+        FollowedOut: {
+            /**
+             * Message Id
+             * Format: uuid
+             */
+            message_id: string;
+            /** Question */
+            question: string;
         };
         /** GraphEdgeOut */
         GraphEdgeOut: {
@@ -1317,6 +1481,11 @@ export interface components {
             created_at: string;
             /** @description record / record_ask: the Entry + Draft */
             entry: components["schemas"]["MessageEntryOut"] | null;
+            /**
+             * History Used Of
+             * @description 上文: the earlier questions the answer was read with, oldest first; empty when it was answered on its own. Non-empty: show 「接着：<last question>」 and offer 「不接上文」 (POST /api/messages/{id}/reanswer)
+             */
+            history_used_of: components["schemas"]["FollowedOut"][];
             /** @description How the message is handled now (after any re-route) */
             intent: components["schemas"]["Intent"];
             /**
@@ -1470,6 +1639,27 @@ export interface components {
             };
             person: components["schemas"]["PersonOut"];
             summary: components["schemas"]["SummaryOut"] | null;
+        };
+        /**
+         * QuestionField
+         * @enum {string}
+         */
+        QuestionField: "relationship_type" | "met" | "occurred";
+        /**
+         * QuestionPatch
+         * @description The change one answer makes. Only the keys of the question's field may be set:
+         *     ``types`` (relationship_type); ``met_at`` and / or ``origin`` (met); ``occurred`` (the
+         *     Entry's 发生日期, re-timing the Draft's dates anchored on it).
+         */
+        QuestionPatch: {
+            /** Met At */
+            met_at?: string | null;
+            /** Occurred */
+            occurred?: string | null;
+            /** Origin */
+            origin?: string | null;
+            /** Types */
+            types?: components["schemas"]["DraftRelationshipType"][] | null;
         };
         /** QuotaOut */
         QuotaOut: {
@@ -2005,6 +2195,42 @@ export interface operations {
             };
         };
     };
+    answer_draft_question_api_drafts__draft_id__questions__question_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     retry_draft_api_drafts__draft_id__retry_post: {
         parameters: {
             query?: never;
@@ -2311,6 +2537,37 @@ export interface operations {
                 "application/json": components["schemas"]["ClarifyRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reanswer_message_api_messages__message_id__reanswer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

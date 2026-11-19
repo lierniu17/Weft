@@ -9,13 +9,15 @@ from __future__ import annotations
 
 import pytest
 
-from weft.domain.answer import AnswerKind, PersonRef
+from weft.domain.answer import AnswerClarify, AnswerKind, PersonRef
 from weft.domain.answering import (
     NO_ANSWER_TEXT,
     Evidence,
     FinalAnswer,
     Source,
     build_answer,
+    clarification,
+    clarify_answer,
     hedge,
 )
 from weft.domain.confidence import Confidence
@@ -282,3 +284,70 @@ def test_an_internal_fact_name_the_model_echoes_is_written_in_chinese() -> None:
     texts = [s.text for s in answer.segments] + [i.subtitle or "" for i in answer.items]
     assert not any("RELATED_EVENT" in t for t in texts)
     assert "两人之间的事" in answer.segments[0].text
+
+
+# --- 指代确认 (conversation-context AC-1) ------------------------------------------------
+
+LAOZHOU = {
+    "P5": PersonRef(person_id="id-tao", name="周涛"),
+    "P6": PersonRef(person_id="id-jg", name="周建国"),
+}
+
+
+def confirm(*options: dict[str, object], question: str = "你问的是哪位老周？") -> FinalAnswer:
+    return FinalAnswer.model_validate(
+        {"kind": "clarify", "clarify_question": question, "options": list(options)}
+    )
+
+
+def who(label: str, person: str | None) -> dict[str, object]:
+    return {"label": label, "question": f"{label}喜欢什么？", "person": person}
+
+
+def test_a_confirmation_names_the_persons_behind_its_handles() -> None:
+    checked = clarification(
+        confirm(who("老周（周涛，大学同学）", "P5"), who("老周（周建国，邻居）", "P6")), LAOZHOU
+    )
+    assert isinstance(checked, AnswerClarify)
+    assert checked.question == "你问的是哪位老周？"
+    assert [(o.label, o.person_id) for o in checked.options] == [
+        ("老周（周涛，大学同学）", "id-tao"),
+        ("老周（周建国，邻居）", "id-jg"),
+    ]
+    assert clarify_answer(checked).kind is AnswerKind.CLARIFY
+
+
+def test_a_confirmation_about_events_names_no_person() -> None:
+    checked = clarification(
+        confirm(who("升职（2026 年 6 月）", None), who("买房（2026 年 10 月）", None)), {}
+    )
+    assert isinstance(checked, AnswerClarify)
+    assert [o.person_id for o in checked.options] == [None, None]
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        [who("老周（周涛）", "P5")],  # one candidate is not a choice
+        [who(f"候选{i}", None) for i in range(5)],  # more than four
+        [who("老周（周涛）", "P5"), who("老周（某人）", "P99")],  # not a handle the tools returned
+        [who("老周（周涛）", "P5"), who("我", "P1")],  # never 我
+        [who("老周（周涛）", "P5"), who("老周（周涛）", "P5")],  # the same candidate twice
+        [who("老周（周涛）", "P5"), {"label": " ", "question": "谁？"}],  # no label
+    ],
+)
+def test_an_unusable_confirmation_says_why(options: list[dict[str, object]]) -> None:
+    checked = clarification(confirm(*options), {**PERSONS, **LAOZHOU})
+    assert isinstance(checked, str) and checked
+
+
+def test_a_confirmation_needs_a_question() -> None:
+    options = (who("老周（周涛）", "P5"), who("老周（周建国）", "P6"))
+    assert isinstance(clarification(confirm(*options, question=" "), LAOZHOU), str)
+
+
+def test_build_answer_never_turns_a_confirmation_into_an_answer() -> None:
+    answer = build_answer(
+        confirm(who("老周（周涛）", "P5"), who("老周（周建国）", "P6")), EVIDENCE, PERSONS
+    )
+    assert answer.kind is AnswerKind.NO_ANSWER

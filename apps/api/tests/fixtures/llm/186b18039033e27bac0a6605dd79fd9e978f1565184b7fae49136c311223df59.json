@@ -1,0 +1,52 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是 Weft 的信息整理助手。用户（“我”）写了一条和人有关的记录，\n系统已经从中初步抽取出人物（persons）和候选事实（candidate_facts）。\n请把它们整理成结构化的 JSON，只输出 JSON 对象，字段如下：\n\n- persons：记录里提到的全部人物的叫法（不含“我”），按下方“人物叫法”的规则命名，\n  和其他条目里用的叫法完全一致；包括只作为转述来源、没有其他条目的人物。\n\n- facts：关于某个人物的事实。\n  subject 是人物叫法（写记录的人用“我”）；predicate 取自 predicates 的键；\n  object 是对象（组织、学校、城市、性格、爱好、事件、注意事项，或另一个人物的叫法）；\n  confidence 是可信度（见下方“可信度”）；\n  valid_at / valid_to 是事实发生或开始、结束的时间，格式 YYYY、YYYY-MM 或 YYYY-MM-DD。\n  相对时间（“上周末”“去年”“上个月”）必须以 entry.occurred 为参照换算成具体日期；\n  换算结果的精度不得超过 entry.precision（发生日期只到年时，只写年份）。\n  index 是对应的候选事实编号，候选事实里没有的事实 index 为 null；\n  不成立或与人无关的候选事实直接丢弃。\n- relationships：两个人物之间的关系。pair 是两个人物的叫法；\n  types 中每一项的 category 和 subtype 必须取自 relationship_types\n  （放不下时用该大类的“其他”），original 保留记录中的原话；\n  met_at 认识时间，origin 认识途径，introduced_by 介绍人叫法，\n  status 取 active / distant / tense / estranged，confidence 见下方“可信度”。\n- feelings：一个人物对另一个人物的感受，有方向（from 对 to）。\n  dimension 取 closeness / affinity / trust，level 取 feeling_levels 中对应维度的键。\n  每一项都必须带 confidence。\n- profile：人物的身份信息，每一项都必须带 person（人物叫法）、field、value、confidence；\n  field 取 name / gender / birthday / hometown。\n- questions：补充追问，见下方“补充追问”。\n\n事实的类别（predicate），容易混的是 喜好与厌恶 和 相处之道：\n- LIKES / DISLIKES（画像里的“喜好与厌恶”）：这个人自己的喜好、厌恶、口味和习惯，\n  说的是他本人怎样。例：“他爱吃甜食” → LIKES 甜食；“她从不碰咖啡” → DISLIKES 咖啡；\n  “他最讨厌开会时被人打断” → DISLIKES 被人打断。不做、不吃的事也是 DISLIKES。\n- HAS_ETIQUETTE（画像里的“相处之道”）：给别人的建议——和他打交道时该怎么做、要避开什么，\n  说的是别人应该怎样。例：“别在他面前提他前妻”“找他办事要提前约”“他喝多了别劝”。\n- 记录只说了他本人的喜好或习惯、没有说别人该怎么做时，用 LIKES / DISLIKES，\n  不要改写成相处之道。\n\n人物叫法：\n- 输入里的 persons 是初步结果，可能漏人或叫法不合规则；输出时以下面的规则为准，\n  同一个人在所有条目里只用一个叫法。\n- 有名字或固定称呼的人，用记录里的名字或称呼，不要把前面修饰的关系词拼进去\n  （“堂弟小军”叫“小军”，“我同事阿芳”叫“阿芳”）。\n- 没有名字、但指的是某个具体的人（某人的家人、伴侣、上司、合伙人、朋友等）也是人物，\n  称为“称谓人物”，叫法写成“<被参照人物的叫法>的<称谓>”，如“老陈的儿子”“阿芳的上司”；\n  被参照人物是我时直接用称谓（“外公”“我爸”）。每个称谓人物都要在 relationships 里\n  给出他和被参照人物的关系。\n- 转述的来源（“X 说”“听 X 说”“X 告诉我”）如果是具体的人，也是人物。\n- 不是人物：泛指或一群人（大家、同事们、几个朋友）、不具体的来源（“听人说”“听同事说”）、\n  只出现一次的服务或职能角色（医生、店员、司机）。\n\n关系：\n- 亲属类有方向的类型（父母、子女、祖孙）读作“pair[0] 是 pair[1] 的 X”：\n  “老陈的儿子”写成 pair [\"老陈\", \"老陈的儿子\"]、类型 父母（老陈是他儿子的父母）；\n  我和我爸写成 pair [\"我爸\", \"我\"]、类型 父母。\n- 记录里交代了某人和我的关系（称呼前的“我同事”“我表哥”“邻居”“前领导”，或认识经过），\n  就输出我和此人的关系，即使这句话主要在讲别人之间的事。一句话里有多个人时，\n  逐对检查：我和每个人、以及他们彼此之间。\n- 一段关系可以同时有多个类型，记录里每一层关系都要写上\n  （例如两人合伙开店后翻脸：合伙人 + 矛盾；同学后来成了夫妻：同学 + 配偶）。\n- 在同一所学校读书期间认识的人（同班、同级、同社团、同宿舍）属于 同学（同宿舍再加 室友）。\n- 吵架、闹翻、闹掰、有过节属于 矛盾；只有明确不再来往时才用 绝交。\n\n可信度（confidence）——按“我是怎么知道的”判断，先看有没有转述来源：\n- witnessed：我亲眼所见、亲身经历、直接观察到的。记录直接陈述、没有交代消息来源的事，\n  按我亲身所知处理，也是 witnessed；我和别人之间的关系、我自己的感受一律是 witnessed；\n  我亲眼看到的两人之间的关系（如看到他们在一起）也是 witnessed。\n- self_told：当事人亲口告诉我他自己的事。说话人讲的是他自己和别人的关系或他自己的家人时\n  （例：表弟说他女朋友在读研 → 表弟和他女朋友的关系是 self_told），也是 self_told。\n- hearsay：别人转述的第三方的事（“听说”“听 X 说”“X 说 Y 怎样”，Y 不是说话人自己），\n  或者来源不明的传闻。\n- inferred：我的猜测或推断，或者从迹象推断出来的结论；内容本身带“估计”“好像”“可能”\n  “感觉”“看样子”等不确定语气的也是 inferred。只是我对转述的真假表示怀疑\n  （“不知道是不是真的”）时，仍按来源判断（hearsay）。\n\n补充追问（questions）——记录缺了关键信息时，问用户一句，最多 2 个；信息齐全时输出空数组。\n只在下面三种情况追问，别的缺失一律不问：\n1. relationship_type：我和某人有来往（一起吃饭、见面、聊天、出游、帮忙等），\n   但记录没交代他是我的什么人（同事、同学、朋友、亲戚……），\n   relationships 里也给不出我和他的关系类型。pair 写 [\"我\", 他的叫法]。\n   称呼已经说明了关系（“我堂哥”“楼下李姐”“高中同桌阿明”），\n   或者他只出现在别人的事里、和我没有来往，都不问。\n2. met：记录提到我和某人认识这件事（“打小就认识”“早些年结识的”“新交的朋友”），\n   但认识的时间或途径含糊、没说。pair 写 [\"我\", 他的叫法]。\n   记录没提认识这件事，或者已经说清时间和途径，都不问。\n3. occurred：记录讲的那件事（见面、聚餐、搬家、旅行……）是什么时候发生的，\n   只用了泛指过去某个时候、说不出年月的词（如“前阵子”“那会儿”“有一回”“早些时候”），\n   就要问，即使 facts 里没有需要写日期的条目。不写 pair。\n   “今天”“昨天”“上周末”“去年”“上个月”这类能换算的时间不问；\n   “最近”“平时”用来说习惯、状态或近况时也不问。\n每个追问写 field、pair、prompt（一句口语化的问题，\n如“小王是你的同事还是同学？”“前阵子大概是什么时候？”）和 options（2–4 个最可能的候选）。\n每个候选写 label（按钮上的字，如“同事”“上个月”）和 patch（选它之后对草稿的修改，只能改这个字段）：\n- relationship_type：{\"types\": [{\"category\": ..., \"subtype\": ..., \"original\": ...}]}，\n  category 和 subtype 取自 relationship_types；\n- met：{\"met_at\": \"YYYY 或 YYYY-MM\"}、{\"origin\": \"认识途径\"}，或两者都写；\n- occurred：{\"occurred\": \"YYYY-MM 或 YYYY\"}，以 entry.occurred 为参照换算，不得晚于它。\n\n没有的内容输出空数组。不要编造记录中没有的信息。"
+        },
+        {
+          "role": "user",
+          "content": "{\"task\": \"enrich\", \"entry\": {\"text\": \"周末和小李打球，感觉他最近对我挺冷淡的，我倒还是把他当好兄弟\", \"occurred\": \"2026-11-16\", \"precision\": \"day\"}, \"writer\": \"我\", \"persons\": [\"小李\"], \"candidate_facts\": [{\"index\": 0, \"source\": \"小李\", \"relation\": \"LIKES\", \"target\": \"打球\", \"fact\": \"小李周末和我打球\"}], \"predicates\": {\"WORKS_AT\": \"在…工作\", \"STUDIED_AT\": \"在…上学\", \"LIVES_IN\": \"住在\", \"HAS_TRAIT\": \"性格\", \"LIKES\": \"喜欢\", \"DISLIKES\": \"不喜欢\", \"EXPERIENCED\": \"经历\", \"HAS_ETIQUETTE\": \"相处之道\", \"OPINION\": \"评价\"}, \"relationship_types\": {\"kin\": [\"父母\", \"子女\", \"配偶\", \"兄弟姐妹\", \"祖孙\", \"亲戚\", \"姻亲\", \"其他\"], \"romantic\": [\"恋人\", \"前任\", \"暗恋\", \"暧昧\", \"其他\"], \"social\": [\"朋友\", \"同事\", \"上下级\", \"同学\", \"室友\", \"校友\", \"师生\", \"邻居\", \"老乡\", \"战友\", \"网友\", \"球友\", \"其他\"], \"interest\": [\"合伙人\", \"客户\", \"供应商\", \"投资\", \"债权债务\", \"租赁\", \"中介\", \"其他\"], \"hostile\": [\"竞争\", \"矛盾\", \"绝交\", \"纠纷\", \"情敌\", \"其他\"]}, \"feeling_levels\": {\"closeness\": {\"label\": \"亲密度\", \"levels\": {\"intimate\": \"至交\", \"close\": \"亲近\", \"familiar\": \"熟悉\", \"casual\": \"一般\", \"distant\": \"疏远\"}}, \"affinity\": {\"label\": \"好恶\", \"levels\": {\"like\": \"喜欢\", \"neutral\": \"中性\", \"dislike\": \"反感\"}}, \"trust\": {\"label\": \"信任\", \"levels\": {\"high\": \"高\", \"medium\": \"中\", \"low\": \"低\"}}}, \"profile_fields\": [\"name\", \"gender\", \"birthday\", \"hometown\"]}"
+        }
+      ],
+      "stream": false,
+      "temperature": 0.0,
+      "response_format": {
+        "type": "json_object"
+      }
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-fixture",
+      "object": "chat.completion",
+      "created": 1763251200,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\"facts\": [{\"index\": 0, \"subject\": \"小李\", \"predicate\": \"LIKES\", \"object\": \"打球\", \"confidence\": \"witnessed\"}], \"relationships\": [{\"pair\": [\"我\", \"小李\"], \"types\": [{\"category\": \"social\", \"subtype\": \"球友\", \"original\": \"打球\"}, {\"category\": \"social\", \"subtype\": \"好兄弟\", \"original\": \"好兄弟\"}], \"status\": \"active\", \"confidence\": \"witnessed\"}], \"feelings\": [{\"from\": \"小李\", \"to\": \"我\", \"dimension\": \"closeness\", \"level\": \"casual\", \"confidence\": \"inferred\"}], \"profile\": []}"
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 812,
+        "completion_tokens": 164,
+        "total_tokens": 976
+      },
+      "system_fingerprint": "fp_weft_fixture"
+    }
+  }
+}

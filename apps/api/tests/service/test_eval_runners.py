@@ -88,6 +88,28 @@ async def test_the_extraction_eval_matches_against_the_samples_graph_context(
     assert job.conflict is not None and job.conflict.old == "字节跳动"
 
 
+async def test_the_questions_eval_scores_the_questions_the_drafts_ask(
+    infra: Infra, llm: LLMScript
+) -> None:
+    rows = [
+        json.loads(line)
+        for line in extraction_eval.QUESTIONS_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    # the same text twice: 小李 unknown (asked about), and 小李 known as a colleague (not)
+    unknown, known = [r for r in rows if r["id"] in ("ask-01", "none-08")]
+    assert unknown["text"] == known["text"] == sc.XIAOLI_DINNER
+    sc.dinner_with_xiaoli(llm)
+
+    predictions, report = await extraction_eval.run_questions(infra, [unknown, known])
+
+    assert [len(p["draft"]["questions"]) for p in predictions] == [1, 0]
+    assert (report["question_hits"], report["gold_questions"]) == (1, 1)
+    assert (report["false_questions"], report["complete_records"]) == (0, 1)
+    assert report["passed"] and report["errors"] == {}
+    assert set(report["splits"]) == {"heldout"}
+
+
 async def test_the_qa_eval_asks_over_a_seeded_account_and_reports_per_kind(
     infra: Infra, llm: LLMScript
 ) -> None:
@@ -124,7 +146,7 @@ async def test_the_qa_eval_asks_over_a_seeded_account_and_reports_per_kind(
     assert not [u for u in users if u.startswith("eval_")]
 
 
-@pytest.mark.parametrize("which", ["extraction", "qa"])
+@pytest.mark.parametrize("which", ["extraction", "questions", "qa"])
 def test_the_evals_refuse_to_run_without_api_keys(
     which: str, capsys: pytest.CaptureFixture[str]
 ) -> None:

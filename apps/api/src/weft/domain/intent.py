@@ -78,48 +78,75 @@ class IntentReading(BaseModel):
 OPTION_INTENTS = (Intent.RECORD, Intent.ASK, Intent.RECORD_ASK)
 
 
+class ClarifySource(StrEnum):
+    """Who asked back: 意图识别 (反问, 记下 or 查) or 问答 (指代确认, which person / event)."""
+
+    INTENT = "intent"
+    ASK = "ask"
+
+
 @dataclass(frozen=True, slots=True)
 class ClarifyOption:
-    """A 候选 under a 反问: what clicking it does (记下 the original text / 查 ``question``)."""
+    """A 候选 under a 反问: what clicking it does (记下 the original text / 查 ``question``).
 
-    label: str  # 「记下：…」「查：…」
+    Under a 指代确认 (source ask) every option is 查 its ``question``; ``person_id`` is the
+    person it means, if it is about a person (conversation-context AC-1)."""
+
+    label: str  # 「记下：…」「查：…」; 指代确认: 「老周（周涛，大学同学）」
     intent: Intent  # record | ask | record_ask
     question: str | None = None  # ask / record_ask: the question to answer
+    person_id: str | None = None  # 指代确认 only
 
     def to_json(self) -> dict[str, Any]:
         out: dict[str, Any] = {"label": self.label, "intent": self.intent.value}
         if self.question is not None:
             out["question"] = self.question
+        if self.person_id is not None:
+            out["person_id"] = self.person_id
         return out
 
 
 @dataclass(frozen=True, slots=True)
 class Clarification:
-    """反问: one concrete question about the message and 1–3 options (AC-1)."""
+    """反问: one concrete question about the message and 1–3 options (AC-1); or, with source
+    ask, the 指代确认 问答 asked instead of answering (2–4 options)."""
 
     question: str
     options: tuple[ClarifyOption, ...]
+    source: ClarifySource = ClarifySource.INTENT
 
     def to_json(self) -> dict[str, Any]:
-        return {"question": self.question, "options": [o.to_json() for o in self.options]}
+        return {
+            "question": self.question,
+            "options": [o.to_json() for o in self.options],
+            "source": self.source.value,
+        }
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> Clarification:
         return cls(
             question=data["question"],
             options=tuple(
-                ClarifyOption(o["label"], Intent(o["intent"]), o.get("question"))
+                ClarifyOption(
+                    o["label"], Intent(o["intent"]), o.get("question"), o.get("person_id")
+                )
                 for o in data["options"]
             ),
+            source=ClarifySource(data.get("source", ClarifySource.INTENT.value)),  # before 0005
         )
 
 
 @dataclass(frozen=True, slots=True)
 class ClarifyContext:
-    """A pending 反问 the next message may be answering (sent along with it, AC-4)."""
+    """A pending 反问 the next message may be answering (sent along with it, AC-4).
 
-    original: str  # the 拿不准 message
+    With source ask it is a 指代确认: ``original`` is the question and ``options`` the
+    candidates' (label, question) (conversation-context AC-3)."""
+
+    original: str  # the 拿不准 message; 指代确认: the question
     clarify_question: str  # what was asked back (the fixed reply if there was no 反问)
+    source: ClarifySource = ClarifySource.INTENT
+    options: tuple[tuple[str, str], ...] = ()  # 指代确认: (label, question) of each candidate
 
 
 @dataclass(frozen=True, slots=True)
@@ -404,6 +431,7 @@ __all__ = [
     "Clarification",
     "ClarifyContext",
     "ClarifyOption",
+    "ClarifySource",
     "Intent",
     "IntentReading",
     "Recognition",

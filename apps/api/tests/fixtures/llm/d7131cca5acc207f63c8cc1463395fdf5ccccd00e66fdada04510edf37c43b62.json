@@ -1,0 +1,780 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/chat/completions",
+    "body": {
+      "model": "deepseek-chat",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是 Weft 的问答助手。用户（“我”）在 Weft 里记录了自己的人际关系图谱，现在就图谱提问。\n今天是 2026-11-16（北京时间），相对时间（“最近半年”“今年”）以今天为准换算成日期。\n\n规则：\n1. 只能依据工具返回的内容回答，不得凭常识补充或编造。工具都没有查到相关内容时，\n   调用 final_answer 提交 kind = no_answer。\n2. 问题点名问某个人时，先用 find_person 查这个称呼。查不到就是图谱里没有这个人，直接\n   提交 kind = no_answer；不要改查、也不要回答名字相近的人（问“老王”时不要去查“老张”\n   “小王”）。final_answer 的 subjects 照原话填问题点名问到的人物。\n3. 先调用查询工具，最后必须调用 final_answer 提交回答。segments 是回答文字，每段的\n   evidence 填支撑这段话的 E 句柄（只能用工具结果里出现过的）；人物只能用 P 句柄。\n4. 可信度为转述（hearsay）的信息，文字里要说明“据某某说”或“据转述”；推测（inferred）\n   要说明是推测；引用评价（kind = opinion）要说明“这是你的评价”。\n5. kind：text 一般回答；path 人脉路径（path 依次填从起点到终点的 P 句柄）；list 条件筛选\n   （items 每人一项，subtitle 写一句说明）；stat 聚合统计（stat_persons 填被计入的每个人）；\n   no_answer 图谱里没有相关信息；clarify 指代确认（见规则 7）。\n6. 用简洁的中文回答；follow_ups 给出最多 3 个可以继续问的问题。\n7. 指代确认（kind = clarify）：\n   - 问题里的称呼用 find_person 查到 2 个及以上的人，而问题本身（以及上文，如果有）看不出是哪一个时，不要猜，也不要把几个人都答一遍，提交 kind = clarify：\n     clarify_question 写一句确认问题；options 每个可能的人一项，label 写“称呼（姓名，一句关系描述）”，question 写把称呼换成全名后的完整问题，person 填他的 P 句柄。\n     例：问“小林最近忙啥？”，find_person 查到林一凡（同事）和林小雨（表妹）→ clarify_question “你问的是哪位小林？”，options [{\"label\": \"小林（林一凡，同事）\", \"question\": \"林一凡最近忙啥？\", \"person\": \"P1\"}, {\"label\": \"小林（林小雨，表妹）\", \"question\": \"林小雨最近忙啥？\", \"person\": \"P2\"}]。\n   - 问到“那事”“那件事”“那个事儿”这类没说是哪件的事，而这个人身上有 2 件及以上可能相关的事时，也提交 clarify：每件事一项，label 写一句话加时间（如“和房东吵架（2025 年 3 月）”），question 写问那件事的完整问题，不填 person。\n   - 只有一个可能时直接作答，不要确认：\n     · 只查到一个人，或者这个人身上只有一件相关的事；\n     · 问题里的身份、关系或全名已经说清是谁：“同事小林”“表妹小林”“林一凡”——查到几个同名的人时，按 note 和关系挑出对得上的那一个直接作答；\n     · 上文刚问过其中某一个人（上文问的是林一凡，接着问“小林最近忙啥？”）——就是他，直接作答，used_history 填 true。\n   - 只有“他”“她”这类代词、又没有上文可以指代时，问题没有点名任何人，不要确认，提交 kind = no_answer。\n   - options 2 到 4 个。clarify 时 segments 留空。"
+        },
+        {
+          "role": "user",
+          "content": "老张在哪上班？"
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call_0_0",
+              "type": "function",
+              "function": {
+                "name": "read_profile",
+                "arguments": "{\"person\": \"老张\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "{\"person\":{\"person\":\"P1\",\"name\":\"张伟\",\"aliases\":[\"老张\"],\"note\":\"同事\"},\"identity\":[],\"facts\":[{\"evidence\":\"E1\",\"about\":\"P1\",\"kind\":\"fact\",\"predicate\":\"HAS_TRAIT\",\"label\":\"性格\",\"object\":\"急性子\",\"status\":\"current\",\"text\":\"张伟的性格：急性子\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"sources\":[{\"excerpt\":\"2018 年入职字节跳动，认识了同组的张伟，大家都叫他老张。他是个急性子，但做事很靠谱。\",\"date\":\"2018-03-12\"}]},{\"evidence\":\"E2\",\"about\":\"P1\",\"kind\":\"fact\",\"predicate\":\"WORKS_AT\",\"label\":\"在…工作\",\"object\":\"字节跳动\",\"status\":\"current\",\"text\":\"张伟在字节跳动工作\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"from\":\"2018-03\",\"sources\":[{\"excerpt\":\"2018 年入职字节跳动，认识了同组的张伟，大家都叫他老张。他是个急性子，但做事很靠谱。\",\"date\":\"2018-03-12\"}]},{\"evidence\":\"E3\",\"about\":\"P1\",\"kind\":\"fact\",\"predicate\":\"RELATED_EVENT\",\"label\":\"两人之间的事\",\"object\":\"小李\",\"status\":\"current\",\"text\":\"老张和小李因为借钱闹掰了\",\"confidence\":\"hearsay\",\"confidence_label\":\"转述\",\"from\":\"2026-09\",\"sources\":[{\"excerpt\":\"听小王说，老张和小李以前是大学室友，今年九月因为借钱的事闹掰了。\",\"date\":\"2026-10-08\"}]}],\"opinions\":[{\"evidence\":\"E4\",\"about\":\"P1\",\"kind\":\"opinion\",\"kind_label\":\"评价（你的主观评价，不是事实）\",\"opinion\":\"靠谱\",\"text\":\"我对张伟的评价：靠谱\",\"confidence\":\"witnessed\",\"confidence_label\":\"亲历\",\"sources\":[{\"excerpt\":\"2018 年入职字节跳动，认识了同组的张伟，大家都叫他老张。他是个急性子，但做事很靠谱。\",\"date\":\"2018-03-12\"}]}],\"found\":true}",
+          "tool_call_id": "call_0_0"
+        }
+      ],
+      "stream": false,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "find_person",
+            "description": "按姓名或别名查找人物。",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "description": "姓名或别名，如“老张”",
+                  "title": "Name",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "title": "FindPersonArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "read_profile",
+            "description": "读取一个人物的画像：身份、社会角色（含历史）、性格、喜好、生活事件、相处之道、你的评价、综合描述，每条带出处。",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "person": {
+                  "description": "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "Person",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "person"
+              ],
+              "title": "ReadProfileArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "read_relationship",
+            "description": "读取两个人物之间的关系：关系类型、认识时间与途径、介绍人、现状、事实时间线、双方各自的感受。",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "person_a": {
+                  "description": "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "Person A",
+                  "type": "string"
+                },
+                "person_b": {
+                  "description": "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "Person B",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "person_a",
+                "person_b"
+              ],
+              "title": "ReadRelationshipArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "find_path",
+            "description": "人脉路径：两人之间最短的关系链（最多 4 跳）；若两人由人介绍认识，返回介绍链。用于“我是怎么认识某人的”“通过谁能认识某人”。",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "from_person": {
+                  "default": "我",
+                  "description": "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "From Person",
+                  "type": "string"
+                },
+                "to_person": {
+                  "description": "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "To Person",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "to_person"
+              ],
+              "title": "FindPathArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "filter_persons",
+            "description": "条件筛选人物：关系类型、亲密度、事实（学校/公司/城市/喜好等）、认识时间。",
+            "parameters": {
+              "$defs": {
+                "Category": {
+                  "enum": [
+                    "kin",
+                    "romantic",
+                    "social",
+                    "interest",
+                    "hostile"
+                  ],
+                  "title": "Category",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "properties": {
+                "relationship_category": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Category"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "关系大类：kin 亲属 / romantic 情感 / social 社会 / interest 利益 / hostile 敌对"
+                },
+                "relationship_subtype": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "关系小类或原话，如“同学”“室友”",
+                  "title": "Relationship Subtype"
+                },
+                "relative_to": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "以谁为中心（默认本人）；人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "Relative To"
+                },
+                "min_closeness": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "intimate",
+                        "close",
+                        "familiar",
+                        "casual",
+                        "distant"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "中心人物对此人的亲密度至少到这一档",
+                  "title": "Min Closeness"
+                },
+                "predicate": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "WORKS_AT",
+                        "STUDIED_AT",
+                        "LIVES_IN",
+                        "HAS_TRAIT",
+                        "LIKES",
+                        "DISLIKES",
+                        "EXPERIENCED",
+                        "HAS_ETIQUETTE"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "事实类型",
+                  "title": "Predicate"
+                },
+                "object_keywords": {
+                  "description": "事实对象包含其中任一词，如 [\"露营\"]、[\"字节跳动\",\"腾讯\"]",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Object Keywords",
+                  "type": "array"
+                },
+                "include_history": {
+                  "default": false,
+                  "description": "也算已经不成立的旧事实（如以前的工作单位）",
+                  "title": "Include History",
+                  "type": "boolean"
+                },
+                "met_from": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "认识时间不早于；日期 YYYY、YYYY-MM 或 YYYY-MM-DD",
+                  "title": "Met From"
+                },
+                "met_to": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "认识时间不晚于；日期 YYYY、YYYY-MM 或 YYYY-MM-DD",
+                  "title": "Met To"
+                }
+              },
+              "title": "FilterArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "count_persons",
+            "description": "按与 filter_persons 相同的条件计数，并返回被计入的人物。",
+            "parameters": {
+              "$defs": {
+                "Category": {
+                  "enum": [
+                    "kin",
+                    "romantic",
+                    "social",
+                    "interest",
+                    "hostile"
+                  ],
+                  "title": "Category",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "properties": {
+                "relationship_category": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Category"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "关系大类：kin 亲属 / romantic 情感 / social 社会 / interest 利益 / hostile 敌对"
+                },
+                "relationship_subtype": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "关系小类或原话，如“同学”“室友”",
+                  "title": "Relationship Subtype"
+                },
+                "relative_to": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "以谁为中心（默认本人）；人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "Relative To"
+                },
+                "min_closeness": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "intimate",
+                        "close",
+                        "familiar",
+                        "casual",
+                        "distant"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "中心人物对此人的亲密度至少到这一档",
+                  "title": "Min Closeness"
+                },
+                "predicate": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "WORKS_AT",
+                        "STUDIED_AT",
+                        "LIVES_IN",
+                        "HAS_TRAIT",
+                        "LIKES",
+                        "DISLIKES",
+                        "EXPERIENCED",
+                        "HAS_ETIQUETTE"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "事实类型",
+                  "title": "Predicate"
+                },
+                "object_keywords": {
+                  "description": "事实对象包含其中任一词，如 [\"露营\"]、[\"字节跳动\",\"腾讯\"]",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Object Keywords",
+                  "type": "array"
+                },
+                "include_history": {
+                  "default": false,
+                  "description": "也算已经不成立的旧事实（如以前的工作单位）",
+                  "title": "Include History",
+                  "type": "boolean"
+                },
+                "met_from": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "认识时间不早于；日期 YYYY、YYYY-MM 或 YYYY-MM-DD",
+                  "title": "Met From"
+                },
+                "met_to": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "认识时间不晚于；日期 YYYY、YYYY-MM 或 YYYY-MM-DD",
+                  "title": "Met To"
+                }
+              },
+              "title": "FilterArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "time_query",
+            "description": "时间查询：某段时间新认识的人、两人关系的变化事件、某段时间发生的事。",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "description": "met：某段时间新认识的人；pair_events：两人之间关系的变化事件；facts：某段时间发生的事",
+                  "enum": [
+                    "met",
+                    "pair_events",
+                    "facts"
+                  ],
+                  "title": "Kind",
+                  "type": "string"
+                },
+                "start": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "日期 YYYY、YYYY-MM 或 YYYY-MM-DD",
+                  "title": "Start"
+                },
+                "end": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "日期 YYYY、YYYY-MM 或 YYYY-MM-DD",
+                  "title": "End"
+                },
+                "person_a": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "Person A"
+                },
+                "person_b": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "人物：之前结果里的 P 句柄（如 P3），或姓名 / 别名；本人写“我”",
+                  "title": "Person B"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "title": "TimeArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "semantic_search",
+            "description": "语义检索事实与人物，用于其他工具不好表达的问题。",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "description": "自然语言检索词，如“户外运动”",
+                  "title": "Query",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "title": "SearchArgs",
+              "type": "object"
+            }
+          }
+        },
+        {
+          "type": "function",
+          "function": {
+            "name": "final_answer",
+            "description": "提交最终回答（必须调用它来结束）。每段文字的 evidence 只能填工具结果里出现过的 E 句柄；人物只能填 P 句柄。",
+            "parameters": {
+              "$defs": {
+                "AnswerKind": {
+                  "enum": [
+                    "text",
+                    "path",
+                    "list",
+                    "stat",
+                    "no_answer",
+                    "clarify"
+                  ],
+                  "title": "AnswerKind",
+                  "type": "string"
+                },
+                "FinalItem": {
+                  "properties": {
+                    "person": {
+                      "description": "P… handle",
+                      "title": "Person",
+                      "type": "string"
+                    },
+                    "subtitle": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "title": "Subtitle"
+                    },
+                    "evidence": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Evidence",
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "person"
+                  ],
+                  "title": "FinalItem",
+                  "type": "object"
+                },
+                "FinalOption": {
+                  "properties": {
+                    "label": {
+                      "description": "候选：是谁（姓名和一句关系描述）或哪件事（一句话和时间）",
+                      "title": "Label",
+                      "type": "string"
+                    },
+                    "question": {
+                      "description": "选了这个候选时要回答的完整问题（人名写全，不用代词）",
+                      "title": "Question",
+                      "type": "string"
+                    },
+                    "person": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "default": null,
+                      "description": "候选是某个人物时填他的 P 句柄",
+                      "title": "Person"
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "question"
+                  ],
+                  "title": "FinalOption",
+                  "type": "object"
+                },
+                "FinalSegment": {
+                  "properties": {
+                    "text": {
+                      "title": "Text",
+                      "type": "string"
+                    },
+                    "evidence": {
+                      "description": "E… handles backing this text",
+                      "items": {
+                        "type": "string"
+                      },
+                      "title": "Evidence",
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "text"
+                  ],
+                  "title": "FinalSegment",
+                  "type": "object"
+                }
+              },
+              "description": "What the model submits through the ``final_answer`` tool.",
+              "properties": {
+                "kind": {
+                  "$ref": "#/$defs/AnswerKind"
+                },
+                "subjects": {
+                  "description": "问题点名问到的人物，照问题原话写（如“老张”“我”）；没点名具体人物就留空",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Subjects",
+                  "type": "array"
+                },
+                "segments": {
+                  "items": {
+                    "$ref": "#/$defs/FinalSegment"
+                  },
+                  "title": "Segments",
+                  "type": "array"
+                },
+                "persons": {
+                  "description": "P… handles shown as chips",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Persons",
+                  "type": "array"
+                },
+                "path": {
+                  "description": "kind=path: P… from first to last",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Path",
+                  "type": "array"
+                },
+                "items": {
+                  "description": "kind=list",
+                  "items": {
+                    "$ref": "#/$defs/FinalItem"
+                  },
+                  "title": "Items",
+                  "type": "array"
+                },
+                "stat_persons": {
+                  "description": "kind=stat: who is counted",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Stat Persons",
+                  "type": "array"
+                },
+                "follow_ups": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Follow Ups",
+                  "type": "array"
+                },
+                "clarify_question": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "kind=clarify：确认问题，如“你问的是哪位老周？”",
+                  "title": "Clarify Question"
+                },
+                "options": {
+                  "description": "kind=clarify：2 到 4 个候选",
+                  "items": {
+                    "$ref": "#/$defs/FinalOption"
+                  },
+                  "title": "Options",
+                  "type": "array"
+                },
+                "used_history": {
+                  "default": false,
+                  "description": "理解这个问题时用到了上文（history）就填 true",
+                  "title": "Used History",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "title": "FinalAnswer",
+              "type": "object"
+            }
+          }
+        }
+      ],
+      "tool_choice": "auto",
+      "temperature": 0.0
+    }
+  },
+  "response": {
+    "status_code": 200,
+    "content_type": "application/json",
+    "json": true,
+    "body": {
+      "id": "chatcmpl-weft-fixture",
+      "object": "chat.completion",
+      "created": 1763251200,
+      "model": "deepseek-chat",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_1_0",
+                "type": "function",
+                "function": {
+                  "name": "final_answer",
+                  "arguments": "{\"kind\": \"text\", \"segments\": [{\"text\": \"老张在字节跳动上班。\", \"evidence\": [\"E1\"]}], \"subjects\": [\"老张\"], \"persons\": [\"P1\"]}"
+                }
+              }
+            ]
+          },
+          "logprobs": null,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 812,
+        "completion_tokens": 164,
+        "total_tokens": 976
+      },
+      "system_fingerprint": "fp_weft_fixture"
+    }
+  }
+}

@@ -7,6 +7,7 @@ import { TRANSPARENT, token } from "../../../test/color.ts";
 import { canEmulateReducedMotion } from "../../../test/reducedMotion.ts";
 import { tokens } from "../../../tokens.gen.ts";
 import { Button } from "../../basics/Button/Button.tsx";
+import { WHEN_QUESTION, XIAOLI_QUESTION } from "../DraftQuestionItem/fixtures.ts";
 import { DraftCard } from "./DraftCard.tsx";
 import { CONFIRMED_PERSONS, PENDING_DRAFT } from "./fixtures.ts";
 
@@ -300,5 +301,70 @@ export const DistinctNames: Story = {
     for (const r of regions) {
       await expect(within(r).getByRole("status")).toHaveAttribute("aria-live", "polite");
     }
+  },
+};
+
+const XIAOLI_DINNER = {
+  persons: [{ id: "p1", mention: "小李", match: "new" as const }],
+  facts: [
+    {
+      id: "f1",
+      subject: "小李",
+      predicate: "EXPERIENCED",
+      object: "和我吃饭",
+      confidence: "witnessed" as const,
+    },
+  ],
+  relationships: [],
+  feelings: [],
+  profile: [],
+  questions: [XIAOLI_QUESTION, WHEN_QUESTION],
+};
+
+/**
+ * Conversation context AC-5: a draft missing key information asks under its summary —
+ * the first unanswered question only, as a grey line above 查看并确认.
+ */
+export const AsksAQuestion: Story = {
+  args: { draft: XIAOLI_DINNER },
+  play: async ({ canvasElement }) => {
+    const c = card(canvasElement);
+    const line = c.querySelector("[data-draft-question-line]") as HTMLElement;
+    await expect(line).toHaveTextContent("还差一点：小李是你的同事还是同学？");
+    await expect(getComputedStyle(line).color).toBe(token("neutral-text-secondary"));
+    await expect(c).not.toHaveTextContent("前阵子是什么时候？");
+    const review = within(c).getByRole("button", { name: "查看并确认" });
+    await expect(line.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      review.getBoundingClientRect().top,
+    );
+    const last = [...c.querySelectorAll("[data-draft-line]")].at(-1) as HTMLElement;
+    await expect(line.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      last.getBoundingClientRect().bottom,
+    );
+  },
+};
+
+/** AC-5, AC-6: once the first is answered the next one shows; all answered, no line. */
+export const QuestionsAnswered: Story = {
+  args: {
+    draft: {
+      ...XIAOLI_DINNER,
+      questions: [{ ...XIAOLI_QUESTION, answered: true, answer: "同事" }, WHEN_QUESTION],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const c = card(canvasElement);
+    await expect(c.querySelector("[data-draft-question-line]")).toHaveTextContent(
+      "还差一点：前阵子是什么时候？",
+    );
+  },
+};
+
+/** AC-8: a confirmed draft never asks, whatever was left unanswered. */
+export const ConfirmedDoesNotAsk: Story = {
+  args: { status: "confirmed", draft: XIAOLI_DINNER, persons: [] },
+  play: async ({ canvasElement }) => {
+    await expect(card(canvasElement).querySelector("[data-draft-question-line]")).toBeNull();
+    await expect(card(canvasElement)).not.toHaveTextContent("还差一点");
   },
 };

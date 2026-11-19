@@ -249,3 +249,36 @@ export const SelfIsNotAChip: Story = {
     ).toHaveLength(3);
   },
 };
+
+/**
+ * Conversation context: a 指代确认 (kind clarify) that reaches an answer anyway (the legacy
+ * /api/ask) reads as its question; each candidate's full question is offered to ask next.
+ * Nothing to light on the graph yet.
+ */
+export const LegacyClarify: Story = {
+  args: {
+    answer: {
+      kind: "clarify",
+      segments: [],
+      citations: [],
+      persons: [],
+      follow_ups: [],
+      clarify: {
+        question: "你问的是哪位老周？",
+        options: [
+          { label: "老周（周涛，大学同学）", question: "周涛喜欢什么？", person_id: "zt" },
+          { label: "老周（周建国，老家邻居）", question: "周建国喜欢什么？", person_id: "zj" },
+        ],
+      },
+    },
+    onShowOnGraph: fn(),
+  },
+  play: async ({ canvasElement, args }) => {
+    const c = within(card(canvasElement));
+    await expect(card(canvasElement)).toHaveTextContent("你问的是哪位老周？");
+    await expect(c.queryByRole("button", { name: "在图上查看" })).toBeNull();
+    await expect(c.queryByRole("button", { name: "去记一笔" })).toBeNull();
+    await userEvent.click(c.getByRole("button", { name: "相关问题：周建国喜欢什么？" }));
+    await expect(args.onFollowUp).toHaveBeenCalledWith("周建国喜欢什么？");
+  },
+};

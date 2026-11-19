@@ -8,7 +8,9 @@ import {
   type Draft,
   type DraftItem,
   type DraftPerson,
+  type DraftQuestion,
   type DraftRelationshipType,
+  type DraftStatus,
   type PersonChoice,
   SELF_ID,
 } from "../contracts/draft.ts";
@@ -26,6 +28,53 @@ export function canConfirm(draft: Draft): boolean {
 /** Review order: facts, profile, relationships, feelings. */
 export function draftItems(draft: Draft): DraftItem[] {
   return [...draft.facts, ...draft.profile, ...draft.relationships, ...draft.feelings];
+}
+
+/**
+ * 补充追问 still waiting for an answer (conversation-context AC-5, AC-6), in order. Answered
+ * ones hide; a Draft from before questions existed has none.
+ */
+export function openQuestions(draft: Draft): DraftQuestion[] {
+  return (draft.questions ?? []).filter((q) => !q.answered);
+}
+
+/**
+ * The draft card's line under the summary (AC-5): 「还差一点：<the first open question>」, only
+ * while the Draft is 待确认 (null once every question is answered, and after 确认 / 放弃 —
+ * unanswered questions are dropped then, AC-8).
+ */
+export function draftQuestionLine(draft: Draft | undefined, status: DraftStatus): string | null {
+  if (status !== "pending" || !draft) return null;
+  const first = openQuestions(draft)[0];
+  return first ? `还差一点：${first.prompt}` : null;
+}
+
+/** What the review sheet does with a refused answer to a 补充追问 (AC-6, AC-7). */
+export type QuestionAnswerFeedback = {
+  /** Said under the 自己填 input: the typed answer was not understood; the Draft is as it was. */
+  hint?: string;
+  /** Said in a toast. */
+  toast?: string;
+  /** The Draft changed meanwhile (confirmed, answered elsewhere): reload it. */
+  reload: boolean;
+};
+
+const NOT_UNDERSTOOD = "没理解这个回答，可以直接在草稿里改";
+
+/**
+ * A refused answer: 「没理解这个回答…」 stays next to the input (`not_understood`); anything
+ * else is a toast with the server's text, and a 409 (not 待确认 any more, already answered,
+ * outdated) reloads the Draft so the sheet shows it as it is.
+ */
+export function questionAnswerFeedback(error: {
+  status: number;
+  code: string;
+  message: string;
+}): QuestionAnswerFeedback {
+  if (error.code === "not_understood") {
+    return { hint: error.message || NOT_UNDERSTOOD, reload: false };
+  }
+  return { toast: error.message || "操作失败，请稍后再试", reload: error.status === 409 };
 }
 
 export function draftSummary(draft: Draft): { persons: number; items: number } {

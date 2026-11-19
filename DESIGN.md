@@ -371,17 +371,32 @@ components:
         pending: { clicked: "Button loading（转圈）", others: "disabled", below: "查类候选显示“正在图谱里查找…”骨架" }
         resolved: { question: "保留", options: "隐藏" }
         error: { feedback: "Toast.error（429 额度用完：同输入框的额度文案，反问保持未解决；409 已处理：刷新消息；503 问答不可用）" }
+      ask-confirm: "指代确认（conversation-context AC-1 / AC-2）沿用同一形态：提问查到几个都可能的人或事时，回答的位置换成一句确认问题（“你问的是哪位老周？”）+ 2–4 个候选（“老周（周涛，大学同学）”“退休（2019 年）”）。点候选或直接打字说明后，候选隐藏、问题保留，回答排在它下方；确认不额外扣额度。用户气泡下照常有“改为记录”。"
+    FollowsLine:
+      description: "连续追问（conversation-context AC-10）：回答用到了上文时，回答正上方一行低调文字“接着：<上一个问题>”（typography.meta、neutral.text-tertiary），行尾接“不接上文”（Button.ghost sm，同 MessageActions）。点后不带上文重答，原地替换回答（扣一次提问额度），这一行随之消失。没用到上文的回答不显示。"
+      layout: "左对齐，与回答正文同宽；问题过长时换行，按钮不溢出 375px"
+      states:
+        pending: { button: "Button loading（转圈），原回答保留到新回答到达" }
+        error: { feedback: "Toast.error（429 额度用完：同输入框的额度文案；409 已不能重答 / 404：刷新消息；503 问答不可用）" }
     DraftCard:
       description: "对话里的草稿卡片，一条记录一张，状态变化原地更新（同一 DOM 节点）。白底 + divider 细边 + rounded.md，无阴影；信息行为自然语句 + 行尾灰色可信度（“**张伟**喜欢钓鱼 · 本人说”）。"
       variants:
         extracting: { body: "Skeleton.text x3", title: "正在整理人物和关系…" }
-        pending: { body: "人物 chip（头像 + “老张 是 张伟”）+ 前 3 条信息 + 还有 N 条", action: "Button.primary 查看并确认" }
+        pending: { body: "人物 chip（头像 + “老张 是 张伟”）+ 前 3 条信息 + 还有 N 条 + 有未回答的补充追问时一行 body-sm neutral.text-secondary “还差一点：<第一个追问>”（conversation-context AC-5）", action: "Button.primary 查看并确认" }
         failed: { bg: "colors.status.error.1", action: "Button.secondary 重试" }
         confirmed: { bg: "colors.neutral.bg-subtle（无边）", body: "绿色对勾 + 已入图谱 · N 条信息 · 学到的别名", action: "人物头像 Chip" }
         discarded: { text: "colors.neutral.text-secondary", body: "已放弃" }
       motion: { confirm: "确认抽屉退出（motion.sheet-exit）后：预览以 grid-template-rows 1fr→0fr 收起、底色过渡到 bg-subtle（motion.emphasis）；对勾 stroke-dashoffset 画出；新人物 chip 轻弹（pop，motion.base，错开 motion.stagger）。页面加载时已是已入图谱的卡不播放。减少动效：直接切换，对勾直接显示。" }
     DraftReviewSheet:
-      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel 380）。顶部第一行“发生在：<日期>”（按精度：2015 年 / 2026 年 3 月 / 今天；DatePicker 的 line 触发器，正文字号、日期半粗、尾部灰色日历图标），点按打开 DatePicker（年 / 月 / 日，不可选未来）；改后草稿里依赖发生日期的时间由服务端重新换算，行下出现 meta 灰色提示“已按新的发生日期重新换算草稿里的时间，请检查一遍”。分区：涉及的人物 / 信息 / 画像变化 / 关系变化 / 感受变化，每条为自然语句（lib/draft itemSentence）；末尾提示“点一条可以改可信度”；底部 放弃 + 确认入图谱 等宽并排（确认为主按钮），存在未选的需选择项时确认禁用。"
+      description: "确认草稿的承载面（移动端 Drawer.bottom-sheet，桌面端 Drawer.side-panel 380）。顶部第一行“发生在：<日期>”（按精度：2015 年 / 2026 年 3 月 / 今天；DatePicker 的 line 触发器，正文字号、日期半粗、尾部灰色日历图标），点按打开 DatePicker（年 / 月 / 日，不可选未来）；改后草稿里依赖发生日期的时间由服务端重新换算，行下出现 meta 灰色提示“已按新的发生日期重新换算草稿里的时间，请检查一遍”。分区：涉及的人物 / 信息 / 画像变化 / 关系变化 / 感受变化，每条为自然语句（lib/draft itemSentence）；末尾提示“点一条可以改可信度”；底部 放弃 + 确认入图谱 等宽并排（确认为主按钮），存在未选的需选择项时确认禁用。草稿有未回答的补充追问时，“发生在”下方第一个分区为“还差一点”，逐个列出（DraftQuestionItem）；回答过的隐藏，全部回答后分区消失；不回答也能确认（conversation-context AC-5 / AC-8）。"
+    DraftQuestionItem:
+      description: "确认草稿里的一个补充追问（conversation-context AC-5 / AC-6 / AC-7）：一句 body-md 正文写出追问（“小李是你的同事还是同学？”），下方候选为 Chip（同需选择人物的候选），末尾 Chip “自己填”。点候选立即改草稿（不调用大模型）、追问隐藏，草稿里手动改过的地方保留；“自己填”原地展开成单行 Input + Button.secondary “确定”（回车也可提交），由服务端理解后改草稿。"
+      layout: "竖排：问题 / 候选行（换行，375px 不溢出）/ 自己填输入行（Input 撑满，确定按钮同高 40）"
+      states:
+        typing: { chip: "“自己填” Chip.selected，aria-expanded", input: "自动聚焦，占位“用自己的话说”" }
+        pending: { options: "disabled，分组 aria-busy", others: "其他追问的候选同样 disabled" }
+        not-understood: { input: "Input.error：下方红色 caption “没理解这个回答，可以直接在草稿里改”，草稿不变" }
+        error: { feedback: "Toast.error（409 草稿已确认 / 已回答 / 已过期：重新加载草稿；422 其他不合法）" }
     PersonMatchItem:
       description: "草稿里一个被提到的人怎么对上号。"
       layout: "Avatar.md + 自然语句 + 尾部状态 chip"
@@ -526,9 +541,10 @@ components:
 - 输入框是视觉焦点：`rounded.xl`、`border`、`shadow.md`，聚焦 `shadow.lg`；只有输入区和圆形近黑发送按钮（空内容时 25% 不透明）。没有“记录 | 提问”切换和日期：系统按意图分发（ADR 0005），占位“记点什么，或问点什么……”。
 - 用户消息：`bg-muted` 气泡，`rounded.bubble`，右对齐，下方 12px 元信息（怎么处理的）+ 低调的纠正文字按钮（改为提问 / 改为记录）。
 - 无关消息的回应：一句正文，不套卡片，下方“记下来 / 帮我查”两个低调文字按钮。
-- 拿不准时的反问：同样一句正文，写出具体问题，下方 1–3 个候选（“记下：…”“查：…”）做低调文字按钮；处理后候选消失，问题保留。
+- 拿不准时的反问：同样一句正文，写出具体问题，下方 1–3 个候选（“记下：…”“查：…”）做低调文字按钮；处理后候选消失，问题保留。提问指代不清时的确认（“你问的是哪位老周？”）用同一形态，确认后回答排在问题下方。
+- 接着上文理解的回答：回答正上方一行灰色 meta “接着：<上一个问题>” + “不接上文”文字按钮。
 - 回答：**不套卡片**，正文直接排在白底上；出处 `[n]` 为 `bg-muted` 小方块；相关人物为头像 chip；“在图上查看”为中性文字按钮。
-- 草稿卡：白底 + `divider` 细边 + `rounded.md`；确认后变 `bg-subtle` 无边、内容收起，只剩“✓ 已入图谱 · N 条信息”。
+- 草稿卡：白底 + `divider` 细边 + `rounded.md`；确认后变 `bg-subtle` 无边、内容收起，只剩“✓ 已入图谱 · N 条信息”。缺关键信息时摘要下一行灰字“还差一点：…”，在确认草稿顶部用候选或“自己填”回答。
 
 ## 3. 动效（少而有用，见 `motion` token）
 | 场景 | 动效 |

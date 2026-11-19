@@ -41,6 +41,7 @@ class AnswerKind(StrEnum):
     LIST = "list"  # 条件筛选
     STAT = "stat"  # 聚合统计
     NO_ANSWER = "no_answer"  # 图谱里没有相关信息
+    CLARIFY = "clarify"  # 指代确认: several persons / events fit, the user picks one
 
 
 class PersonRef(_Model):
@@ -85,6 +86,27 @@ class AnswerStat(_Model):
         return self
 
 
+MIN_CLARIFY_OPTIONS = 2
+MAX_CLARIFY_OPTIONS = 4
+
+
+class AnswerClarifyOption(_Model):
+    label: NonEmpty = Field(description="Who or which event, e.g. 「老周（周涛，大学同学）」")
+    question: NonEmpty = Field(description="The full question answered when this is picked")
+    person_id: str | None = Field(
+        default=None, description="The person this option means (always in the user's graph)"
+    )
+
+
+class AnswerClarify(_Model):
+    """指代确认 (conversation-context AC-1): a question and 2–4 candidates to pick from."""
+
+    question: NonEmpty
+    options: list[AnswerClarifyOption] = Field(
+        min_length=MIN_CLARIFY_OPTIONS, max_length=MAX_CLARIFY_OPTIONS
+    )
+
+
 class Answer(_Model):
     kind: AnswerKind
     segments: list[AnswerSegment]
@@ -96,6 +118,9 @@ class Answer(_Model):
     items: list[AnswerListItem] | None = Field(default=None, description="kind = list")
     stat: AnswerStat | None = Field(default=None, description="kind = stat")
     follow_ups: list[str] = Field(description="追问建议, e.g. 「他俩什么时候认识的？」")
+    clarify: AnswerClarify | None = Field(
+        default=None, description="kind = clarify: the 指代确认 question and its candidates"
+    )
 
     @model_validator(mode="after")
     def _citations_resolve(self) -> Self:
@@ -119,6 +144,10 @@ class Answer(_Model):
             raise ValueError("a stat answer needs stat")
         if self.kind is AnswerKind.NO_ANSWER and self.citations:
             raise ValueError("a no_answer answer cites nothing (AC-38)")
+        if (self.kind is AnswerKind.CLARIFY) != (self.clarify is not None):
+            raise ValueError("a clarify answer, and only it, carries clarify")
+        if self.kind is AnswerKind.CLARIFY and self.citations:
+            raise ValueError("a clarify answer cites nothing")
         return self
 
 
@@ -128,7 +157,11 @@ def answer_json_schema() -> dict[str, Any]:
 
 
 __all__ = [
+    "MAX_CLARIFY_OPTIONS",
+    "MIN_CLARIFY_OPTIONS",
     "Answer",
+    "AnswerClarify",
+    "AnswerClarifyOption",
     "AnswerKind",
     "AnswerListItem",
     "AnswerSegment",
